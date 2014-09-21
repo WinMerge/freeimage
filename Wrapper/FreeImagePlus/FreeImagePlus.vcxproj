@@ -321,7 +321,7 @@ copy         FreeImagePlus.h dist\$(Platform)</Command>
     <None Include="WhatsNew_FIP.txt" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\FreeImage.vcxproj">
+    <ProjectReference Include="..\..\Source\FreeImageLib.vcxproj">
       <Project>{b39ed2b3-d53a-4077-b957-930979a3577d}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
