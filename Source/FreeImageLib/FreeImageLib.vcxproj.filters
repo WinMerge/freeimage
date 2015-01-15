@@ -336,6 +336,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\..\Whatsnew.txt" />
+    <Text Include="..\..\Whatsnew.txt" />
   </ItemGroup>
 </Project>

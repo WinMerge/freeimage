@@ -467,13 +467,18 @@ static const char *g_TagLib_ExifRawFieldName = "ExifRaw";
 extern "C" {
 #endif
 
-// JPEG Exif profile
+// JPEG / JPEG-XR Exif profile (see Exif.cpp)
+// --------------------------------------------------------------------------
 BOOL jpeg_read_exif_profile(FIBITMAP *dib, const BYTE *dataptr, unsigned datalen);
 BOOL jpeg_read_exif_profile_raw(FIBITMAP *dib, const BYTE *profile, unsigned length);
-BOOL jpegxr_read_exif_profile(FIBITMAP *dib, const BYTE *profile, unsigned length);
-BOOL jpegxr_read_exif_gps_profile(FIBITMAP *dib, const BYTE *profile, unsigned length);
+BOOL jpegxr_read_exif_profile(FIBITMAP *dib, const BYTE *profile, unsigned length, unsigned file_offset);
+BOOL jpegxr_read_exif_gps_profile(FIBITMAP *dib, const BYTE *profile, unsigned length, unsigned file_offset);
 
-// JPEG / TIFF IPTC profile
+BOOL tiff_get_ifd_profile(FIBITMAP *dib, FREE_IMAGE_MDMODEL md_model, BYTE **ppbProfile, unsigned *uProfileLength);
+
+
+// JPEG / TIFF IPTC profile (see IPTC.cpp)
+// --------------------------------------------------------------------------
 BOOL read_iptc_profile(FIBITMAP *dib, const BYTE *dataptr, unsigned int datalen);
 BOOL write_iptc_profile(FIBITMAP *dib, BYTE **profile, unsigned *profile_size);
 

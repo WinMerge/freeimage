@@ -515,15 +515,18 @@ static void AddScore(VP8ModeScore* const dst, const VP8ModeScore* const src) {
 //------------------------------------------------------------------------------
 // Performs trellis-optimized quantization.
 
-// Trellis
-
+// Trellis node
 typedef struct {
-  int prev;               // best previous node
-  int level;              // level
-  int sign;               // sign of coeff_i
+  int8_t prev;            // best previous node
+  int8_t sign;            // sign of coeff_i
+  int16_t level;          // level
+} Node;
+
+// Score state
+typedef struct {
   score_t score;          // partial RD score
   const uint16_t* costs;  // shortcut to cost tables
-} Node;
+} ScoreState;
 
 // If a coefficient was quantized to a value Q (using a neutral bias),
 // we test all alternate possibilities between [Q-MIN_DELTA, Q+MAX_DELTA]
@@ -531,7 +534,8 @@ typedef struct {
 #define MIN_DELTA 0   // how much lower level to try
 #define MAX_DELTA 1   // how much higher
 #define NUM_NODES (MIN_DELTA + 1 + MAX_DELTA)
-#define NODE(n, l) (nodes[(n) + 1][(l) + MIN_DELTA])
+#define NODE(n, l) (nodes[(n)][(l) + MIN_DELTA])
+#define SCORE_STATE(n, l) (score_states[n][(l) + MIN_DELTA])
 
 static WEBP_INLINE void SetRDScore(int lambda, VP8ModeScore* const rd) {
   // TODO: incorporate the "* 256" in the tables?
@@ -551,7 +555,10 @@ static int TrellisQuantizeBlock(const VP8Encoder* const enc,
   const ProbaArray* const probas = enc->proba_.coeffs_[coeff_type];
   const CostArray* const costs = enc->proba_.level_cost_[coeff_type];
   const int first = (coeff_type == 0) ? 1 : 0;
-  Node nodes[17][NUM_NODES];
+  Node nodes[16][NUM_NODES];
+  ScoreState score_states[2][NUM_NODES];
+  ScoreState* ss_cur = &SCORE_STATE(0, MIN_DELTA);
+  ScoreState* ss_prev = &SCORE_STATE(1, MIN_DELTA);
   int best_path[3] = {-1, -1, -1};   // store best-last/best-level/best-previous
   score_t best_score;
   int n, m, p, last;
@@ -580,11 +587,10 @@ static int TrellisQuantizeBlock(const VP8Encoder* const enc,
     best_score = RDScoreTrellis(lambda, cost, 0);
 
     // initialize source node.
-    n = first - 1;
     for (m = -MIN_DELTA; m <= MAX_DELTA; ++m) {
       const score_t rate = (ctx0 == 0) ? VP8BitCost(1, last_proba) : 0;
-      NODE(n, m).score = RDScoreTrellis(lambda, rate, 0);
-      NODE(n, m).costs = costs[VP8EncBands[first]][ctx0];
+      ss_cur[m].score = RDScoreTrellis(lambda, rate, 0);
+      ss_cur[m].costs = costs[VP8EncBands[first]][ctx0];
     }
   }
 
@@ -601,25 +607,34 @@ static int TrellisQuantizeBlock(const VP8Encoder* const enc,
     int level0 = QUANTDIV(coeff0, iQ, B);
     if (level0 > MAX_LEVEL) level0 = MAX_LEVEL;
 
+    {   // Swap current and previous score states
+      ScoreState* const tmp = ss_cur;
+      ss_cur = ss_prev;
+      ss_prev = tmp;
+    }
+
     // test all alternate level values around level0.
     for (m = -MIN_DELTA; m <= MAX_DELTA; ++m) {
       Node* const cur = &NODE(n, m);
       int level = level0 + m;
       const int ctx = (level > 2) ? 2 : level;
       const int band = VP8EncBands[n + 1];
-      score_t base_score, last_pos_cost;
+      score_t base_score, last_pos_score;
+      score_t best_cur_score = MAX_COST;
+      int best_prev = 0;   // default, in case
 
-      cur->score = MAX_COST;
+      ss_cur[m].score = MAX_COST;
+      ss_cur[m].costs = costs[band][ctx];
       if (level > MAX_LEVEL || level < 0) {   // node is dead?
         continue;
       }
-      cur->sign = sign;
-      cur->level = level;
-      cur->costs = costs[band][ctx];
-      cur->prev = 0;  // default, in case
 
       // Compute extra rate cost if last coeff's position is < 15
-      last_pos_cost = (n < 15) ? VP8BitCost(0, probas[band][ctx][0]) : 0;
+      {
+        const score_t last_pos_cost =
+            (n < 15) ? VP8BitCost(0, probas[band][ctx][0]) : 0;
+        last_pos_score = RDScoreTrellis(lambda, last_pos_cost, 0);
+      }
 
       {
         // Compute delta_error = how much coding this level will
@@ -633,29 +648,31 @@ static int TrellisQuantizeBlock(const VP8Encoder* const enc,
 
       // Inspect all possible non-dead predecessors. Retain only the best one.
       for (p = -MIN_DELTA; p <= MAX_DELTA; ++p) {
-        const Node* const prev = &NODE(n - 1, p);
-        if (prev->score < MAX_COST) {   // skip dead node
-          // Base cost of both terminal / non-terminal hypothesis
-          const score_t cost = VP8LevelCost(prev->costs, level);
-          // Examine node assuming it's a non-terminal one.
-          const score_t score =
-              base_score + prev->score + RDScoreTrellis(lambda, cost, 0);
-          if (score < cur->score) {
-            cur->score = score;
-            cur->prev  = p;
-          }
+        // Dead nodes (with ss_prev[p].score >= MAX_COST) are automatically
+        // eliminated since their score can't be better than the current best.
+        const score_t cost = VP8LevelCost(ss_prev[p].costs, level);
+        // Examine node assuming it's a non-terminal one.
+        const score_t score =
+            base_score + ss_prev[p].score + RDScoreTrellis(lambda, cost, 0);
+        if (score < best_cur_score) {
+          best_cur_score = score;
+          best_prev = p;
         }
       }
+      // Store best finding in current node.
+      cur->sign = sign;
+      cur->level = level;
+      cur->prev = best_prev;
+      ss_cur[m].score = best_cur_score;
+
       // Now, record best terminal node (and thus best entry in the graph).
-      if (cur->level != 0) {
-        const score_t last_pos_score =
-            RDScoreTrellis(lambda, last_pos_cost, 0);
-        const score_t score = cur->score + last_pos_score;
+      if (level != 0) {
+        const score_t score = best_cur_score + last_pos_score;
         if (score < best_score) {
           best_score = score;
           best_path[0] = n;                     // best eob position
-          best_path[1] = cur->level - level0;   // best node index ('m')
-          best_path[2] = cur->prev;             // best predecessor
+          best_path[1] = m;                     // best node index
+          best_path[2] = best_prev;             // best predecessor
         }
       }
     }
@@ -724,17 +741,23 @@ static int ReconstructIntra16(VP8EncIterator* const it,
             TrellisQuantizeBlock(enc, tmp[n], rd->y_ac_levels[n], ctx, 0,
                                  &dqm->y1_, dqm->lambda_trellis_i16_);
         it->top_nz_[x] = it->left_nz_[y] = non_zero;
+        rd->y_ac_levels[n][0] = 0;
         nz |= non_zero << n;
       }
     }
   } else {
-    for (n = 0; n < 16; ++n) {
-      nz |= VP8EncQuantizeBlock(tmp[n], rd->y_ac_levels[n], 1, &dqm->y1_) << n;
+    for (n = 0; n < 16; n += 2) {
+      // Zero-out the first coeff, so that: a) nz is correct below, and
+      // b) finding 'last' non-zero coeffs in SetResidualCoeffs() is simplified.
+      tmp[n][0] = tmp[n + 1][0] = 0;
+      nz |= VP8EncQuantize2Blocks(tmp[n], rd->y_ac_levels[n], &dqm->y1_) << n;
+      assert(rd->y_ac_levels[n + 0][0] == 0);
+      assert(rd->y_ac_levels[n + 1][0] == 0);
     }
   }
 
   // Transform back
-  VP8ITransformWHT(dc_tmp, tmp[0]);
+  VP8TransformWHT(dc_tmp, tmp[0]);
   for (n = 0; n < 16; n += 2) {
     VP8ITransform(ref + VP8Scan[n], tmp[n], yuv_out + VP8Scan[n], 1);
   }
@@ -760,7 +783,7 @@ static int ReconstructIntra4(VP8EncIterator* const it,
     nz = TrellisQuantizeBlock(enc, tmp, levels, ctx, 3, &dqm->y1_,
                               dqm->lambda_trellis_i4_);
   } else {
-    nz = VP8EncQuantizeBlock(tmp, levels, 0, &dqm->y1_);
+    nz = VP8EncQuantizeBlock(tmp, levels, &dqm->y1_);
   }
   VP8ITransform(ref, tmp, yuv_out, 0);
   return nz;
@@ -794,8 +817,8 @@ static int ReconstructUV(VP8EncIterator* const it, VP8ModeScore* const rd,
       }
     }
   } else {
-    for (n = 0; n < 8; ++n) {
-      nz |= VP8EncQuantizeBlock(tmp[n], rd->uv_levels[n], 0, &dqm->uv_) << n;
+    for (n = 0; n < 8; n += 2) {
+      nz |= VP8EncQuantize2Blocks(tmp[n], rd->uv_levels[n], &dqm->uv_) << n;
     }
   }
 
@@ -818,6 +841,12 @@ static void StoreMaxDelta(VP8SegmentInfo* const dqm, const int16_t DCs[16]) {
   int max_v = (v0 > v1) ? v1 : v0;
   max_v = (v2 > max_v) ? v2 : max_v;
   if (max_v > dqm->max_edge_) dqm->max_edge_ = max_v;
+}
+
+static void SwapModeScore(VP8ModeScore** a, VP8ModeScore** b) {
+  VP8ModeScore* const tmp = *a;
+  *a = *b;
+  *b = tmp;
 }
 
 static void SwapPtr(uint8_t** a, uint8_t** b) {
@@ -843,45 +872,46 @@ static score_t IsFlat(const int16_t* levels, int num_blocks, score_t thresh) {
   return 1;
 }
 
-static void PickBestIntra16(VP8EncIterator* const it, VP8ModeScore* const rd) {
+static void PickBestIntra16(VP8EncIterator* const it, VP8ModeScore* rd) {
   const int kNumBlocks = 16;
   VP8SegmentInfo* const dqm = &it->enc_->dqm_[it->mb_->segment_];
   const int lambda = dqm->lambda_i16_;
   const int tlambda = dqm->tlambda_;
   const uint8_t* const src = it->yuv_in_ + Y_OFF;
-  VP8ModeScore rd16;
+  VP8ModeScore rd_tmp;
+  VP8ModeScore* rd_cur = &rd_tmp;
+  VP8ModeScore* rd_best = rd;
   int mode;
 
   rd->mode_i16 = -1;
   for (mode = 0; mode < NUM_PRED_MODES; ++mode) {
     uint8_t* const tmp_dst = it->yuv_out2_ + Y_OFF;  // scratch buffer
-    int nz;
+    rd_cur->mode_i16 = mode;
 
     // Reconstruct
-    nz = ReconstructIntra16(it, &rd16, tmp_dst, mode);
+    rd_cur->nz = ReconstructIntra16(it, rd_cur, tmp_dst, mode);
 
     // Measure RD-score
-    rd16.D = VP8SSE16x16(src, tmp_dst);
-    rd16.SD = tlambda ? MULT_8B(tlambda, VP8TDisto16x16(src, tmp_dst, kWeightY))
-            : 0;
-    rd16.H = VP8FixedCostsI16[mode];
-    rd16.R = VP8GetCostLuma16(it, &rd16);
+    rd_cur->D = VP8SSE16x16(src, tmp_dst);
+    rd_cur->SD =
+        tlambda ? MULT_8B(tlambda, VP8TDisto16x16(src, tmp_dst, kWeightY)) : 0;
+    rd_cur->H = VP8FixedCostsI16[mode];
+    rd_cur->R = VP8GetCostLuma16(it, rd_cur);
     if (mode > 0 &&
-        IsFlat(rd16.y_ac_levels[0], kNumBlocks, FLATNESS_LIMIT_I16)) {
+        IsFlat(rd_cur->y_ac_levels[0], kNumBlocks, FLATNESS_LIMIT_I16)) {
       // penalty to avoid flat area to be mispredicted by complex mode
-      rd16.R += FLATNESS_PENALTY * kNumBlocks;
+      rd_cur->R += FLATNESS_PENALTY * kNumBlocks;
     }
 
     // Since we always examine Intra16 first, we can overwrite *rd directly.
-    SetRDScore(lambda, &rd16);
-    if (mode == 0 || rd16.score < rd->score) {
-      CopyScore(rd, &rd16);
-      rd->mode_i16 = mode;
-      rd->nz = nz;
-      memcpy(rd->y_ac_levels, rd16.y_ac_levels, sizeof(rd16.y_ac_levels));
-      memcpy(rd->y_dc_levels, rd16.y_dc_levels, sizeof(rd16.y_dc_levels));
+    SetRDScore(lambda, rd_cur);
+    if (mode == 0 || rd_cur->score < rd_best->score) {
+      SwapModeScore(&rd_cur, &rd_best);
       SwapOut(it);
     }
+  }
+  if (rd_best != rd) {
+    memcpy(rd, rd_best, sizeof(*rd));
   }
   SetRDScore(dqm->lambda_mode_, rd);   // finalize score for mode decision.
   VP8SetIntra16Mode(it, rd->mode_i16);
@@ -950,17 +980,28 @@ static int PickBestIntra4(VP8EncIterator* const it, VP8ModeScore* const rd) {
           tlambda ? MULT_8B(tlambda, VP8TDisto4x4(src, tmp_dst, kWeightY))
                   : 0;
       rd_tmp.H = mode_costs[mode];
-      rd_tmp.R = VP8GetCostLuma4(it, tmp_levels);
+
+      // Add flatness penalty
       if (mode > 0 && IsFlat(tmp_levels, kNumBlocks, FLATNESS_LIMIT_I4)) {
-        rd_tmp.R += FLATNESS_PENALTY * kNumBlocks;
+        rd_tmp.R = FLATNESS_PENALTY * kNumBlocks;
+      } else {
+        rd_tmp.R = 0;
       }
 
+      // early-out check
       SetRDScore(lambda, &rd_tmp);
+      if (best_mode >= 0 && rd_tmp.score >= rd_i4.score) continue;
+
+      // finish computing score
+      rd_tmp.R += VP8GetCostLuma4(it, tmp_levels);
+      SetRDScore(lambda, &rd_tmp);
+
       if (best_mode < 0 || rd_tmp.score < rd_i4.score) {
         CopyScore(&rd_i4, &rd_tmp);
         best_mode = mode;
         SwapPtr(&tmp_dst, &best_block);
-        memcpy(rd_best.y_ac_levels[it->i4_], tmp_levels, sizeof(tmp_levels));
+        memcpy(rd_best.y_ac_levels[it->i4_], tmp_levels,
+               sizeof(rd_best.y_ac_levels[it->i4_]));
       }
     }
     SetRDScore(dqm->lambda_mode_, &rd_i4);
@@ -995,8 +1036,9 @@ static void PickBestUV(VP8EncIterator* const it, VP8ModeScore* const rd) {
   const VP8SegmentInfo* const dqm = &it->enc_->dqm_[it->mb_->segment_];
   const int lambda = dqm->lambda_uv_;
   const uint8_t* const src = it->yuv_in_ + U_OFF;
-  uint8_t* const tmp_dst = it->yuv_out2_ + U_OFF;  // scratch buffer
-  uint8_t* const dst0 = it->yuv_out_ + U_OFF;
+  uint8_t* tmp_dst = it->yuv_out2_ + U_OFF;  // scratch buffer
+  uint8_t* dst0 = it->yuv_out_ + U_OFF;
+  uint8_t* dst = dst0;
   VP8ModeScore rd_best;
   int mode;
 
@@ -1022,11 +1064,12 @@ static void PickBestUV(VP8EncIterator* const it, VP8ModeScore* const rd) {
       CopyScore(&rd_best, &rd_uv);
       rd->mode_uv = mode;
       memcpy(rd->uv_levels, rd_uv.uv_levels, sizeof(rd->uv_levels));
-      memcpy(dst0, tmp_dst, UV_SIZE);   //  TODO: SwapUVOut() ?
+      SwapPtr(&dst, &tmp_dst);
     }
   }
   VP8SetIntraUVMode(it, rd->mode_uv);
   AddScore(rd, &rd_best);
+  if (dst != dst0) memcpy(dst0, dst, UV_SIZE);
 }
 
 //------------------------------------------------------------------------------

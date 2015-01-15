@@ -412,24 +412,45 @@ FreeImage_ColorQuantizeEx(FIBITMAP *dib, FREE_IMAGE_QUANTIZE quantize, int Palet
 // ==========================================================
 
 FIBITMAP * DLL_CALLCONV
-FreeImage_ConvertFromRawBits(BYTE *bits, int width, int height, int pitch, unsigned bpp, unsigned red_mask, unsigned green_mask, unsigned blue_mask, BOOL topdown) {
-	FIBITMAP *dib = FreeImage_Allocate(width, height, bpp, red_mask, green_mask, blue_mask);
+FreeImage_ConvertFromRawBitsEx(BOOL copySource, BYTE *bits, FREE_IMAGE_TYPE type, int width, int height, int pitch, unsigned bpp, unsigned red_mask, unsigned green_mask, unsigned blue_mask, BOOL topdown) {
+	FIBITMAP *dib = NULL;
 
-	if (dib != NULL) {
-		if (topdown) {
-			for (int i = height - 1; i >= 0; --i) {
-				memcpy(FreeImage_GetScanLine(dib, i), bits, FreeImage_GetLine(dib));
-				bits += pitch;
-			}
-		} else {
-			for (int i = 0; i < height; ++i) {			
-				memcpy(FreeImage_GetScanLine(dib, i), bits, FreeImage_GetLine(dib));
-				bits += pitch;
-			}
+	if(copySource) {
+		// allocate a FIBITMAP with internally managed pixel buffer
+		dib = FreeImage_AllocateT(type, width, height, bpp, red_mask, green_mask, blue_mask);
+		if(!dib) {
+			return NULL;
+		}
+		// copy user provided pixel buffer into the dib
+		const unsigned linesize = FreeImage_GetLine(dib);
+		for(int y = 0; y < height; y++) {
+			memcpy(FreeImage_GetScanLine(dib, y), bits, linesize);
+			// next line in user's buffer
+			bits += pitch;
+		}
+		// flip pixels vertically if needed
+		if(topdown) {
+			FreeImage_FlipVertical(dib);
+		}
+	}
+	else {
+		// allocate a FIBITMAP using a wrapper to user provided pixel buffer
+		dib = FreeImage_AllocateHeaderForBits(bits, pitch, type, width, height, bpp, red_mask, green_mask, blue_mask);
+		if(!dib) {
+			return NULL;
+		}
+		// flip pixels vertically if needed
+		if(topdown) {
+			FreeImage_FlipVertical(dib);
 		}
 	}
 
 	return dib;
+}
+
+FIBITMAP * DLL_CALLCONV
+FreeImage_ConvertFromRawBits(BYTE *bits, int width, int height, int pitch, unsigned bpp, unsigned red_mask, unsigned green_mask, unsigned blue_mask, BOOL topdown) {
+	return FreeImage_ConvertFromRawBitsEx(TRUE /* copySource */, bits, FIT_BITMAP, width, height, pitch, bpp, red_mask, green_mask, blue_mask, topdown);
 }
 
 void DLL_CALLCONV

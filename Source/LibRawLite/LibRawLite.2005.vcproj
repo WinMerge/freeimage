@@ -347,10 +347,6 @@
 					>
 				</File>
 				<File
-					RelativePath=".\internal\libraw_bytebuffer.h"
-					>
-				</File>
-				<File
 					RelativePath=".\internal\libraw_internal_funcs.h"
 					>
 				</File>

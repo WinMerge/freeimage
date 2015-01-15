@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
+// Copyright (c) 2004-2012, Industrial Light & Magic, a division of Lucas
 // Digital Ltd. LLC
 // 
 // All rights reserved.
@@ -63,8 +63,9 @@
 //-------------------------------------------------------------------
 
 #include "ImathVec.h"
+#include "ImathNamespace.h"
 
-namespace Imath {
+IMATH_INTERNAL_NAMESPACE_HEADER_ENTER
 
 
 template <class T>	
@@ -843,8 +844,6 @@ Box<Vec3<T> >::majorAxis() const
 }
 
 
+IMATH_INTERNAL_NAMESPACE_HEADER_EXIT
 
-
-} // namespace Imath
-
-#endif
+#endif // INCLUDED_IMATHBOX_H

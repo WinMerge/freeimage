@@ -99,6 +99,7 @@ ReadMetadata(png_structp png_ptr, png_infop info_ptr, FIBITMAP *dib) {
 
 	FITAG *tag = NULL;
 	png_textp text_ptr = NULL;
+	png_timep mod_time = NULL;
 	int num_text = 0;
 
 	// iTXt/tEXt/zTXt chuncks
@@ -130,6 +131,31 @@ ReadMetadata(png_structp png_ptr, png_infop info_ptr, FIBITMAP *dib) {
 		}
 	}
 
+	// timestamp chunk
+	if(png_get_tIME(png_ptr, info_ptr, &mod_time)) {
+		char timestamp[32];
+		// create a tag
+		tag = FreeImage_CreateTag();
+		if(!tag) return FALSE;
+
+		// convert as 'yyyy:MM:dd hh:mm:ss'
+		sprintf(timestamp, "%4d:%02d:%02d %2d:%02d:%02d", mod_time->year, mod_time->month, mod_time->day, mod_time->hour, mod_time->minute, mod_time->second);
+
+		DWORD tag_length = (DWORD)strlen(timestamp) + 1;
+		FreeImage_SetTagLength(tag, tag_length);
+		FreeImage_SetTagCount(tag, tag_length);
+		FreeImage_SetTagType(tag, FIDT_ASCII);
+		FreeImage_SetTagID(tag, TAG_DATETIME);
+		FreeImage_SetTagValue(tag, timestamp);
+
+		// store the tag as Exif-TIFF
+		FreeImage_SetTagKey(tag, "DateTime");
+		FreeImage_SetMetadata(FIMD_EXIF_MAIN, dib, FreeImage_GetTagKey(tag), tag);
+
+		// destroy the tag
+		FreeImage_DeleteTag(tag);
+	}
+
 	return TRUE;
 }
 
@@ -143,6 +169,7 @@ WriteMetadata(png_structp png_ptr, png_infop info_ptr, FIBITMAP *dib) {
 	BOOL bResult = TRUE;
 
 	png_text text_metadata;
+	png_time mod_time;
 
 	// set the 'Comments' metadata as iTXt chuncks
 
@@ -184,6 +211,23 @@ WriteMetadata(png_structp png_ptr, png_infop info_ptr, FIBITMAP *dib) {
 		// set the tag 
 		png_set_text(png_ptr, info_ptr, &text_metadata, 1);
 		bResult &= TRUE;
+	}
+
+	// set the Exif-TIFF 'DateTime' metadata as a tIME chunk
+	tag = NULL;
+	FreeImage_GetMetadata(FIMD_EXIF_MAIN, dib, "DateTime", &tag);
+	if(tag && FreeImage_GetTagLength(tag)) {
+		int year, month, day, hour, minute, second;
+		const char *value = (char*)FreeImage_GetTagValue(tag);
+		if(sscanf(value, "%4d:%02d:%02d %2d:%02d:%02d", &year, &month, &day, &hour, &minute, &second) == 6) {
+			mod_time.year = year;
+			mod_time.month = month;
+			mod_time.day = day;
+			mod_time.hour = hour;
+			mod_time.minute = minute;
+			mod_time.second = second;
+			png_set_tIME (png_ptr, info_ptr, &mod_time);
+		}
 	}
 
 	return bResult;
@@ -930,7 +974,11 @@ Save(FreeImageIO *io, FIBITMAP *dib, fi_handle handle, int page, int flags, void
 			png_destroy_write_struct(&png_ptr, &info_ptr);
 
 			return TRUE;
+
 		} catch (const char *text) {
+			if(png_ptr) {
+				png_destroy_write_struct(&png_ptr, &info_ptr);
+			}
 			FreeImage_OutputMessageProc(s_format_id, text);
 		}
 	}

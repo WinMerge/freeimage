@@ -64,6 +64,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				OutputFile=".\Debug\LibJXR.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -127,6 +128,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				OutputFile=".\Debug\LibJXR.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -195,6 +197,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				OutputFile=".\Release\LibJXR.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -259,6 +262,7 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				OutputFile=".\Release\LibJXR.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"

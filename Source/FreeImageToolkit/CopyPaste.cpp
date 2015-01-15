@@ -92,7 +92,6 @@ Combine1(FIBITMAP *dst_dib, FIBITMAP *src_dib, unsigned x, unsigned y, unsigned 
 
 static BOOL 
 Combine4(FIBITMAP *dst_dib, FIBITMAP *src_dib, unsigned x, unsigned y, unsigned alpha) {
-
 	int swapTable[16];
 	BOOL bOddStart, bOddEnd;
 

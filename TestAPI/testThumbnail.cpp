@@ -120,7 +120,7 @@ static BOOL testSaveThumbnail(const char *lpszPathName, int flags) {
 }
 
 /**
-Thest thumbnail functions
+Test thumbnail functions
 */
 void testThumbnail(const char *lpszPathName, int flags) {
 	BOOL bResult = FALSE;

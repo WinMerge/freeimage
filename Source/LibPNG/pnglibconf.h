@@ -1,10 +1,10 @@
-/* libpng 1.6.1 STANDARD API DEFINITION */
+/* libpng 1.6.12 STANDARD API DEFINITION */
 
 /* pnglibconf.h - library build configuration */
 
-/* Libpng version 1.6.1 - March 28, 2013 */
+/* Libpng version 1.6.12 - June 12, 2014 */
 
-/* Copyright (c) 1998-2013 Glenn Randers-Pehrson */
+/* Copyright (c) 1998-2014 Glenn Randers-Pehrson */
 
 /* This code is released under the libpng license. */
 /* For conditions of distribution and use, see the disclaimer */
@@ -20,7 +20,6 @@
 #define PNG_ALIGNED_MEMORY_SUPPORTED
 /*#undef PNG_ARM_NEON_API_SUPPORTED*/
 /*#undef PNG_ARM_NEON_CHECK_SUPPORTED*/
-/*#undef PNG_ARM_NEON_SUPPORTED*/
 #define PNG_BENIGN_ERRORS_SUPPORTED
 #define PNG_BENIGN_READ_ERRORS_SUPPORTED
 /*#undef PNG_BENIGN_WRITE_ERRORS_SUPPORTED*/
@@ -105,7 +104,7 @@
 #define PNG_SETJMP_SUPPORTED
 #define PNG_SET_CHUNK_CACHE_LIMIT_SUPPORTED
 #define PNG_SET_CHUNK_MALLOC_LIMIT_SUPPORTED
-/*#undef PNG_SET_OPTION_SUPPORTED*/
+#define PNG_SET_OPTION_SUPPORTED
 #define PNG_SET_UNKNOWN_CHUNKS_SUPPORTED
 #define PNG_SET_USER_LIMITS_SUPPORTED
 #define PNG_SIMPLIFIED_READ_AFIRST_SUPPORTED
@@ -188,7 +187,6 @@
 /* end of options */
 /* settings */
 #define PNG_API_RULE 0
-#define PNG_CALLOC_SUPPORTED
 #define PNG_COST_SHIFT 3
 #define PNG_DEFAULT_READ_MACROS 1
 #define PNG_GAMMA_THRESHOLD_FIXED 5000
@@ -202,10 +200,19 @@
 #define PNG_TEXT_Z_DEFAULT_STRATEGY 0
 #define PNG_WEIGHT_SHIFT 8
 #define PNG_ZBUF_SIZE 8192
+#define PNG_ZLIB_VERNUM 0 /* unknown */
 #define PNG_Z_DEFAULT_COMPRESSION (-1)
 #define PNG_Z_DEFAULT_NOFILTER_STRATEGY 0
 #define PNG_Z_DEFAULT_STRATEGY 1
 #define PNG_sCAL_PRECISION 5
-#define PNG_sRGB_PROFILE_CHECKS 2
+/**
+PNG_sRGB_PROFILE_CHECKS == 0
+   The MD5 is used if available, nothing else is checked.  No warning messages.
+PNG_sRGB_PROFILE_CHECKS == 1
+   The MD5 is checked and if it matches the adler32 (from the zlib stream)is also checked, the profile is regarded as not-sRGB if the check fails.
+PNG_SRGB_PROFILE_CHECKS == 2
+   In addition to the above a full crc32 is also calculated if everything passes.  The profile is only regarded as sRGB if this passes too.
+*/
+#define PNG_sRGB_PROFILE_CHECKS -1
 /* end of settings */
 #endif /* PNGLCONF_H */

@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -26,21 +26,25 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -65,49 +69,52 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <_ProjectFileVersion>10.0.40219.1</_ProjectFileVersion>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.\Release\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">.\Release\</IntDir>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(Platform)\$(Configuration)\</IntDir>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\Debug\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">.\Debug\</IntDir>
-    <OutDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</OutDir>
-    <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Platform)\$(Configuration)\</IntDir>
+    <_ProjectFileVersion>12.0.21005.1</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>.\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>.\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>.\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>.\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>.\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>.\$(Platform)\$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>.\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>.\$(Platform)\$(Configuration)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <Optimization>MaxSpeed</Optimization>
-      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <Optimization>MinSpace</Optimization>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <AssemblerListingLocation>.\Release/</AssemblerListingLocation>
-      <ObjectFileName>.\Release/</ObjectFileName>
-      <ProgramDataBaseFileName>.\Release/</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4290;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
+      <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Lib>
-      <OutputFile>.\Release\OpenEXR.lib</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
+      <LinkTimeCodeGeneration>true</LinkTimeCodeGeneration>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -115,67 +122,56 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <Optimization>MaxSpeed</Optimization>
-      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <Optimization>MinSpace</Optimization>
+      <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>false</FunctionLevelLinking>
       <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>$(IntDir)$(TargetName).pch</PrecompiledHeaderOutputFile>
-      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
-      <ObjectFileName>$(IntDir)</ObjectFileName>
-      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4290;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4800;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
+      <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Lib>
-      <OutputFile>$(TargetDir)\$(TargetFileName)</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <TargetMachine>MachineX64</TargetMachine>
+      <LinkTimeCodeGeneration>true</LinkTimeCodeGeneration>
     </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <AssemblerListingLocation>.\Debug/</AssemblerListingLocation>
-      <ObjectFileName>.\Debug/</ObjectFileName>
-      <ProgramDataBaseFileName>.\Debug/</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4290;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Lib>
-      <OutputFile>.\Debug\OpenEXR.lib</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
     </Lib>
   </ItemDefinitionGroup>
@@ -185,36 +181,32 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForceConformanceInForLoopScope>true</ForceConformanceInForLoopScope>
       <RuntimeTypeInfo>true</RuntimeTypeInfo>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <PrecompiledHeaderOutputFile>
-      </PrecompiledHeaderOutputFile>
-      <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
-      <ObjectFileName>$(IntDir)</ObjectFileName>
-      <ProgramDataBaseFileName>$(IntDir)</ProgramDataBaseFileName>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
-      <DisableSpecificWarnings>4290;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4800;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Lib>
-      <OutputFile>$(TargetDir)\$(TargetFileName)</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <TargetMachine>MachineX64</TargetMachine>
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="IexMath\IexMathFpu.cpp" />
+    <ClCompile Include="IlmImf\b44ExpLogTable.cpp" />
+    <ClCompile Include="IlmImf\ImfAcesFile.cpp" />
     <ClCompile Include="IlmImf\ImfAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfB44Compressor.cpp" />
     <ClCompile Include="IlmImf\ImfBoxAttribute.cpp" />
@@ -222,19 +214,38 @@
     <ClCompile Include="IlmImf\ImfChannelListAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfChromaticities.cpp" />
     <ClCompile Include="IlmImf\ImfChromaticitiesAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfCompositeDeepScanLine.cpp" />
     <ClCompile Include="IlmImf\ImfCompressionAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfCompressor.cpp" />
     <ClCompile Include="IlmImf\ImfConvert.cpp" />
     <ClCompile Include="IlmImf\ImfCRgbaFile.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepCompositing.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepFrameBuffer.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepImageStateAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepScanLineInputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepScanLineInputPart.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepScanLineOutputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepScanLineOutputPart.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepTiledInputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepTiledInputPart.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepTiledOutputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfDeepTiledOutputPart.cpp" />
     <ClCompile Include="IlmImf\ImfDoubleAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfDwaCompressor.cpp" />
     <ClCompile Include="IlmImf\ImfEnvmap.cpp" />
     <ClCompile Include="IlmImf\ImfEnvmapAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfFastHuf.cpp" />
     <ClCompile Include="IlmImf\ImfFloatAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfFloatVectorAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfFrameBuffer.cpp" />
     <ClCompile Include="IlmImf\ImfFramesPerSecond.cpp" />
+    <ClCompile Include="IlmImf\ImfGenericInputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfGenericOutputFile.cpp" />
     <ClCompile Include="IlmImf\ImfHeader.cpp" />
     <ClCompile Include="IlmImf\ImfHuf.cpp" />
     <ClCompile Include="IlmImf\ImfInputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfInputPart.cpp" />
+    <ClCompile Include="IlmImf\ImfInputPartData.cpp" />
     <ClCompile Include="IlmImf\ImfIntAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfIO.cpp" />
     <ClCompile Include="IlmImf\ImfKeyCode.cpp" />
@@ -243,8 +254,14 @@
     <ClCompile Include="IlmImf\ImfLut.cpp" />
     <ClCompile Include="IlmImf\ImfMatrixAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfMisc.cpp" />
+    <ClCompile Include="IlmImf\ImfMultiPartInputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfMultiPartOutputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfMultiView.cpp" />
     <ClCompile Include="IlmImf\ImfOpaqueAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfOutputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfOutputPart.cpp" />
+    <ClCompile Include="IlmImf\ImfOutputPartData.cpp" />
+    <ClCompile Include="IlmImf\ImfPartType.cpp" />
     <ClCompile Include="IlmImf\ImfPizCompressor.cpp" />
     <ClCompile Include="IlmImf\ImfPreviewImage.cpp" />
     <ClCompile Include="IlmImf\ImfPreviewImageAttribute.cpp" />
@@ -253,18 +270,22 @@
     <ClCompile Include="IlmImf\ImfRationalAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfRgbaFile.cpp" />
     <ClCompile Include="IlmImf\ImfRgbaYca.cpp" />
+    <ClCompile Include="IlmImf\ImfRle.cpp" />
     <ClCompile Include="IlmImf\ImfRleCompressor.cpp" />
     <ClCompile Include="IlmImf\ImfScanLineInputFile.cpp" />
     <ClCompile Include="IlmImf\ImfStandardAttributes.cpp" />
     <ClCompile Include="IlmImf\ImfStdIO.cpp" />
     <ClCompile Include="IlmImf\ImfStringAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfStringVectorAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfSystemSpecific.cpp" />
     <ClCompile Include="IlmImf\ImfTestFile.cpp" />
     <ClCompile Include="IlmImf\ImfThreading.cpp" />
     <ClCompile Include="IlmImf\ImfTileDescriptionAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfTiledInputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfTiledInputPart.cpp" />
     <ClCompile Include="IlmImf\ImfTiledMisc.cpp" />
     <ClCompile Include="IlmImf\ImfTiledOutputFile.cpp" />
+    <ClCompile Include="IlmImf\ImfTiledOutputPart.cpp" />
     <ClCompile Include="IlmImf\ImfTiledRgbaFile.cpp" />
     <ClCompile Include="IlmImf\ImfTileOffsets.cpp" />
     <ClCompile Include="IlmImf\ImfTimeCode.cpp" />
@@ -272,6 +293,7 @@
     <ClCompile Include="IlmImf\ImfVecAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfVersion.cpp" />
     <ClCompile Include="IlmImf\ImfWav.cpp" />
+    <ClCompile Include="IlmImf\ImfZip.cpp" />
     <ClCompile Include="IlmImf\ImfZipCompressor.cpp" />
     <ClCompile Include="Imath\ImathBox.cpp" />
     <ClCompile Include="Imath\ImathColorAlgo.cpp" />
@@ -287,11 +309,14 @@
     <ClCompile Include="IlmThread\IlmThreadMutex.cpp" />
     <ClCompile Include="IlmThread\IlmThreadPool.cpp" />
     <ClCompile Include="IlmThread\IlmThreadSemaphore.cpp" />
+    <ClCompile Include="IexMath\IexMathFloatExc.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IlmBaseConfig.h" />
     <ClInclude Include="OpenEXRConfig.h" />
     <ClInclude Include="IlmImf\b44ExpLogTable.h" />
+    <ClInclude Include="IlmImf\dwaLookups.h" />
+    <ClInclude Include="IlmImf\ImfAcesFile.h" />
     <ClInclude Include="IlmImf\ImfArray.h" />
     <ClInclude Include="IlmImf\ImfAttribute.h" />
     <ClInclude Include="IlmImf\ImfAutoArray.h" />
@@ -302,20 +327,44 @@
     <ClInclude Include="IlmImf\ImfCheckedArithmetic.h" />
     <ClInclude Include="IlmImf\ImfChromaticities.h" />
     <ClInclude Include="IlmImf\ImfChromaticitiesAttribute.h" />
+    <ClInclude Include="IlmImf\ImfCompositeDeepScanLine.h" />
     <ClInclude Include="IlmImf\ImfCompression.h" />
     <ClInclude Include="IlmImf\ImfCompressionAttribute.h" />
     <ClInclude Include="IlmImf\ImfCompressor.h" />
     <ClInclude Include="IlmImf\ImfConvert.h" />
     <ClInclude Include="IlmImf\ImfCRgbaFile.h" />
+    <ClInclude Include="IlmImf\ImfDeepCompositing.h" />
+    <ClInclude Include="IlmImf\ImfDeepFrameBuffer.h" />
+    <ClInclude Include="IlmImf\ImfDeepImageState.h" />
+    <ClInclude Include="IlmImf\ImfDeepImageStateAttribute.h" />
+    <ClInclude Include="IlmImf\ImfDeepScanLineInputFile.h" />
+    <ClInclude Include="IlmImf\ImfDeepScanLineInputPart.h" />
+    <ClInclude Include="IlmImf\ImfDeepScanLineOutputFile.h" />
+    <ClInclude Include="IlmImf\ImfDeepScanLineOutputPart.h" />
+    <ClInclude Include="IlmImf\ImfDeepTiledInputFile.h" />
+    <ClInclude Include="IlmImf\ImfDeepTiledInputPart.h" />
+    <ClInclude Include="IlmImf\ImfDeepTiledOutputFile.h" />
+    <ClInclude Include="IlmImf\ImfDeepTiledOutputPart.h" />
     <ClInclude Include="IlmImf\ImfDoubleAttribute.h" />
+    <ClInclude Include="IlmImf\ImfDwaCompressor.h" />
+    <ClInclude Include="IlmImf\ImfDwaCompressorSimd.h" />
     <ClInclude Include="IlmImf\ImfEnvmap.h" />
     <ClInclude Include="IlmImf\ImfEnvmapAttribute.h" />
+    <ClInclude Include="IlmImf\ImfExport.h" />
+    <ClInclude Include="IlmImf\ImfFastHuf.h" />
     <ClInclude Include="IlmImf\ImfFloatAttribute.h" />
+    <ClInclude Include="IlmImf\ImfFloatVectorAttribute.h" />
+    <ClInclude Include="IlmImf\ImfForward.h" />
     <ClInclude Include="IlmImf\ImfFrameBuffer.h" />
     <ClInclude Include="IlmImf\ImfFramesPerSecond.h" />
+    <ClInclude Include="IlmImf\ImfGenericInputFile.h" />
+    <ClInclude Include="IlmImf\ImfGenericOutputFile.h" />
     <ClInclude Include="IlmImf\ImfHeader.h" />
     <ClInclude Include="IlmImf\ImfHuf.h" />
     <ClInclude Include="IlmImf\ImfInputFile.h" />
+    <ClInclude Include="IlmImf\ImfInputPart.h" />
+    <ClInclude Include="IlmImf\ImfInputPartData.h" />
+    <ClInclude Include="IlmImf\ImfInputStreamMutex.h" />
     <ClInclude Include="IlmImf\ImfInt64.h" />
     <ClInclude Include="IlmImf\ImfIntAttribute.h" />
     <ClInclude Include="IlmImf\ImfIO.h" />
@@ -326,9 +375,19 @@
     <ClInclude Include="IlmImf\ImfLut.h" />
     <ClInclude Include="IlmImf\ImfMatrixAttribute.h" />
     <ClInclude Include="IlmImf\ImfMisc.h" />
+    <ClInclude Include="IlmImf\ImfMultiPartInputFile.h" />
+    <ClInclude Include="IlmImf\ImfMultiPartOutputFile.h" />
+    <ClInclude Include="IlmImf\ImfMultiView.h" />
     <ClInclude Include="IlmImf\ImfName.h" />
+    <ClInclude Include="IlmImf\ImfNamespace.h" />
     <ClInclude Include="IlmImf\ImfOpaqueAttribute.h" />
+    <ClInclude Include="IlmImf\ImfOptimizedPixelReading.h" />
     <ClInclude Include="IlmImf\ImfOutputFile.h" />
+    <ClInclude Include="IlmImf\ImfOutputPart.h" />
+    <ClInclude Include="IlmImf\ImfOutputPartData.h" />
+    <ClInclude Include="IlmImf\ImfOutputStreamMutex.h" />
+    <ClInclude Include="IlmImf\ImfPartHelper.h" />
+    <ClInclude Include="IlmImf\ImfPartType.h" />
     <ClInclude Include="IlmImf\ImfPixelType.h" />
     <ClInclude Include="IlmImf\ImfPizCompressor.h" />
     <ClInclude Include="IlmImf\ImfPreviewImage.h" />
@@ -339,19 +398,24 @@
     <ClInclude Include="IlmImf\ImfRgba.h" />
     <ClInclude Include="IlmImf\ImfRgbaFile.h" />
     <ClInclude Include="IlmImf\ImfRgbaYca.h" />
+    <ClInclude Include="IlmImf\ImfRle.h" />
     <ClInclude Include="IlmImf\ImfRleCompressor.h" />
     <ClInclude Include="IlmImf\ImfScanLineInputFile.h" />
+    <ClInclude Include="IlmImf\ImfSimd.h" />
     <ClInclude Include="IlmImf\ImfStandardAttributes.h" />
     <ClInclude Include="IlmImf\ImfStdIO.h" />
     <ClInclude Include="IlmImf\ImfStringAttribute.h" />
     <ClInclude Include="IlmImf\ImfStringVectorAttribute.h" />
+    <ClInclude Include="IlmImf\ImfSystemSpecific.h" />
     <ClInclude Include="IlmImf\ImfTestFile.h" />
     <ClInclude Include="IlmImf\ImfThreading.h" />
     <ClInclude Include="IlmImf\ImfTileDescription.h" />
     <ClInclude Include="IlmImf\ImfTileDescriptionAttribute.h" />
     <ClInclude Include="IlmImf\ImfTiledInputFile.h" />
+    <ClInclude Include="IlmImf\ImfTiledInputPart.h" />
     <ClInclude Include="IlmImf\ImfTiledMisc.h" />
     <ClInclude Include="IlmImf\ImfTiledOutputFile.h" />
+    <ClInclude Include="IlmImf\ImfTiledOutputPart.h" />
     <ClInclude Include="IlmImf\ImfTiledRgbaFile.h" />
     <ClInclude Include="IlmImf\ImfTileOffsets.h" />
     <ClInclude Include="IlmImf\ImfTimeCode.h" />
@@ -360,6 +424,7 @@
     <ClInclude Include="IlmImf\ImfVersion.h" />
     <ClInclude Include="IlmImf\ImfWav.h" />
     <ClInclude Include="IlmImf\ImfXdr.h" />
+    <ClInclude Include="IlmImf\ImfZip.h" />
     <ClInclude Include="IlmImf\ImfZipCompressor.h" />
     <ClInclude Include="Imath\ImathBox.h" />
     <ClInclude Include="Imath\ImathBoxAlgo.h" />
@@ -367,12 +432,16 @@
     <ClInclude Include="Imath\ImathColorAlgo.h" />
     <ClInclude Include="Imath\ImathEuler.h" />
     <ClInclude Include="Imath\ImathExc.h" />
+    <ClInclude Include="Imath\ImathExport.h" />
+    <ClInclude Include="Imath\ImathForward.h" />
     <ClInclude Include="Imath\ImathFrame.h" />
     <ClInclude Include="Imath\ImathFrustum.h" />
+    <ClInclude Include="Imath\ImathFrustumTest.h" />
     <ClInclude Include="Imath\ImathFun.h" />
     <ClInclude Include="Imath\ImathGL.h" />
     <ClInclude Include="Imath\ImathGLU.h" />
     <ClInclude Include="Imath\ImathHalfLimits.h" />
+    <ClInclude Include="Imath\ImathInt64.h" />
     <ClInclude Include="Imath\ImathInterval.h" />
     <ClInclude Include="Imath\ImathLimits.h" />
     <ClInclude Include="Imath\ImathLine.h" />
@@ -380,6 +449,7 @@
     <ClInclude Include="Imath\ImathMath.h" />
     <ClInclude Include="Imath\ImathMatrix.h" />
     <ClInclude Include="Imath\ImathMatrixAlgo.h" />
+    <ClInclude Include="Imath\ImathNamespace.h" />
     <ClInclude Include="Imath\ImathPlane.h" />
     <ClInclude Include="Imath\ImathPlatform.h" />
     <ClInclude Include="Imath\ImathQuat.h" />
@@ -392,8 +462,11 @@
     <ClInclude Include="Iex\Iex.h" />
     <ClInclude Include="Iex\IexBaseExc.h" />
     <ClInclude Include="Iex\IexErrnoExc.h" />
+    <ClInclude Include="Iex\IexExport.h" />
+    <ClInclude Include="Iex\IexForward.h" />
     <ClInclude Include="Iex\IexMacros.h" />
     <ClInclude Include="Iex\IexMathExc.h" />
+    <ClInclude Include="Iex\IexNamespace.h" />
     <ClInclude Include="Iex\IexThrowErrnoExc.h" />
     <ClInclude Include="Half\eLut.h" />
     <ClInclude Include="Half\half.h" />
@@ -401,12 +474,17 @@
     <ClInclude Include="Half\halfLimits.h" />
     <ClInclude Include="Half\toFloat.h" />
     <ClInclude Include="IlmThread\IlmThread.h" />
+    <ClInclude Include="IlmThread\IlmThreadExport.h" />
+    <ClInclude Include="IlmThread\IlmThreadForward.h" />
     <ClInclude Include="IlmThread\IlmThreadMutex.h" />
+    <ClInclude Include="IlmThread\IlmThreadNamespace.h" />
     <ClInclude Include="IlmThread\IlmThreadPool.h" />
     <ClInclude Include="IlmThread\IlmThreadSemaphore.h" />
+    <ClInclude Include="IexMath\IexMathFloatExc.h" />
+    <ClInclude Include="IexMath\IexMathIeeeExc.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\ZLib\ZLib.vcxproj">
+    <ProjectReference Include="..\ZLib\ZLib.2013.vcxproj">
       <Project>{33134f61-c1ad-4b6f-9cea-503a9f140c52}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>

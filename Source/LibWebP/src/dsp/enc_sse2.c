@@ -17,7 +17,9 @@
 #include <stdlib.h>  // for abs()
 #include <emmintrin.h>
 
+#include "../enc/cost.h"
 #include "../enc/vp8enci.h"
+#include "../utils/utils.h"
 
 //------------------------------------------------------------------------------
 // Quite useful macro for debugging. Left here for convenience.
@@ -34,17 +36,17 @@ static void PrintReg(const __m128i r, const char* const name, int size) {
     uint64_t i64[2];
   } tmp;
   tmp.r = r;
-  printf("%s\t: ", name);
+  fprintf(stderr, "%s\t: ", name);
   if (size == 8) {
-    for (n = 0; n < 16; ++n) printf("%.2x ", tmp.i8[n]);
+    for (n = 0; n < 16; ++n) fprintf(stderr, "%.2x ", tmp.i8[n]);
   } else if (size == 16) {
-    for (n = 0; n < 8; ++n) printf("%.4x ", tmp.i16[n]);
+    for (n = 0; n < 8; ++n) fprintf(stderr, "%.4x ", tmp.i16[n]);
   } else if (size == 32) {
-    for (n = 0; n < 4; ++n) printf("%.8x ", tmp.i32[n]);
+    for (n = 0; n < 4; ++n) fprintf(stderr, "%.8x ", tmp.i32[n]);
   } else {
-    for (n = 0; n < 2; ++n) printf("%.16lx ", tmp.i64[n]);
+    for (n = 0; n < 2; ++n) fprintf(stderr, "%.16lx ", tmp.i64[n]);
   }
-  printf("\n");
+  fprintf(stderr, "\n");
 }
 #endif
 
@@ -52,9 +54,9 @@ static void PrintReg(const __m128i r, const char* const name, int size) {
 // Compute susceptibility based on DCT-coeff histograms:
 // the higher, the "easier" the macroblock is to compress.
 
-static void CollectHistogramSSE2(const uint8_t* ref, const uint8_t* pred,
-                                 int start_block, int end_block,
-                                 VP8Histogram* const histo) {
+static void CollectHistogram(const uint8_t* ref, const uint8_t* pred,
+                             int start_block, int end_block,
+                             VP8Histogram* const histo) {
   const __m128i max_coeff_thresh = _mm_set1_epi16(MAX_COEFF_THRESH);
   int j;
   for (j = start_block; j < end_block; ++j) {
@@ -98,8 +100,8 @@ static void CollectHistogramSSE2(const uint8_t* ref, const uint8_t* pred,
 // Transforms (Paragraph 14.4)
 
 // Does one or two inverse transforms.
-static void ITransformSSE2(const uint8_t* ref, const int16_t* in, uint8_t* dst,
-                           int do_two) {
+static void ITransform(const uint8_t* ref, const int16_t* in, uint8_t* dst,
+                       int do_two) {
   // This implementation makes use of 16-bit fixed point versions of two
   // multiply constants:
   //    K1 = sqrt(2) * cos (pi/8) ~= 85627 / 2^16
@@ -318,8 +320,7 @@ static void ITransformSSE2(const uint8_t* ref, const int16_t* in, uint8_t* dst,
   }
 }
 
-static void FTransformSSE2(const uint8_t* src, const uint8_t* ref,
-                           int16_t* out) {
+static void FTransform(const uint8_t* src, const uint8_t* ref, int16_t* out) {
   const __m128i zero = _mm_setzero_si128();
   const __m128i seven = _mm_set1_epi16(7);
   const __m128i k937 = _mm_set1_epi32(937);
@@ -444,14 +445,14 @@ static void FTransformSSE2(const uint8_t* src, const uint8_t* ref,
     // -> f1 = f1 + 1 - (a3 == 0)
     const __m128i g1 = _mm_add_epi16(f1, _mm_cmpeq_epi16(a32, zero));
 
-    _mm_storel_epi64((__m128i*)&out[ 0], d0);
-    _mm_storel_epi64((__m128i*)&out[ 4], g1);
-    _mm_storel_epi64((__m128i*)&out[ 8], d2);
-    _mm_storel_epi64((__m128i*)&out[12], f3);
+    const __m128i d0_g1 = _mm_unpacklo_epi64(d0, g1);
+    const __m128i d2_f3 = _mm_unpacklo_epi64(d2, f3);
+    _mm_storeu_si128((__m128i*)&out[0], d0_g1);
+    _mm_storeu_si128((__m128i*)&out[8], d2_f3);
   }
 }
 
-static void FTransformWHTSSE2(const int16_t* in, int16_t* out) {
+static void FTransformWHT(const int16_t* in, int16_t* out) {
   int32_t tmp[16];
   int i;
   for (i = 0; i < 4; ++i, in += 64) {
@@ -487,97 +488,84 @@ static void FTransformWHTSSE2(const int16_t* in, int16_t* out) {
 //------------------------------------------------------------------------------
 // Metric
 
-static int SSE_Nx4SSE2(const uint8_t* a, const uint8_t* b,
-                       int num_quads, int do_16) {
+static WEBP_INLINE __m128i SubtractAndAccumulate(const __m128i a,
+                                                 const __m128i b) {
   const __m128i zero = _mm_setzero_si128();
-  __m128i sum1 = zero;
-  __m128i sum2 = zero;
+  // convert to 16b
+  const __m128i A0 = _mm_unpacklo_epi8(a, zero);
+  const __m128i B0 = _mm_unpacklo_epi8(b, zero);
+  const __m128i A1 = _mm_unpackhi_epi8(a, zero);
+  const __m128i B1 = _mm_unpackhi_epi8(b, zero);
+  // subtract
+  const __m128i C0 = _mm_subs_epi16(A0, B0);
+  const __m128i C1 = _mm_subs_epi16(A1, B1);
+  // multiply with self
+  const __m128i D0 = _mm_madd_epi16(C0, C0);
+  const __m128i D1 = _mm_madd_epi16(C1, C1);
+  // accumulate
+  const __m128i sum = _mm_add_epi32(D0, D1);
+  return sum;
+}
 
-  while (num_quads-- > 0) {
-    // Note: for the !do_16 case, we read 16 pixels instead of 8 but that's ok,
-    // thanks to buffer over-allocation to that effect.
+static int SSE_16xN(const uint8_t* a, const uint8_t* b, int num_pairs) {
+  __m128i sum = _mm_setzero_si128();
+  int32_t tmp[4];
+
+  while (num_pairs-- > 0) {
     const __m128i a0 = _mm_loadu_si128((__m128i*)&a[BPS * 0]);
     const __m128i a1 = _mm_loadu_si128((__m128i*)&a[BPS * 1]);
-    const __m128i a2 = _mm_loadu_si128((__m128i*)&a[BPS * 2]);
-    const __m128i a3 = _mm_loadu_si128((__m128i*)&a[BPS * 3]);
     const __m128i b0 = _mm_loadu_si128((__m128i*)&b[BPS * 0]);
     const __m128i b1 = _mm_loadu_si128((__m128i*)&b[BPS * 1]);
-    const __m128i b2 = _mm_loadu_si128((__m128i*)&b[BPS * 2]);
-    const __m128i b3 = _mm_loadu_si128((__m128i*)&b[BPS * 3]);
-
-    // compute clip0(a-b) and clip0(b-a)
-    const __m128i a0p = _mm_subs_epu8(a0, b0);
-    const __m128i a0m = _mm_subs_epu8(b0, a0);
-    const __m128i a1p = _mm_subs_epu8(a1, b1);
-    const __m128i a1m = _mm_subs_epu8(b1, a1);
-    const __m128i a2p = _mm_subs_epu8(a2, b2);
-    const __m128i a2m = _mm_subs_epu8(b2, a2);
-    const __m128i a3p = _mm_subs_epu8(a3, b3);
-    const __m128i a3m = _mm_subs_epu8(b3, a3);
-
-    // compute |a-b| with 8b arithmetic as clip0(a-b) | clip0(b-a)
-    const __m128i diff0 = _mm_or_si128(a0p, a0m);
-    const __m128i diff1 = _mm_or_si128(a1p, a1m);
-    const __m128i diff2 = _mm_or_si128(a2p, a2m);
-    const __m128i diff3 = _mm_or_si128(a3p, a3m);
-
-    // unpack (only four operations, instead of eight)
-    const __m128i low0 = _mm_unpacklo_epi8(diff0, zero);
-    const __m128i low1 = _mm_unpacklo_epi8(diff1, zero);
-    const __m128i low2 = _mm_unpacklo_epi8(diff2, zero);
-    const __m128i low3 = _mm_unpacklo_epi8(diff3, zero);
-
-    // multiply with self
-    const __m128i low_madd0 = _mm_madd_epi16(low0, low0);
-    const __m128i low_madd1 = _mm_madd_epi16(low1, low1);
-    const __m128i low_madd2 = _mm_madd_epi16(low2, low2);
-    const __m128i low_madd3 = _mm_madd_epi16(low3, low3);
-
-    // collect in a cascading way
-    const __m128i low_sum0 = _mm_add_epi32(low_madd0, low_madd1);
-    const __m128i low_sum1 = _mm_add_epi32(low_madd2, low_madd3);
-    sum1 = _mm_add_epi32(sum1, low_sum0);
-    sum2 = _mm_add_epi32(sum2, low_sum1);
-
-    if (do_16) {  // if necessary, process the higher 8 bytes similarly
-      const __m128i hi0 = _mm_unpackhi_epi8(diff0, zero);
-      const __m128i hi1 = _mm_unpackhi_epi8(diff1, zero);
-      const __m128i hi2 = _mm_unpackhi_epi8(diff2, zero);
-      const __m128i hi3 = _mm_unpackhi_epi8(diff3, zero);
-
-      const __m128i hi_madd0 = _mm_madd_epi16(hi0, hi0);
-      const __m128i hi_madd1 = _mm_madd_epi16(hi1, hi1);
-      const __m128i hi_madd2 = _mm_madd_epi16(hi2, hi2);
-      const __m128i hi_madd3 = _mm_madd_epi16(hi3, hi3);
-      const __m128i hi_sum0 = _mm_add_epi32(hi_madd0, hi_madd1);
-      const __m128i hi_sum1 = _mm_add_epi32(hi_madd2, hi_madd3);
-      sum1 = _mm_add_epi32(sum1, hi_sum0);
-      sum2 = _mm_add_epi32(sum2, hi_sum1);
-    }
-    a += 4 * BPS;
-    b += 4 * BPS;
+    const __m128i sum1 = SubtractAndAccumulate(a0, b0);
+    const __m128i sum2 = SubtractAndAccumulate(a1, b1);
+    const __m128i sum12 = _mm_add_epi32(sum1, sum2);
+    sum = _mm_add_epi32(sum, sum12);
+    a += 2 * BPS;
+    b += 2 * BPS;
   }
-  {
-    int32_t tmp[4];
-    const __m128i sum = _mm_add_epi32(sum1, sum2);
-    _mm_storeu_si128((__m128i*)tmp, sum);
-    return (tmp[3] + tmp[2] + tmp[1] + tmp[0]);
+  _mm_storeu_si128((__m128i*)tmp, sum);
+  return (tmp[3] + tmp[2] + tmp[1] + tmp[0]);
+}
+
+static int SSE16x16(const uint8_t* a, const uint8_t* b) {
+  return SSE_16xN(a, b, 8);
+}
+
+static int SSE16x8(const uint8_t* a, const uint8_t* b) {
+  return SSE_16xN(a, b, 4);
+}
+
+#define LOAD_8x16b(ptr) \
+  _mm_unpacklo_epi8(_mm_loadl_epi64((__m128i*)(ptr)), zero)
+
+static int SSE8x8(const uint8_t* a, const uint8_t* b) {
+  const __m128i zero = _mm_setzero_si128();
+  int num_pairs = 4;
+  __m128i sum = zero;
+  int32_t tmp[4];
+  while (num_pairs-- > 0) {
+    const __m128i a0 = LOAD_8x16b(&a[BPS * 0]);
+    const __m128i a1 = LOAD_8x16b(&a[BPS * 1]);
+    const __m128i b0 = LOAD_8x16b(&b[BPS * 0]);
+    const __m128i b1 = LOAD_8x16b(&b[BPS * 1]);
+    // subtract
+    const __m128i c0 = _mm_subs_epi16(a0, b0);
+    const __m128i c1 = _mm_subs_epi16(a1, b1);
+    // multiply/accumulate with self
+    const __m128i d0 = _mm_madd_epi16(c0, c0);
+    const __m128i d1 = _mm_madd_epi16(c1, c1);
+    // collect
+    const __m128i sum01 = _mm_add_epi32(d0, d1);
+    sum = _mm_add_epi32(sum, sum01);
+    a += 2 * BPS;
+    b += 2 * BPS;
   }
+  _mm_storeu_si128((__m128i*)tmp, sum);
+  return (tmp[3] + tmp[2] + tmp[1] + tmp[0]);
 }
+#undef LOAD_8x16b
 
-static int SSE16x16SSE2(const uint8_t* a, const uint8_t* b) {
-  return SSE_Nx4SSE2(a, b, 4, 1);
-}
-
-static int SSE16x8SSE2(const uint8_t* a, const uint8_t* b) {
-  return SSE_Nx4SSE2(a, b, 2, 1);
-}
-
-static int SSE8x8SSE2(const uint8_t* a, const uint8_t* b) {
-  return SSE_Nx4SSE2(a, b, 2, 0);
-}
-
-static int SSE4x4SSE2(const uint8_t* a, const uint8_t* b) {
+static int SSE4x4(const uint8_t* a, const uint8_t* b) {
   const __m128i zero = _mm_setzero_si128();
 
   // Load values. Note that we read 8 pixels instead of 4,
@@ -590,38 +578,25 @@ static int SSE4x4SSE2(const uint8_t* a, const uint8_t* b) {
   const __m128i b1 = _mm_loadl_epi64((__m128i*)&b[BPS * 1]);
   const __m128i b2 = _mm_loadl_epi64((__m128i*)&b[BPS * 2]);
   const __m128i b3 = _mm_loadl_epi64((__m128i*)&b[BPS * 3]);
-
-  // Combine pair of lines and convert to 16b.
+  // Combine pair of lines.
   const __m128i a01 = _mm_unpacklo_epi32(a0, a1);
   const __m128i a23 = _mm_unpacklo_epi32(a2, a3);
   const __m128i b01 = _mm_unpacklo_epi32(b0, b1);
   const __m128i b23 = _mm_unpacklo_epi32(b2, b3);
+  // Convert to 16b.
   const __m128i a01s = _mm_unpacklo_epi8(a01, zero);
   const __m128i a23s = _mm_unpacklo_epi8(a23, zero);
   const __m128i b01s = _mm_unpacklo_epi8(b01, zero);
   const __m128i b23s = _mm_unpacklo_epi8(b23, zero);
-
-  // Compute differences; (a-b)^2 = (abs(a-b))^2 = (sat8(a-b) + sat8(b-a))^2
-  // TODO(cduvivier): Dissassemble and figure out why this is fastest. We don't
-  //                  need absolute values, there is no need to do calculation
-  //                  in 8bit as we are already in 16bit, ... Yet this is what
-  //                  benchmarks the fastest!
-  const __m128i d0 = _mm_subs_epu8(a01s, b01s);
-  const __m128i d1 = _mm_subs_epu8(b01s, a01s);
-  const __m128i d2 = _mm_subs_epu8(a23s, b23s);
-  const __m128i d3 = _mm_subs_epu8(b23s, a23s);
-
-  // Square and add them all together.
-  const __m128i madd0 = _mm_madd_epi16(d0, d0);
-  const __m128i madd1 = _mm_madd_epi16(d1, d1);
-  const __m128i madd2 = _mm_madd_epi16(d2, d2);
-  const __m128i madd3 = _mm_madd_epi16(d3, d3);
-  const __m128i sum0 = _mm_add_epi32(madd0, madd1);
-  const __m128i sum1 = _mm_add_epi32(madd2, madd3);
-  const __m128i sum2 = _mm_add_epi32(sum0, sum1);
+  // subtract, square and accumulate
+  const __m128i d0 = _mm_subs_epi16(a01s, b01s);
+  const __m128i d1 = _mm_subs_epi16(a23s, b23s);
+  const __m128i e0 = _mm_madd_epi16(d0, d0);
+  const __m128i e1 = _mm_madd_epi16(d1, d1);
+  const __m128i sum = _mm_add_epi32(e0, e1);
 
   int32_t tmp[4];
-  _mm_storeu_si128((__m128i*)tmp, sum2);
+  _mm_storeu_si128((__m128i*)tmp, sum);
   return (tmp[3] + tmp[2] + tmp[1] + tmp[0]);
 }
 
@@ -634,8 +609,8 @@ static int SSE4x4SSE2(const uint8_t* a, const uint8_t* b) {
 // Hadamard transform
 // Returns the difference between the weighted sum of the absolute value of
 // transformed coefficients.
-static int TTransformSSE2(const uint8_t* inA, const uint8_t* inB,
-                          const uint16_t* const w) {
+static int TTransform(const uint8_t* inA, const uint8_t* inB,
+                      const uint16_t* const w) {
   int32_t sum[4];
   __m128i tmp_0, tmp_1, tmp_2, tmp_3;
   const __m128i zero = _mm_setzero_si128();
@@ -782,19 +757,19 @@ static int TTransformSSE2(const uint8_t* inA, const uint8_t* inB,
   return sum[0] + sum[1] + sum[2] + sum[3];
 }
 
-static int Disto4x4SSE2(const uint8_t* const a, const uint8_t* const b,
-                        const uint16_t* const w) {
-  const int diff_sum = TTransformSSE2(a, b, w);
+static int Disto4x4(const uint8_t* const a, const uint8_t* const b,
+                    const uint16_t* const w) {
+  const int diff_sum = TTransform(a, b, w);
   return abs(diff_sum) >> 5;
 }
 
-static int Disto16x16SSE2(const uint8_t* const a, const uint8_t* const b,
-                          const uint16_t* const w) {
+static int Disto16x16(const uint8_t* const a, const uint8_t* const b,
+                      const uint16_t* const w) {
   int D = 0;
   int x, y;
   for (y = 0; y < 16 * BPS; y += 4 * BPS) {
     for (x = 0; x < 16; x += 4) {
-      D += Disto4x4SSE2(a + x + y, b + x + y, w);
+      D += Disto4x4(a + x + y, b + x + y, w);
     }
   }
   return D;
@@ -804,11 +779,9 @@ static int Disto16x16SSE2(const uint8_t* const a, const uint8_t* const b,
 // Quantization
 //
 
-#define QFIX2 0
-static WEBP_INLINE int QuantizeBlock(int16_t in[16], int16_t out[16],
-                                     int n, int shift,
-                                     const uint16_t* const sharpen,
-                                     const VP8Matrix* const mtx) {
+static WEBP_INLINE int DoQuantizeBlock(int16_t in[16], int16_t out[16],
+                                       const uint16_t* const sharpen,
+                                       const VP8Matrix* const mtx) {
   const __m128i max_coeff_2047 = _mm_set1_epi16(MAX_LEVEL);
   const __m128i zero = _mm_setzero_si128();
   __m128i coeff0, coeff8;
@@ -843,7 +816,7 @@ static WEBP_INLINE int QuantizeBlock(int16_t in[16], int16_t out[16],
     coeff8 = _mm_add_epi16(coeff8, sharpen8);
   }
 
-  // out = (coeff * iQ + B) >> (QFIX + QFIX2 - shift)
+  // out = (coeff * iQ + B) >> QFIX
   {
     // doing calculations with 32b precision (QFIX=17)
     // out = (coeff * iQ)
@@ -864,11 +837,11 @@ static WEBP_INLINE int QuantizeBlock(int16_t in[16], int16_t out[16],
     out_04 = _mm_add_epi32(out_04, bias_04);
     out_08 = _mm_add_epi32(out_08, bias_08);
     out_12 = _mm_add_epi32(out_12, bias_12);
-    // out = QUANTDIV(coeff, iQ, B, QFIX + QFIX2 - shift)
-    out_00 = _mm_srai_epi32(out_00, QFIX + QFIX2 - shift);
-    out_04 = _mm_srai_epi32(out_04, QFIX + QFIX2 - shift);
-    out_08 = _mm_srai_epi32(out_08, QFIX + QFIX2 - shift);
-    out_12 = _mm_srai_epi32(out_12, QFIX + QFIX2 - shift);
+    // out = QUANTDIV(coeff, iQ, B, QFIX)
+    out_00 = _mm_srai_epi32(out_00, QFIX);
+    out_04 = _mm_srai_epi32(out_04, QFIX);
+    out_08 = _mm_srai_epi32(out_08, QFIX);
+    out_12 = _mm_srai_epi32(out_12, QFIX);
 
     // pack result as 16b
     out0 = _mm_packs_epi32(out_00, out_04);
@@ -917,18 +890,53 @@ static WEBP_INLINE int QuantizeBlock(int16_t in[16], int16_t out[16],
   }
 
   // detect if all 'out' values are zeroes or not
-  if (n) packed_out = _mm_srli_si128(packed_out, 1);   // ignore DC for n == 1
   return (_mm_movemask_epi8(_mm_cmpeq_epi8(packed_out, zero)) != 0xffff);
 }
 
-static int QuantizeBlockSSE2(int16_t in[16], int16_t out[16],
-                             int n, const VP8Matrix* const mtx) {
-  return QuantizeBlock(in, out, n, 0, &mtx->sharpen_[0], mtx);
+static int QuantizeBlock(int16_t in[16], int16_t out[16],
+                         const VP8Matrix* const mtx) {
+  return DoQuantizeBlock(in, out, &mtx->sharpen_[0], mtx);
 }
 
-static int QuantizeBlockWHTSSE2(int16_t in[16], int16_t out[16],
-                                const VP8Matrix* const mtx) {
-  return QuantizeBlock(in, out, 0, 0, &mtx->sharpen_[0], mtx);
+static int QuantizeBlockWHT(int16_t in[16], int16_t out[16],
+                            const VP8Matrix* const mtx) {
+  return DoQuantizeBlock(in, out, NULL, mtx);
+}
+
+static int Quantize2Blocks(int16_t in[32], int16_t out[32],
+                           const VP8Matrix* const mtx) {
+  int nz;
+  const uint16_t* const sharpen = &mtx->sharpen_[0];
+  nz  = DoQuantizeBlock(in + 0 * 16, out + 0 * 16, sharpen, mtx) << 0;
+  nz |= DoQuantizeBlock(in + 1 * 16, out + 1 * 16, sharpen, mtx) << 1;
+  return nz;
+}
+
+// Forward declaration.
+void VP8SetResidualCoeffsSSE2(const int16_t* const coeffs,
+                              VP8Residual* const res);
+
+void VP8SetResidualCoeffsSSE2(const int16_t* const coeffs,
+                              VP8Residual* const res) {
+  const __m128i c0 = _mm_loadu_si128((const __m128i*)coeffs);
+  const __m128i c1 = _mm_loadu_si128((const __m128i*)(coeffs + 8));
+  // Use SSE to compare 8 values with a single instruction.
+  const __m128i zero = _mm_setzero_si128();
+  const __m128i m0 = _mm_cmpeq_epi16(c0, zero);
+  const __m128i m1 = _mm_cmpeq_epi16(c1, zero);
+  // Get the comparison results as a bitmask, consisting of two times 16 bits:
+  // two identical bits for each result. Concatenate both bitmasks to get a
+  // single 32 bit value. Negate the mask to get the position of entries that
+  // are not equal to zero. We don't need to mask out least significant bits
+  // according to res->first, since coeffs[0] is 0 if res->first > 0
+  const uint32_t mask =
+      ~(((uint32_t)_mm_movemask_epi8(m1) << 16) | _mm_movemask_epi8(m0));
+  // The position of the most significant non-zero bit indicates the position of
+  // the last non-zero value. Divide the result by two because __movemask_epi8
+  // operates on 8 bit values instead of 16 bit values.
+  assert(res->first == 0 || coeffs[0] == 0);
+  res->last = mask ? (BitsLog2Floor(mask) >> 1) : -1;
+  res->coeffs = coeffs;
 }
 
 #endif   // WEBP_USE_SSE2
@@ -936,22 +944,23 @@ static int QuantizeBlockWHTSSE2(int16_t in[16], int16_t out[16],
 //------------------------------------------------------------------------------
 // Entry point
 
-extern void VP8EncDspInitSSE2(void);
+extern WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInitSSE2(void);
 
-void VP8EncDspInitSSE2(void) {
+WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInitSSE2(void) {
 #if defined(WEBP_USE_SSE2)
-  VP8CollectHistogram = CollectHistogramSSE2;
-  VP8EncQuantizeBlock = QuantizeBlockSSE2;
-  VP8EncQuantizeBlockWHT = QuantizeBlockWHTSSE2;
-  VP8ITransform = ITransformSSE2;
-  VP8FTransform = FTransformSSE2;
-  VP8FTransformWHT = FTransformWHTSSE2;
-  VP8SSE16x16 = SSE16x16SSE2;
-  VP8SSE16x8 = SSE16x8SSE2;
-  VP8SSE8x8 = SSE8x8SSE2;
-  VP8SSE4x4 = SSE4x4SSE2;
-  VP8TDisto4x4 = Disto4x4SSE2;
-  VP8TDisto16x16 = Disto16x16SSE2;
+  VP8CollectHistogram = CollectHistogram;
+  VP8EncQuantizeBlock = QuantizeBlock;
+  VP8EncQuantize2Blocks = Quantize2Blocks;
+  VP8EncQuantizeBlockWHT = QuantizeBlockWHT;
+  VP8ITransform = ITransform;
+  VP8FTransform = FTransform;
+  VP8FTransformWHT = FTransformWHT;
+  VP8SSE16x16 = SSE16x16;
+  VP8SSE16x8 = SSE16x8;
+  VP8SSE8x8 = SSE8x8;
+  VP8SSE4x4 = SSE4x4;
+  VP8TDisto4x4 = Disto4x4;
+  VP8TDisto16x16 = Disto16x16;
 #endif   // WEBP_USE_SSE2
 }
 

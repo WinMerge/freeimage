@@ -265,6 +265,108 @@
     <ClCompile Include="IlmThread\IlmThreadSemaphore.cpp">
       <Filter>Source Files\IlmThread Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="IexMath\IexMathFpu.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\b44ExpLogTable.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfAcesFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfCompositeDeepScanLine.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepCompositing.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepFrameBuffer.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepImageStateAttribute.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepScanLineInputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepScanLineInputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepScanLineOutputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepScanLineOutputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepTiledInputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepTiledInputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepTiledOutputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDeepTiledOutputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfDwaCompressor.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfFastHuf.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfFloatVectorAttribute.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfGenericInputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfGenericOutputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfInputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfInputPartData.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfMultiPartInputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfMultiPartOutputFile.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfMultiView.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfOutputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfOutputPartData.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfPartType.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfRle.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfSystemSpecific.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfTiledInputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfTiledOutputPart.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfZip.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IexMath\IexMathFloatExc.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IlmBaseConfig.h">
@@ -611,6 +713,171 @@
     </ClInclude>
     <ClInclude Include="IlmThread\IlmThreadSemaphore.h">
       <Filter>Header Files\IlmThread Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\dwaLookups.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfAcesFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfCompositeDeepScanLine.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepCompositing.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepFrameBuffer.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepImageState.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepImageStateAttribute.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepScanLineInputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepScanLineInputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepScanLineOutputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepScanLineOutputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepTiledInputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepTiledInputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepTiledOutputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDeepTiledOutputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDwaCompressor.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfDwaCompressorSimd.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfExport.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfFastHuf.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfFloatVectorAttribute.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfForward.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfGenericInputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfGenericOutputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfInputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfInputPartData.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfInputStreamMutex.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfMultiPartInputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfMultiPartOutputFile.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfMultiView.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfNamespace.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfOptimizedPixelReading.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfOutputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfOutputPartData.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfOutputStreamMutex.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfPartHelper.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfPartType.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfRle.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfSimd.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfSystemSpecific.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfTiledInputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfTiledOutputPart.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfZip.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Imath\ImathExport.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Imath\ImathForward.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Imath\ImathFrustumTest.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Imath\ImathInt64.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Imath\ImathNamespace.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Iex\IexExport.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Iex\IexForward.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Iex\IexNamespace.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmThread\IlmThreadExport.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmThread\IlmThreadForward.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmThread\IlmThreadNamespace.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IexMath\IexMathFloatExc.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IexMath\IexMathIeeeExc.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

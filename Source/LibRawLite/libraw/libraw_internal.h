@@ -101,6 +101,7 @@ typedef struct
     char        *meta_data;
     INT64       profile_offset;
     INT64       toffset;
+	unsigned    pana_black[4];
 
 } internal_data_t;
 
@@ -137,6 +138,7 @@ typedef struct
     unsigned    zero_after_ff;
     unsigned    tile_width, tile_length,load_flags;
     unsigned    data_error;
+	int			hasselblad_parser_flag;
 }unpacker_data_t;
 
 

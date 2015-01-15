@@ -33,6 +33,7 @@ loadBuffer(const char *lpszPathName, BYTE **buffer, DWORD *length) {
 
 	// get data associated with lpszPathName
 	result = stat(lpszPathName, &file_info);
+	assert(result == 0);
 	if(result == 0) {
 		// allocate a memory buffer and load temporary data
 		*buffer = (BYTE*)malloc(file_info.st_size * sizeof(BYTE));

@@ -5,6 +5,11 @@ What's New for FreeImage Delphi Wrapper
 ! : changed
 + : added
 
+May 5, 2014
++ [Lorenzo Monti] updated wrapper for FreeImage 3.16.1
++ [Lorenzo Monti] added preprocessor tests for Delphi XE2..XE6
++ [Lorenzo Monti] merged changes for OSX compatibility (submitted by Maurício)
+
 December 8, 2012
 + [Lorenzo Monti] updated wrapper for FreeImage 3.15.4
 

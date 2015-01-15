@@ -191,8 +191,7 @@
 /* Support LogLuv high dynamic range encoding */
 #undef LOGLUV_SUPPORT
 
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
+/* Define to the sub-directory where libtool stores uninstalled libraries. */
 #undef LT_OBJDIR
 
 /* Support LZMA2 compression */
@@ -206,9 +205,6 @@
 
 /* Support NeXT 2-bit RLE algorithm */
 #undef NEXT_SUPPORT
-
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
 
 /* Support Old JPEG compresson (read-only) */
 #undef OJPEG_SUPPORT

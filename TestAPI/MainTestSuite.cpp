@@ -98,6 +98,9 @@ int main(int argc, char *argv[]) {
 	// test thumbnail functions
 	testThumbnail("exif.jpg", 0);
 
+	// test wrapped user buffer
+	testWrappedBuffer("exif.jpg", 0);
+
 #if defined(FREEIMAGE_LIB) || !defined(WIN32)
 	FreeImage_DeInitialise();
 #endif

@@ -5,6 +5,14 @@ What's New for FreeImage VB Wrapper
 ! : changed
 + : added
 
+August 08, 2014 - 2.24 (3.16.0)
+- [Carsten Klein] removed declaration of Win32 API function FillMemory
++ [Carsten Klein] added load flag RAW_UNPROCESSED and corresponding FILO_RAW_UNPROCESSED
++ [Carsten Klein] added function FreeImage_SetMetadataKeyValue
+! [Carsten Klein] changed name of function FreeImage_ConvertFromRawBitsEx to FreeImage_ConvertFromRawBitsArray: naming conflict with new C/C++ function FreeImage_ConvertFromRawBitsEx
+! [Carsten Klein] changed name of function FreeImage_ConvertToRawBitsEx to FreeImage_ConvertToRawBitsArray: no naming conflict, but tried to keep To and From functions together
++ [Carsten Klein] added function FreeImage_ConvertFromRawBitsEx
+
 March 17, 2014 - 2.22 (3.16.0)
 * [Carsten Klein] renamed parameter 'Perfect' to 'Bottom' of functions FreeImage_JPEGCrop[U] to match native function declaration
 ! [Carsten Klein] changed default value of optional parameter 'Perfect' to True for functions FreeImage_JPEGTransform[U]

@@ -50,9 +50,6 @@
     <ClInclude Include="internal\defines.h">
       <Filter>Header Files\internal</Filter>
     </ClInclude>
-    <ClInclude Include="internal\libraw_bytebuffer.h">
-      <Filter>Header Files\internal</Filter>
-    </ClInclude>
     <ClInclude Include="internal\libraw_internal_funcs.h">
       <Filter>Header Files\internal</Filter>
     </ClInclude>

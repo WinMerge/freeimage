@@ -30,7 +30,7 @@ extern "C" {
 // version numbers
 #define ENC_MAJ_VERSION 0
 #define ENC_MIN_VERSION 4
-#define ENC_REV_VERSION 0
+#define ENC_REV_VERSION 2
 
 // intra prediction modes
 enum { B_DC_PRED = 0,   // 4x4 modes
@@ -160,6 +160,8 @@ extern const int VP8I4ModeOffsets[NUM_BMODES];
 #define I4TMP (6 * 16 * BPS + 8 * BPS +  8)
 
 typedef int64_t score_t;     // type used for scores, rate, distortion
+// Note that MAX_COST is not the maximum allowed by sizeof(score_t),
+// in order to allow overflowing computations.
 #define MAX_COST ((score_t)0x7fffffffffffffLL)
 
 #define QFIX 17
@@ -361,12 +363,14 @@ typedef struct {
   VP8Tokens* pages_;        // first page
   VP8Tokens** last_page_;   // last page
   uint16_t* tokens_;        // set to (*last_page_)->tokens_
-  int left_;          // how many free tokens left before the page is full.
+  int left_;                // how many free tokens left before the page is full
+  int page_size_;           // number of tokens per page
 #endif
   int error_;         // true in case of malloc error
 } VP8TBuffer;
 
-void VP8TBufferInit(VP8TBuffer* const b);    // initialize an empty buffer
+// initialize an empty buffer
+void VP8TBufferInit(VP8TBuffer* const b, int page_size);
 void VP8TBufferClear(VP8TBuffer* const b);   // de-allocate pages memory
 
 #if !defined(DISABLE_TOKEN_BUFFER)
@@ -422,12 +426,6 @@ struct VP8Encoder {
   uint32_t alpha_data_size_;
   WebPWorker alpha_worker_;
 
-  // enhancement layer
-  int use_layer_;
-  VP8BitWriter layer_bw_;
-  uint8_t* layer_data_;
-  size_t layer_data_size_;
-
   // quantization info (one set of DC/AC dequant factor per segment)
   VP8SegmentInfo dqm_[NUM_MB_SEGMENTS];
   int base_quant_;                 // nominal quantizer value. Only used
@@ -459,10 +457,10 @@ struct VP8Encoder {
   VP8MBInfo* mb_info_;   // contextual macroblock infos (mb_w_ + 1)
   uint8_t*   preds_;     // predictions modes: (4*mb_w+1) * (4*mb_h+1)
   uint32_t*  nz_;        // non-zero bit context: mb_w+1
-  uint8_t   *y_top_;     // top luma samples.
-  uint8_t   *uv_top_;    // top u/v samples.
+  uint8_t*   y_top_;     // top luma samples.
+  uint8_t*   uv_top_;    // top u/v samples.
                          // U and V are packed into 16 bytes (8 U + 8 V)
-  LFStats   *lf_stats_;  // autofilter stats (if NULL, autofilter is off)
+  LFStats*   lf_stats_;  // autofilter stats (if NULL, autofilter is off)
 };
 
 //------------------------------------------------------------------------------
@@ -533,12 +531,6 @@ int VP8EncStartAlpha(VP8Encoder* const enc);    // start alpha coding process
 int VP8EncFinishAlpha(VP8Encoder* const enc);   // finalize compressed data
 int VP8EncDeleteAlpha(VP8Encoder* const enc);   // delete compressed data
 
-  // in layer.c
-void VP8EncInitLayer(VP8Encoder* const enc);     // init everything
-void VP8EncCodeLayerBlock(VP8EncIterator* it);   // code one more macroblock
-int VP8EncFinishLayer(VP8Encoder* const enc);    // finalize coding
-void VP8EncDeleteLayer(VP8Encoder* enc);         // reclaim memory
-
   // in filter.c
 
 // SSIM utils
@@ -561,6 +553,31 @@ void VP8AdjustFilterStrength(VP8EncIterator* const it);
 // step of 'delta', given a sharpness parameter 'sharpness'.
 int VP8FilterStrengthFromDelta(int sharpness, int delta);
 
+  // misc utils for picture_*.c:
+
+// Remove reference to the ARGB/YUVA buffer (doesn't free anything).
+void WebPPictureResetBuffers(WebPPicture* const picture);
+
+// Allocates ARGB buffer of given dimension (previous one is always free'd).
+// Preserves the YUV(A) buffer. Returns false in case of error (invalid param,
+// out-of-memory).
+int WebPPictureAllocARGB(WebPPicture* const picture, int width, int height);
+
+// Allocates YUVA buffer of given dimension (previous one is always free'd).
+// Uses picture->csp to determine whether an alpha buffer is needed.
+// Preserves the ARGB buffer.
+// Returns false in case of error (invalid param, out-of-memory).
+int WebPPictureAllocYUVA(WebPPicture* const picture, int width, int height);
+
+  // in near_lossless.c
+// Near lossless preprocessing in RGB color-space.
+int VP8ApplyNearLossless(int xsize, int ysize, uint32_t* argb, int quality);
+// Near lossless adjustment for predictors.
+void VP8ApplyNearLosslessPredict(int xsize, int ysize, int pred_bits,
+                                 const uint32_t* argb_orig,
+                                 uint32_t* argb, uint32_t* argb_scratch,
+                                 const uint32_t* const transform_data,
+                                 int quality, int subtract_green);
 //------------------------------------------------------------------------------
 
 #ifdef __cplusplus

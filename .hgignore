@@ -1,0 +1,5 @@
+syntax: glob
+*.tlog
+*.lastbuildstate
+*.idb
+*.res
