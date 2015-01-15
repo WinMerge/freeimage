@@ -25,7 +25,7 @@ it under the terms of the one of three licenses as you choose:
 #else
     /* WF */
     void        wf_bayer4_igauss_filter(int radius,void* src_image, int src_imgmode, void* dst_image, int dst_imgmode);
-    void	wf_bayer4_green_blur   (int mode,void* src_image, int src_imgmode, void* dst_image, int dst_imgmode);
+    void			wf_bayer4_green_blur   (int mode,void* src_image, int src_imgmode, void* dst_image, int dst_imgmode);
     void        wf_bayer4_block_filter (int* radius_list, void* src_image, int src_imgmode, void* dst_image, int dst_imgmode);
     double	wf_filter_energy       (int r1_greenmode, int r1, int r2_greenmode, int r2);
 
@@ -79,7 +79,8 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
 
 // Nikon (and Minolta Z2)
     void        nikon_load_raw();
-//void        nikon_load_raw();
+    void        nikon_load_sraw();
+    void	nikon_coolscan_load_raw();
     int         nikon_e995();
     int         nikon_e2100();
     void        nikon_3700();
@@ -157,6 +158,7 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
     void        sony_arw_load_raw();
     void        sony_arw2_load_raw();
     void        samsung_load_raw();
+    void        samsung2_load_raw();
     void        parse_minolta (int base);
 
 // Foveon/Sigma
@@ -180,11 +182,11 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
 // We always have x3f code compiled in!
     void        parse_x3f();
     void        x3f_load_raw();
+    void        x3f_dpq_interpolate_rg();
+	void        x3f_dpq_interpolate_af(int xstep, int ystep, int scale); // 1x1 af pixels
 
 // CAM/RGB
     void        pseudoinverse (double (*in)[3], double (*out)[3], int size);
-    void        cam_xyz_coeff (double cam_xyz[4][3]);
-    void        adobe_coeff (const char *, const char *);
     void        simple_coeff (int index);
 
 
@@ -192,6 +194,7 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
     void        tiff_get (unsigned base,unsigned *tag, unsigned *type, unsigned *len, unsigned *save);
     void        parse_thumb_note (int base, unsigned toff, unsigned tlen);
     void        parse_makernote (int base, int uptag);
+	void        parse_makernote_nikon_iso (int base, int uptag);
     void        parse_exif (int base);
     void        linear_table (unsigned len);
     void        parse_kodak_ifd (int base);
@@ -199,7 +202,8 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
     int         parse_tiff (int base);
     void        apply_tiff(void);
     void        parse_gps (int base);
-    void        romm_coeff (float romm_cam[3][3]);
+	void        parse_gps_libraw(int base);
+	void        romm_coeff(float romm_cam[3][3]);
     void        parse_mos (int offset);
     void        get_timestamp (int reversed);
 

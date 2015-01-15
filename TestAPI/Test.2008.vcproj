@@ -441,6 +441,10 @@
 			RelativePath="testTools.cpp"
 			>
 		</File>
+		<File
+			RelativePath=".\testWrappedBuffer.cpp"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

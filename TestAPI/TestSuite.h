@@ -87,6 +87,10 @@ void testImageChannels(unsigned width, unsigned height);
 // ==========================================================
 void testThumbnail(const char *lpszPathName, int flags);
 
+// Wrapped buffer test suite
+// ==========================================================
+
+void testWrappedBuffer(const char *lpszPathName, int flags);
 
 #endif // TEST_FREEIMAGE_API_H
 

@@ -20,7 +20,7 @@
 extern "C" {
 #endif
 
-#define WEBP_DECODER_ABI_VERSION 0x0204    // MAJOR(8b) + MINOR(8b)
+#define WEBP_DECODER_ABI_VERSION 0x0205    // MAJOR(8b) + MINOR(8b)
 
 // Note: forward declaring enumerations is not allowed in (strict) C and C++,
 // the types are left here for reference.
@@ -443,11 +443,12 @@ struct WebPDecoderOptions {
   int use_threads;                    // if true, use multi-threaded decoding
   int dithering_strength;             // dithering strength (0=Off, 100=full)
   int flip;                           // flip output vertically
+  int alpha_dithering_strength;       // alpha dithering strength in [0..100]
 
   // Unused for now:
   int force_rotation;                 // forced rotation (to be applied _last_)
   int no_enhancement;                 // if true, discard enhancement layer
-  uint32_t pad[4];                    // padding for later use
+  uint32_t pad[3];                    // padding for later use
 };
 
 // Main object storing the configuration for advanced decoding.

@@ -1,3 +1,70 @@
+2014-11-27  Even Rouault  <even.rouault@spatialys.com>
+
+	* libtiff/tif_config.vc.h: no longer use "#define snprintf _snprintf" with
+	Visual Studio 2015 aka VC 14 aka MSVC 1900
+
+2014-11-20  Even Rouault  <even.rouault@spatialys.com>
+
+	* libtiff/tif_lzw.c: prevent potential null dereference of
+	sp->dec_codetab in LZWPreDecode (bug #2459)
+
+	* libtiff/tif_read.c: in TIFFReadBufferSetup(), avoid passing -1 size
+	to TIFFmalloc() if passed user buffer size is 0 (bug #2459)
+
+	* libtiff/tif_ojpeg.c: make Coverity happier (not a bug, #2459)
+
+	* libtiff/tif_dir.c: in _TIFFVGetField() and _TIFFVSetField(), make
+	Coverity happier (not a bug, #2459)
+
+	* libtiff/tif_dirread.c: in TIFFFetchNormalTag(), make Coverity happier
+	(not a bug, #2459)
+
+	* tools/tiff2pdf.c: close PDF file (bug #2479)
+
+	* tools/fax2ps.c: check malloc()/realloc() result (bug #2470)
+
+	* tools/tiffdump.c: detect cycle in TIFF directory chaining (bug #2463)
+	and avoid passing a NULL pointer to read() if seek() failed before (bug #2459)
+
+	* tools/tiffcrop.c: fix segfault if bad value passed to -Z option
+	(bug #2459) and add missing va_end in dump_info (#2459)
+
+	* tools/gif2tif.c: apply patch for CVE-2013-4243 (#2451)
+
+2014-11-20  Even Rouault  <even.rouault@spatialys.com>
+	* libtiff/tif_jpeg.c: fix segfault in JPEGFixupTagsSubsampling() on
+	corrupted image where tif->tif_dir.td_stripoffset == NULL (bug #2471)
+
+2014-11-20  Even Rouault  <even.rouault@spatialys.com>
+	* automake: updated to 1.14.1
+	* libtool: updated to 2.4.3
+	* HOWTO-RELEASE: small update about autotools building order
+
+2014-10-20  Olivier Paquet  <olivier.paquet@gmail.com>
+	* tools/tiff2pdf.c: Preserve input file directory order when pages
+	are tagged with the same page number.
+
+2014-08-31  Bob Friesenhahn  <bfriesen@simple.dallas.tx.us>
+
+	* libtiff/tif_dirread.c (TIFFReadDirEntryOutputErr): Incorrect
+	count for tag should be a warning rather than an error since
+	errors terminate processing.
+
+2014-06-07  Bob Friesenhahn  <bfriesen@simple.dallas.tx.us>
+
+	* tools/tiff2rgba.c (]): Fixed tiff2rgba usage message in that zip
+	was wrongly described.  Fix suggested by Miguel Medalha.
+
+2014-05-06  Bob Friesenhahn  <bfriesen@simple.dallas.tx.us>
+
+	* libtiff/tif_dirinfo.c (TIFFField) : Fix data type for
+	TIFFTAG_GLOBALPARAMETERSIFD tag.  Patch by Steve Underwood.
+	Reviewed and forwarded by Lee Howard.
+
+2013-11-30  Frank Warmerdam  <warmerdam@pobox.com>
+
+	* libtiff/tif_dir.c: fix last fix for TIFFNumberOfDirectories()
+
 2013-10-21  Frank Warmerdam  <warmerdam@pobox.com>
 
 	* libtiff/tif_dir.c: generate error in case of directory count
@@ -70,7 +137,7 @@
 
 	* tools/tiff2ps.c:Fix bug in auto rotate option code. Once a
 	rotation angle was set by the auto rotate check, it was retained
-	for all pages that followed instead of being retested for each
+	for all pages that followed instead ofa being retested for each
 	page.  Patch by Richard Nolde.
 
 2013-01-18  Frank Warmerdam  <warmerdam@google.com>

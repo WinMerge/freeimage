@@ -49,7 +49,7 @@
 				EnableIntrinsicFunctions="true"
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
-				AdditionalIncludeDirectories="./;./IlmImf;./Imath;./Iex;./Half;./IlmThread;../ZLib"
+				AdditionalIncludeDirectories="./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib"
 				PreprocessorDefinitions="WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE"
 				StringPooling="true"
 				RuntimeLibrary="0"
@@ -127,7 +127,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="./;./IlmImf;./Imath;./Iex;./Half;./IlmThread;../ZLib"
+				AdditionalIncludeDirectories="./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -352,6 +352,14 @@
 				Filter="cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 				>
 				<File
+					RelativePath=".\IlmImf\b44ExpLogTable.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfAcesFile.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfAttribute.cpp"
 					>
 				</File>
@@ -380,6 +388,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfCompositeDeepScanLine.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfCompressionAttribute.cpp"
 					>
 				</File>
@@ -396,7 +408,55 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfDeepCompositing.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepFrameBuffer.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepImageStateAttribute.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineInputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineInputPart.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineOutputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineOutputPart.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledInputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledInputPart.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledOutputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledOutputPart.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfDoubleAttribute.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDwaCompressor.cpp"
 					>
 				</File>
 				<File
@@ -408,7 +468,15 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfFastHuf.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfFloatAttribute.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfFloatVectorAttribute.cpp"
 					>
 				</File>
 				<File
@@ -417,6 +485,14 @@
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfFramesPerSecond.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfGenericInputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfGenericOutputFile.cpp"
 					>
 				</File>
 				<File
@@ -429,6 +505,14 @@
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfInputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfInputPart.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfInputPartData.cpp"
 					>
 				</File>
 				<File
@@ -464,11 +548,35 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfMultiPartInputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfMultiPartOutputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfMultiView.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfOpaqueAttribute.cpp"
 					>
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfOutputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfOutputPart.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfOutputPartData.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfPartType.cpp"
 					>
 				</File>
 				<File
@@ -504,6 +612,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfRle.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfRleCompressor.cpp"
 					>
 				</File>
@@ -528,6 +640,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfSystemSpecific.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfTestFile.cpp"
 					>
 				</File>
@@ -544,11 +660,19 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfTiledInputPart.cpp"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfTiledMisc.cpp"
 					>
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfTiledOutputFile.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfTiledOutputPart.cpp"
 					>
 				</File>
 				<File
@@ -577,6 +701,10 @@
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfWav.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfZip.cpp"
 					>
 				</File>
 				<File
@@ -659,6 +787,18 @@
 					>
 				</File>
 			</Filter>
+			<Filter
+				Name="IexMath Source Files"
+				>
+				<File
+					RelativePath=".\IexMath\IexMathFloatExc.cpp"
+					>
+				</File>
+				<File
+					RelativePath=".\IexMath\IexMathFpu.cpp"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -678,6 +818,14 @@
 				>
 				<File
 					RelativePath=".\IlmImf\b44ExpLogTable.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\dwaLookups.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfAcesFile.h"
 					>
 				</File>
 				<File
@@ -721,6 +869,10 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfCompositeDeepScanLine.h"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfCompression.h"
 					>
 				</File>
@@ -741,7 +893,63 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfDeepCompositing.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepFrameBuffer.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepImageState.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepImageStateAttribute.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineInputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineInputPart.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineOutputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepScanLineOutputPart.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledInputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledInputPart.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledOutputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDeepTiledOutputPart.h"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfDoubleAttribute.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDwaCompressor.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfDwaCompressorSimd.h"
 					>
 				</File>
 				<File
@@ -753,7 +961,23 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfExport.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfFastHuf.h"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfFloatAttribute.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfFloatVectorAttribute.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfForward.h"
 					>
 				</File>
 				<File
@@ -762,6 +986,14 @@
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfFramesPerSecond.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfGenericInputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfGenericOutputFile.h"
 					>
 				</File>
 				<File
@@ -774,6 +1006,18 @@
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfInputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfInputPart.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfInputPartData.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfInputStreamMutex.h"
 					>
 				</File>
 				<File
@@ -817,7 +1061,23 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfMultiPartInputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfMultiPartOutputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfMultiView.h"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfName.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfNamespace.h"
 					>
 				</File>
 				<File
@@ -825,7 +1085,31 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfOptimizedPixelReading.h"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfOutputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfOutputPart.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfOutputPartData.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfOutputStreamMutex.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfPartHelper.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfPartType.h"
 					>
 				</File>
 				<File
@@ -869,11 +1153,19 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfRle.h"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfRleCompressor.h"
 					>
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfScanLineInputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfSimd.h"
 					>
 				</File>
 				<File
@@ -890,6 +1182,10 @@
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfStringVectorAttribute.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfSystemSpecific.h"
 					>
 				</File>
 				<File
@@ -913,11 +1209,19 @@
 					>
 				</File>
 				<File
+					RelativePath=".\IlmImf\ImfTiledInputPart.h"
+					>
+				</File>
+				<File
 					RelativePath=".\IlmImf\ImfTiledMisc.h"
 					>
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfTiledOutputFile.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfTiledOutputPart.h"
 					>
 				</File>
 				<File
@@ -950,6 +1254,10 @@
 				</File>
 				<File
 					RelativePath=".\IlmImf\ImfXdr.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IlmImf\ImfZip.h"
 					>
 				</File>
 				<File
@@ -986,11 +1294,23 @@
 					>
 				</File>
 				<File
+					RelativePath=".\Imath\ImathExport.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Imath\ImathForward.h"
+					>
+				</File>
+				<File
 					RelativePath=".\Imath\ImathFrame.h"
 					>
 				</File>
 				<File
 					RelativePath=".\Imath\ImathFrustum.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Imath\ImathFrustumTest.h"
 					>
 				</File>
 				<File
@@ -1007,6 +1327,10 @@
 				</File>
 				<File
 					RelativePath=".\Imath\ImathHalfLimits.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Imath\ImathInt64.h"
 					>
 				</File>
 				<File
@@ -1035,6 +1359,10 @@
 				</File>
 				<File
 					RelativePath=".\Imath\ImathMatrixAlgo.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Imath\ImathNamespace.h"
 					>
 				</File>
 				<File
@@ -1091,11 +1419,23 @@
 					>
 				</File>
 				<File
+					RelativePath=".\Iex\IexExport.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Iex\IexForward.h"
+					>
+				</File>
+				<File
 					RelativePath=".\Iex\IexMacros.h"
 					>
 				</File>
 				<File
 					RelativePath=".\Iex\IexMathExc.h"
+					>
+				</File>
+				<File
+					RelativePath=".\Iex\IexNamespace.h"
 					>
 				</File>
 				<File
@@ -1145,6 +1485,18 @@
 				</File>
 				<File
 					RelativePath=".\IlmThread\IlmThreadSemaphore.h"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="IexMath Header Files"
+				>
+				<File
+					RelativePath=".\IexMath\IexMathFloatExc.h"
+					>
+				</File>
+				<File
+					RelativePath=".\IexMath\IexMathIeeeExc.h"
 					>
 				</File>
 			</Filter>

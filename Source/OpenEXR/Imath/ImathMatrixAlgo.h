@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
+// Copyright (c) 2002-2012, Industrial Light & Magic, a division of Lucas
 // Digital Ltd. LLC
 // 
 // All rights reserved.
@@ -38,37 +38,27 @@
 
 //-------------------------------------------------------------------------
 //
-//      This file contains algorithms applied to or in conjunction with
-//	transformation matrices (Imath::Matrix33 and Imath::Matrix44).
-//	The assumption made is that these functions are called much less
-//	often than the basic point functions or these functions require
-//	more support classes.
+//  This file contains algorithms applied to or in conjunction with
+//  transformation matrices (Imath::Matrix33 and Imath::Matrix44).
+//  The assumption made is that these functions are called much less
+//  often than the basic point functions or these functions require
+//  more support classes.
 //
-//	This file also defines a few predefined constant matrices.
+//  This file also defines a few predefined constant matrices.
 //
 //-------------------------------------------------------------------------
 
+#include "ImathExport.h"
 #include "ImathMatrix.h"
 #include "ImathQuat.h"
 #include "ImathEuler.h"
 #include "ImathExc.h"
 #include "ImathVec.h"
 #include "ImathLimits.h"
+#include "ImathNamespace.h"
 #include <math.h>
 
-
-#ifdef OPENEXR_DLL
-    #ifdef IMATH_EXPORTS
-        #define IMATH_EXPORT_CONST extern __declspec(dllexport)
-    #else
-	#define IMATH_EXPORT_CONST extern __declspec(dllimport)
-    #endif
-#else
-    #define IMATH_EXPORT_CONST extern const
-#endif
-
-
-namespace Imath {
+IMATH_INTERNAL_NAMESPACE_HEADER_ENTER
 
 //------------------
 // Identity matrices
@@ -492,8 +482,8 @@ extractAndRemoveScalingAndShear (Matrix44<T> &mat,
     T maxVal = 0;
     for (int i=0; i < 3; i++)
 	for (int j=0; j < 3; j++)
-	    if (Imath::abs (row[i][j]) > maxVal)
-		maxVal = Imath::abs (row[i][j]);
+	    if (IMATH_INTERNAL_NAMESPACE::abs (row[i][j]) > maxVal)
+		maxVal = IMATH_INTERNAL_NAMESPACE::abs (row[i][j]);
 
     //
     // We normalize the 3x3 matrix here.
@@ -758,8 +748,8 @@ extractSHRT (const Matrix44<T> &mat,
 
     if (rOrder != Euler<T>::XYZ)
     {
-	Imath::Euler<T> eXYZ (r, Imath::Euler<T>::XYZ);
-	Imath::Euler<T> e (eXYZ, rOrder);
+	IMATH_INTERNAL_NAMESPACE::Euler<T> eXYZ (r, IMATH_INTERNAL_NAMESPACE::Euler<T>::XYZ);
+	IMATH_INTERNAL_NAMESPACE::Euler<T> e (eXYZ, rOrder);
 	r = e.toXYZVector ();
     }
 
@@ -775,7 +765,7 @@ extractSHRT (const Matrix44<T> &mat,
 	     Vec3<T> &t,
 	     bool exc)
 {
-    return extractSHRT(mat, s, h, r, t, exc, Imath::Euler<T>::XYZ);
+    return extractSHRT(mat, s, h, r, t, exc, IMATH_INTERNAL_NAMESPACE::Euler<T>::XYZ);
 }
 
 template <class T>
@@ -802,7 +792,7 @@ checkForZeroScaleInRow (const T& scl,
 	if ((abs (scl) < 1 && abs (row[i]) >= limits<T>::max() * abs (scl)))
 	{
 	    if (exc)
-		throw Imath::ZeroScaleExc ("Cannot remove zero scaling "
+		throw IMATH_INTERNAL_NAMESPACE::ZeroScaleExc ("Cannot remove zero scaling "
 					   "from matrix.");
 	    else
 		return false;
@@ -852,12 +842,12 @@ rotationMatrixWithUpDir (const Vec3<T> &fromDir,
 
     else
     {
-	Matrix44<T> zAxis2FromDir( Imath::UNINITIALIZED );
+	Matrix44<T> zAxis2FromDir( IMATH_INTERNAL_NAMESPACE::UNINITIALIZED );
 	alignZAxisWithTargetDir (zAxis2FromDir, fromDir, Vec3<T> (0, 1, 0));
 
 	Matrix44<T> fromDir2zAxis  = zAxis2FromDir.transposed ();
 	
-	Matrix44<T> zAxis2ToDir( Imath::UNINITIALIZED );
+	Matrix44<T> zAxis2ToDir( IMATH_INTERNAL_NAMESPACE::UNINITIALIZED );
 	alignZAxisWithTargetDir (zAxis2ToDir, toDir, upDir);
 
 	return fromDir2zAxis * zAxis2ToDir;
@@ -1166,8 +1156,8 @@ extractAndRemoveScalingAndShear (Matrix33<T> &mat,
     T maxVal = 0;
     for (int i=0; i < 2; i++)
 	for (int j=0; j < 2; j++)
-	    if (Imath::abs (row[i][j]) > maxVal)
-		maxVal = Imath::abs (row[i][j]);
+	    if (IMATH_INTERNAL_NAMESPACE::abs (row[i][j]) > maxVal)
+		maxVal = IMATH_INTERNAL_NAMESPACE::abs (row[i][j]);
 
     //
     // We normalize the 2x2 matrix here.
@@ -1291,19 +1281,19 @@ extractSHRT (const Matrix33<T> &mat,
 template <class T> 
 bool		
 checkForZeroScaleInRow (const T& scl, 
-			const Vec2<T> &row,
-			bool exc /* = true */ )
+                        const Vec2<T> &row,
+                        bool exc /* = true */ )
 {
     for (int i = 0; i < 2; i++)
     {
-	if ((abs (scl) < 1 && abs (row[i]) >= limits<T>::max() * abs (scl)))
-	{
-	    if (exc)
-		throw Imath::ZeroScaleExc ("Cannot remove zero scaling "
-					   "from matrix.");
-	    else
-		return false;
-	}
+        if ((abs (scl) < 1 && abs (row[i]) >= limits<T>::max() * abs (scl)))
+        {
+            if (exc)
+                throw IMATH_INTERNAL_NAMESPACE::ZeroScaleExc (
+                        "Cannot remove zero scaling from matrix.");
+            else
+                return false;
+        }
     }
 
     return true;
@@ -1330,18 +1320,18 @@ outerProduct (const Vec3<T> &a, const Vec3<T> &b )
 //     || (A*x - y)^T * W * (A*x - y) ||_F
 // If doScaling is true, then a uniform scale is allowed also.
 template <typename T>
-Imath::M44d
-procrustesRotationAndTranslation (const Imath::Vec3<T>* A,  // From these
-                                  const Imath::Vec3<T>* B,  // To these
+IMATH_INTERNAL_NAMESPACE::M44d
+procrustesRotationAndTranslation (const IMATH_INTERNAL_NAMESPACE::Vec3<T>* A,  // From these
+                                  const IMATH_INTERNAL_NAMESPACE::Vec3<T>* B,  // To these
                                   const T* weights, 
                                   const size_t numPoints,
                                   const bool doScaling = false);
 
 // Unweighted:
 template <typename T>
-Imath::M44d
-procrustesRotationAndTranslation (const Imath::Vec3<T>* A, 
-                                  const Imath::Vec3<T>* B, 
+IMATH_INTERNAL_NAMESPACE::M44d
+procrustesRotationAndTranslation (const IMATH_INTERNAL_NAMESPACE::Vec3<T>* A, 
+                                  const IMATH_INTERNAL_NAMESPACE::Vec3<T>* B, 
                                   const size_t numPoints,
                                   const bool doScaling = false);
 
@@ -1362,20 +1352,20 @@ procrustesRotationAndTranslation (const Imath::Vec3<T>* A,
 // Currently only available for single- and double-precision matrices.
 template <typename T>
 void
-jacobiSVD (const Imath::Matrix33<T>& A,
-           Imath::Matrix33<T>& U,
-           Imath::Vec3<T>& S,
-           Imath::Matrix33<T>& V,
-           const T tol = Imath::limits<T>::epsilon(),
+jacobiSVD (const IMATH_INTERNAL_NAMESPACE::Matrix33<T>& A,
+           IMATH_INTERNAL_NAMESPACE::Matrix33<T>& U,
+           IMATH_INTERNAL_NAMESPACE::Vec3<T>& S,
+           IMATH_INTERNAL_NAMESPACE::Matrix33<T>& V,
+           const T tol = IMATH_INTERNAL_NAMESPACE::limits<T>::epsilon(),
            const bool forcePositiveDeterminant = false);
 
 template <typename T>
 void
-jacobiSVD (const Imath::Matrix44<T>& A,
-           Imath::Matrix44<T>& U,
-           Imath::Vec4<T>& S,
-           Imath::Matrix44<T>& V,
-           const T tol = Imath::limits<T>::epsilon(),
+jacobiSVD (const IMATH_INTERNAL_NAMESPACE::Matrix44<T>& A,
+           IMATH_INTERNAL_NAMESPACE::Matrix44<T>& U,
+           IMATH_INTERNAL_NAMESPACE::Vec4<T>& S,
+           IMATH_INTERNAL_NAMESPACE::Matrix44<T>& V,
+           const T tol = IMATH_INTERNAL_NAMESPACE::limits<T>::epsilon(),
            const bool forcePositiveDeterminant = false);
 
 // Compute the eigenvalues (S) and the eigenvectors (V) of
@@ -1430,6 +1420,6 @@ template <typename TM, typename TV>
 void
 minEigenVector (TM& A, TV& S);
 
-} // namespace Imath
+IMATH_INTERNAL_NAMESPACE_HEADER_EXIT
 
-#endif
+#endif // INCLUDED_IMATHMATRIXALGO_H

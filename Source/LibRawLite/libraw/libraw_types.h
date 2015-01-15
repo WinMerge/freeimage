@@ -112,6 +112,7 @@ typedef struct
 
 
 typedef void (* memory_callback)(void * data, const char *file, const char *where);
+typedef void (*exif_parser_callback) (void *context, int tag, int type, int len,unsigned int ord, void *ifp);
 
 DllDef void default_memory_callback(void *data,const char *file, const char *where);
 
@@ -131,6 +132,9 @@ typedef struct
 
     progress_callback progress_cb;
     void *progresscb_data;
+
+	exif_parser_callback exif_cb;
+	void *exifparser_data;
 } libraw_callbacks_t;
 
 
@@ -148,17 +152,19 @@ typedef struct
 
 typedef struct
 {
-    char        make[64];
-    char        model[64];
-
-    unsigned    raw_count;
-    unsigned    dng_version;
-    unsigned    is_foveon;
-    int         colors;
-
-    unsigned    filters;
-    char        xtrans[6][6];
-    char        cdesc[5];
+  char        make[64];
+  char        model[64];
+  char		  software[64];
+  unsigned    raw_count;
+  unsigned    dng_version;
+  unsigned    is_foveon;
+  int         colors;
+  unsigned    filters;
+  char        xtrans[6][6];
+  char        xtrans_abs[6][6];
+  char        cdesc[5];
+  unsigned    xmplen;
+  char	      *xmpdata;
 
 }libraw_iparams_t;
 
@@ -181,14 +187,30 @@ typedef struct
 
 struct ph1_t
 {
-    int format, key_off, t_black, black_off, split_col, tag_21a;
-    float tag_210;
+  int format, key_off, tag_21a;
+  int t_black, split_col, black_col, split_row, black_row;
+  float tag_210;
 };
 
 typedef struct
 {
+  unsigned short illuminant;
+  float calibration[4][4];
+  float colormatrix[4][3];
+} dng_color_t;
+
+typedef struct 
+{
+	int CanonColorDataVer;
+	int CanonColorDataSubVer;
+	int SpecularWhiteLevel;
+	int AverageBlackLevel;
+} canon_makernotes_t;
+
+typedef struct
+{
   ushort      curve[0x10000]; 
-  unsigned    cblack[4];
+  unsigned    cblack[4102];
   unsigned    black;
   unsigned    data_maximum;
   unsigned    maximum;
@@ -205,6 +227,11 @@ typedef struct
   void        *profile;
   unsigned    profile_length;
   unsigned    black_stat[8];
+  dng_color_t  dng_color[2];
+  canon_makernotes_t canon_makernotes;
+  float	      baseline_exposure;
+  int		  OlympusSensorCalibration[2];
+  int		digitalBack_color;
 }libraw_colordata_t;
 
 typedef struct
@@ -218,6 +245,17 @@ typedef struct
     char       *thumb;
 }libraw_thumbnail_t;
 
+typedef struct 
+{
+	float latitude[3]; // Deg,min,sec
+	float longtitude[3]; // Deg,min,sec
+	float gpstimestamp[3]; // Deg,min,sec
+	float altitude;
+	char  altref, latref, longref, gpsstatus;
+	char  gpsparsed;
+
+} libraw_gps_info_t;
+
 typedef struct
 {
     float       iso_speed; 
@@ -227,6 +265,7 @@ typedef struct
     time_t      timestamp; 
     unsigned    shot_order;
     unsigned    gpsdata[32];
+	libraw_gps_info_t parsed_gps;
     char        desc[512],
                 artist[64];
 } libraw_imgother_t;
@@ -258,7 +297,6 @@ typedef struct
     int         user_qual;      /* -q */
     int         user_black;     /* -k */
     int		user_cblack[4];
-    int		sony_arw2_hack;
     int         user_sat;       /* -S */
 
     int         med_passes;     /* -m */
@@ -309,6 +347,12 @@ typedef struct
   int sraw_ycc;
   /* Force use x3f data decoding either if demosaic pack GPL2 enabled */
   int force_foveon_x3f;
+  int x3f_flags;
+  /* Sony ARW2 digging mode */
+  int sony_arw2_options;
+  int sony_arw2_posterization_thr;
+  /* Nikon Coolscan */
+  float coolscan_nef_gamma;
 }libraw_output_params_t;
 
 typedef struct
@@ -323,7 +367,8 @@ typedef struct
   ushort        (*color3_image)[3];
     
   /* Phase One black level data; */
-  short  (*ph1_black)[2];
+  short  (*ph1_cblack)[2];
+  short  (*ph1_rblack)[2];
   /* save color and sizes here, too.... */
   libraw_iparams_t  iparams;
   libraw_image_sizes_t sizes;

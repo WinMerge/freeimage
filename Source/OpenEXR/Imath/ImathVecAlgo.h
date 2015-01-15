@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
+// Copyright (c) 2002-2012, Industrial Light & Magic, a division of Lucas
 // Digital Ltd. LLC
 // 
 // All rights reserved.
@@ -49,8 +49,9 @@
 
 #include "ImathVec.h"
 #include "ImathLimits.h"
+#include "ImathNamespace.h"
 
-namespace Imath {
+IMATH_INTERNAL_NAMESPACE_HEADER_ENTER
 
 
 //-----------------------------------------------------------------
@@ -141,6 +142,6 @@ closestVertex(const Vec &v0,
 }
 
 
-} // namespace Imath
+IMATH_INTERNAL_NAMESPACE_HEADER_EXIT
 
-#endif
+#endif // INCLUDED_IMATHVECALGO_H

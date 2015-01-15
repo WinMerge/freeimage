@@ -48,6 +48,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="WhatsNew_FIP.txt" />
+    <Text Include="WhatsNew_FIP.txt" />
   </ItemGroup>
 </Project>

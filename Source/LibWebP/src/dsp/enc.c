@@ -159,33 +159,6 @@ static void FTransform(const uint8_t* src, const uint8_t* ref, int16_t* out) {
   }
 }
 
-static void ITransformWHT(const int16_t* in, int16_t* out) {
-  int tmp[16];
-  int i;
-  for (i = 0; i < 4; ++i) {
-    const int a0 = in[0 + i] + in[12 + i];
-    const int a1 = in[4 + i] + in[ 8 + i];
-    const int a2 = in[4 + i] - in[ 8 + i];
-    const int a3 = in[0 + i] - in[12 + i];
-    tmp[0  + i] = a0 + a1;
-    tmp[8  + i] = a0 - a1;
-    tmp[4  + i] = a3 + a2;
-    tmp[12 + i] = a3 - a2;
-  }
-  for (i = 0; i < 4; ++i) {
-    const int dc = tmp[0 + i * 4] + 3;    // w/ rounder
-    const int a0 = dc             + tmp[3 + i * 4];
-    const int a1 = tmp[1 + i * 4] + tmp[2 + i * 4];
-    const int a2 = tmp[1 + i * 4] - tmp[2 + i * 4];
-    const int a3 = dc             - tmp[3 + i * 4];
-    out[ 0] = (a0 + a1) >> 3;
-    out[16] = (a3 + a2) >> 3;
-    out[32] = (a0 - a1) >> 3;
-    out[48] = (a3 - a2) >> 3;
-    out += 64;
-  }
-}
-
 static void FTransformWHT(const int16_t* in, int16_t* out) {
   // input is 12b signed
   int32_t tmp[16];
@@ -627,9 +600,10 @@ static const uint8_t kZigzag[16] = {
 
 // Simple quantization
 static int QuantizeBlock(int16_t in[16], int16_t out[16],
-                         int n, const VP8Matrix* const mtx) {
+                         const VP8Matrix* const mtx) {
   int last = -1;
-  for (; n < 16; ++n) {
+  int n;
+  for (n = 0; n < 16; ++n) {
     const int j = kZigzag[n];
     const int sign = (in[j] < 0);
     const uint32_t coeff = (sign ? -in[j] : in[j]) + mtx->sharpen_[j];
@@ -649,6 +623,14 @@ static int QuantizeBlock(int16_t in[16], int16_t out[16],
     }
   }
   return (last >= 0);
+}
+
+static int Quantize2Blocks(int16_t in[32], int16_t out[32],
+                           const VP8Matrix* const mtx) {
+  int nz;
+  nz  = VP8EncQuantizeBlock(in + 0 * 16, out + 0 * 16, mtx) << 0;
+  nz |= VP8EncQuantizeBlock(in + 1 * 16, out + 1 * 16, mtx) << 1;
+  return nz;
 }
 
 static int QuantizeBlockWHT(int16_t in[16], int16_t out[16],
@@ -699,7 +681,6 @@ static void Copy4x4(const uint8_t* src, uint8_t* dst) { Copy(src, dst, 4); }
 VP8CHisto VP8CollectHistogram;
 VP8Idct VP8ITransform;
 VP8Fdct VP8FTransform;
-VP8WHT VP8ITransformWHT;
 VP8WHT VP8FTransformWHT;
 VP8Intra4Preds VP8EncPredLuma4;
 VP8IntraPreds VP8EncPredLuma16;
@@ -711,20 +692,24 @@ VP8Metric VP8SSE4x4;
 VP8WMetric VP8TDisto4x4;
 VP8WMetric VP8TDisto16x16;
 VP8QuantizeBlock VP8EncQuantizeBlock;
+VP8Quantize2Blocks VP8EncQuantize2Blocks;
 VP8QuantizeBlockWHT VP8EncQuantizeBlockWHT;
 VP8BlockCopy VP8Copy4x4;
 
 extern void VP8EncDspInitSSE2(void);
+extern void VP8EncDspInitAVX2(void);
 extern void VP8EncDspInitNEON(void);
+extern void VP8EncDspInitMIPS32(void);
+extern void VP8EncDspInitMIPSdspR2(void);
 
-void VP8EncDspInit(void) {
+WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInit(void) {
+  VP8DspInit();  // common inverse transforms
   InitTables();
 
   // default C implementations
   VP8CollectHistogram = CollectHistogram;
   VP8ITransform = ITransform;
   VP8FTransform = FTransform;
-  VP8ITransformWHT = ITransformWHT;
   VP8FTransformWHT = FTransformWHT;
   VP8EncPredLuma4 = Intra4Preds;
   VP8EncPredLuma16 = Intra16Preds;
@@ -736,6 +721,7 @@ void VP8EncDspInit(void) {
   VP8TDisto4x4 = Disto4x4;
   VP8TDisto16x16 = Disto16x16;
   VP8EncQuantizeBlock = QuantizeBlock;
+  VP8EncQuantize2Blocks = Quantize2Blocks;
   VP8EncQuantizeBlockWHT = QuantizeBlockWHT;
   VP8Copy4x4 = Copy4x4;
 
@@ -745,11 +731,26 @@ void VP8EncDspInit(void) {
     if (VP8GetCPUInfo(kSSE2)) {
       VP8EncDspInitSSE2();
     }
-#elif defined(WEBP_USE_NEON)
+#endif
+#if defined(WEBP_USE_AVX2)
+    if (VP8GetCPUInfo(kAVX2)) {
+      VP8EncDspInitAVX2();
+    }
+#endif
+#if defined(WEBP_USE_NEON)
     if (VP8GetCPUInfo(kNEON)) {
       VP8EncDspInitNEON();
     }
 #endif
+#if defined(WEBP_USE_MIPS32)
+    if (VP8GetCPUInfo(kMIPS32)) {
+      VP8EncDspInitMIPS32();
+    }
+#endif
+#if defined(WEBP_USE_MIPS_DSP_R2)
+    if (VP8GetCPUInfo(kMIPSdspR2)) {
+      VP8EncDspInitMIPSdspR2();
+    }
+#endif
   }
 }
-

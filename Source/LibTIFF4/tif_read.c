@@ -1,4 +1,4 @@
-/* $Id: tif_read.c,v 1.8 2013/11/29 22:22:01 drolon Exp $ */
+/* $Id: tif_read.c,v 1.10 2014/11/29 17:10:32 drolon Exp $ */
 
 /*
  * Copyright (c) 1988-1997 Sam Leffler
@@ -930,8 +930,11 @@ TIFFReadBufferSetup(TIFF* tif, void* bp, tmsize_t size)
 		tif->tif_flags &= ~TIFF_MYBUFFER;
 	} else {
 		tif->tif_rawdatasize = (tmsize_t)TIFFroundup_64((uint64)size, 1024);
-		if (tif->tif_rawdatasize==0)
-			tif->tif_rawdatasize=(tmsize_t)(-1);
+		if (tif->tif_rawdatasize==0) {
+		    TIFFErrorExt(tif->tif_clientdata, module,
+				 "Invalid buffer size");
+		    return (0);
+		}
 		tif->tif_rawdata = (uint8*) _TIFFmalloc(tif->tif_rawdatasize);
 		tif->tif_flags |= TIFF_MYBUFFER;
 	}

@@ -31,6 +31,7 @@ using namespace std;
 Test saving to a memory stream
 */
 void testSaveMemIO(const char *lpszPathName) {
+	BOOL bSuccess = FALSE;
 
 	// load a regular file
 	FREE_IMAGE_FORMAT fif = FreeImage_GetFileType(lpszPathName);
@@ -40,7 +41,8 @@ void testSaveMemIO(const char *lpszPathName) {
 	fipMemoryIO memIO;
 
 	// save the file to memory
-	memIO.save(fif, dib, 0);
+	bSuccess = memIO.save(fif, dib, 0);
+	assert(bSuccess == TRUE);
 
 	// at this point, memIO contains the entire PNG data in memory. 
 	// the amount of space used by the memory is equal to file_size	
@@ -57,9 +59,11 @@ void testSaveMemIO(const char *lpszPathName) {
 	
 	// load an image from the memory handle 	
 	FIBITMAP *check = memIO.load(mem_fif, 0);
+	assert(check != NULL);
 
 	// save as a regular file
-	FreeImage_Save(FIF_PNG, check, "dump.png", PNG_DEFAULT);
+	bSuccess = FreeImage_Save(FIF_PNG, check, "dump.png", PNG_DEFAULT);
+	assert(bSuccess == TRUE);
 
 	FreeImage_Unload(check);
 	FreeImage_Unload(dib);
@@ -73,6 +77,7 @@ Test loading from a buffer attached to a memory stream
 void testLoadMemIO(const char *lpszPathName) {
 	struct stat buf;
 	int result;
+	BOOL bSuccess = FALSE;
 
 	// get data associated with lpszPathName
 	result = stat(lpszPathName, &buf);
@@ -93,9 +98,11 @@ void testLoadMemIO(const char *lpszPathName) {
 
 				// load an image from the memory stream
 				FIBITMAP *check = memIO.load(fif, PNG_DEFAULT);
+				assert(check != NULL);
 
 				// save as a regular file
-				FreeImage_Save(FIF_PNG, check, "blob.png", PNG_DEFAULT);
+				bSuccess = FreeImage_Save(FIF_PNG, check, "blob.png", PNG_DEFAULT);
+				assert(bSuccess == TRUE);
 				
 				// close the stream (memIO is destroyed)
 			}
@@ -110,6 +117,7 @@ void testLoadMemIO(const char *lpszPathName) {
 Test extracting a memory buffer from a memory stream
 */
 void testAcquireMemIO(const char *lpszPathName) {
+	BOOL bSuccess = FALSE;
 
 	// load a regular file
 	FREE_IMAGE_FORMAT fif = FreeImage_GetFileType(lpszPathName);
@@ -119,13 +127,15 @@ void testAcquireMemIO(const char *lpszPathName) {
 	fipMemoryIO memIO;
 
 	// save the file to memory
-	memIO.save(FIF_PNG, dib, PNG_DEFAULT);
+	bSuccess = memIO.save(FIF_PNG, dib, PNG_DEFAULT);
+	assert(bSuccess == TRUE);
 
 	// get the buffer from the memory stream
 	BYTE *mem_buffer = NULL;
 	DWORD size_in_bytes = 0;
 
-	memIO.acquire(&mem_buffer, &size_in_bytes);
+	bSuccess = memIO.acquire(&mem_buffer, &size_in_bytes);
+	assert(bSuccess == TRUE);
 
 	// save the buffer in a file stream
 	FILE *stream = fopen("buffer.png", "wb");
@@ -148,6 +158,7 @@ void testImageMemIO(const char *lpszPathName) {
 
 	// load a regular file
 	bSuccess = image.load(lpszPathName);
+	assert(bSuccess == TRUE);
 	if(bSuccess) {
 		// save the file to a memory stream
 		bSuccess = image.saveToMemory(FIF_PNG, memIO, PNG_DEFAULT);

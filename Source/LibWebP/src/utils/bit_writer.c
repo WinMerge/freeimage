@@ -15,7 +15,10 @@
 #include <assert.h>
 #include <string.h>   // for memcpy()
 #include <stdlib.h>
+
 #include "./bit_writer.h"
+#include "./endian_inl.h"
+#include "./utils.h"
 
 //------------------------------------------------------------------------------
 // VP8BitWriter
@@ -34,7 +37,7 @@ static int BitWriterResize(VP8BitWriter* const bw, size_t extra_size) {
   new_size = 2 * bw->max_pos_;
   if (new_size < needed_size) new_size = needed_size;
   if (new_size < 1024) new_size = 1024;
-  new_buf = (uint8_t*)malloc(new_size);
+  new_buf = (uint8_t*)WebPSafeMalloc(1ULL, new_size);
   if (new_buf == NULL) {
     bw->error_ = 1;
     return 0;
@@ -43,13 +46,13 @@ static int BitWriterResize(VP8BitWriter* const bw, size_t extra_size) {
     assert(bw->buf_ != NULL);
     memcpy(new_buf, bw->buf_, bw->pos_);
   }
-  free(bw->buf_);
+  WebPSafeFree(bw->buf_);
   bw->buf_ = new_buf;
   bw->max_pos_ = new_size;
   return 1;
 }
 
-static void kFlush(VP8BitWriter* const bw) {
+static void Flush(VP8BitWriter* const bw) {
   const int s = 8 + bw->nb_bits_;
   const int32_t bits = bw->value_ >> s;
   assert(bw->nb_bits_ >= 0);
@@ -115,7 +118,7 @@ int VP8PutBit(VP8BitWriter* const bw, int bit, int prob) {
     bw->range_ = kNewRange[bw->range_];
     bw->value_ <<= shift;
     bw->nb_bits_ += shift;
-    if (bw->nb_bits_ > 0) kFlush(bw);
+    if (bw->nb_bits_ > 0) Flush(bw);
   }
   return bit;
 }
@@ -132,24 +135,25 @@ int VP8PutBitUniform(VP8BitWriter* const bw, int bit) {
     bw->range_ = kNewRange[bw->range_];
     bw->value_ <<= 1;
     bw->nb_bits_ += 1;
-    if (bw->nb_bits_ > 0) kFlush(bw);
+    if (bw->nb_bits_ > 0) Flush(bw);
   }
   return bit;
 }
 
-void VP8PutValue(VP8BitWriter* const bw, int value, int nb_bits) {
-  int mask;
-  for (mask = 1 << (nb_bits - 1); mask; mask >>= 1)
+void VP8PutBits(VP8BitWriter* const bw, uint32_t value, int nb_bits) {
+  uint32_t mask;
+  assert(nb_bits > 0 && nb_bits < 32);
+  for (mask = 1u << (nb_bits - 1); mask; mask >>= 1)
     VP8PutBitUniform(bw, value & mask);
 }
 
-void VP8PutSignedValue(VP8BitWriter* const bw, int value, int nb_bits) {
+void VP8PutSignedBits(VP8BitWriter* const bw, int value, int nb_bits) {
   if (!VP8PutBitUniform(bw, value != 0))
     return;
   if (value < 0) {
-    VP8PutValue(bw, ((-value) << 1) | 1, nb_bits + 1);
+    VP8PutBits(bw, ((-value) << 1) | 1, nb_bits + 1);
   } else {
-    VP8PutValue(bw, value << 1, nb_bits + 1);
+    VP8PutBits(bw, value << 1, nb_bits + 1);
   }
 }
 
@@ -168,16 +172,16 @@ int VP8BitWriterInit(VP8BitWriter* const bw, size_t expected_size) {
 }
 
 uint8_t* VP8BitWriterFinish(VP8BitWriter* const bw) {
-  VP8PutValue(bw, 0, 9 - bw->nb_bits_);
+  VP8PutBits(bw, 0, 9 - bw->nb_bits_);
   bw->nb_bits_ = 0;   // pad with zeroes
-  kFlush(bw);
+  Flush(bw);
   return bw->buf_;
 }
 
 int VP8BitWriterAppend(VP8BitWriter* const bw,
                        const uint8_t* data, size_t size) {
-  assert(data);
-  if (bw->nb_bits_ != -8) return 0;   // kFlush() must have been called
+  assert(data != NULL);
+  if (bw->nb_bits_ != -8) return 0;   // Flush() must have been called
   if (!BitWriterResize(bw, size)) return 0;
   memcpy(bw->buf_ + bw->pos_, data, size);
   bw->pos_ += size;
@@ -185,8 +189,8 @@ int VP8BitWriterAppend(VP8BitWriter* const bw,
 }
 
 void VP8BitWriterWipeOut(VP8BitWriter* const bw) {
-  if (bw) {
-    free(bw->buf_);
+  if (bw != NULL) {
+    WebPSafeFree(bw->buf_);
     memset(bw, 0, sizeof(*bw));
   }
 }
@@ -200,33 +204,7 @@ void VP8BitWriterWipeOut(VP8BitWriter* const bw) {
 
 #define VP8L_WRITER_BYTES ((int)sizeof(vp8l_wtype_t))
 #define VP8L_WRITER_BITS (VP8L_WRITER_BYTES * 8)
-
-//  endian-specific htoleXX() definition
-// TODO(skal): move this to config.h, and collect all the endian-related code
-// in a proper .h file
-#if defined(_WIN32)
-#if !defined(_M_PPC)
-#define htole32(x) (x)
-#define htole16(x) (x)
-#else     // PPC is BIG_ENDIAN
-#include <stdlib.h>
-#define htole32(x) (_byteswap_ulong((unsigned long)(x)))
-#define htole16(x) (_byteswap_ushort((unsigned short)(x)))
-#endif    // _M_PPC
-#elif defined(__OpenBSD__) || defined(__NetBSD__) || defined(__FreeBSD__) || \
-      defined(__DragonFly__)
-#include <sys/endian.h>
-#elif defined(__APPLE__)
-#include <libkern/OSByteOrder.h>
-#define htole32 OSSwapHostToLittleInt32
-#define htole16 OSSwapHostToLittleInt16
-#elif defined(__native_client__) && !defined(__GLIBC__)
-// NaCl without glibc is assumed to be little-endian
-#define htole32(x) (x)
-#define htole16(x) (x)
-#else     // pretty much all linux and/or glibc
-#include <endian.h>
-#endif
+#define VP8L_WRITER_MAX_BITS (8 * (int)sizeof(vp8l_atype_t))
 
 // Returns 1 on success.
 static int VP8LBitWriterResize(VP8LBitWriter* const bw, size_t extra_size) {
@@ -245,7 +223,7 @@ static int VP8LBitWriterResize(VP8LBitWriter* const bw, size_t extra_size) {
   if (allocated_size < size_required) allocated_size = size_required;
   // make allocated size multiple of 1k
   allocated_size = (((allocated_size >> 10) + 1) << 10);
-  allocated_buf = (uint8_t*)malloc(allocated_size);
+  allocated_buf = (uint8_t*)WebPSafeMalloc(1ULL, allocated_size);
   if (allocated_buf == NULL) {
     bw->error_ = 1;
     return 0;
@@ -253,7 +231,7 @@ static int VP8LBitWriterResize(VP8LBitWriter* const bw, size_t extra_size) {
   if (current_size > 0) {
     memcpy(allocated_buf, bw->buf_, current_size);
   }
-  free(bw->buf_);
+  WebPSafeFree(bw->buf_);
   bw->buf_ = allocated_buf;
   bw->cur_ = bw->buf_ + current_size;
   bw->end_ = bw->buf_ + allocated_size;
@@ -265,31 +243,52 @@ int VP8LBitWriterInit(VP8LBitWriter* const bw, size_t expected_size) {
   return VP8LBitWriterResize(bw, expected_size);
 }
 
-void VP8LBitWriterDestroy(VP8LBitWriter* const bw) {
+void VP8LBitWriterWipeOut(VP8LBitWriter* const bw) {
   if (bw != NULL) {
-    free(bw->buf_);
+    WebPSafeFree(bw->buf_);
     memset(bw, 0, sizeof(*bw));
   }
 }
 
-void VP8LWriteBits(VP8LBitWriter* const bw, int n_bits, uint32_t bits) {
-  if (n_bits <= 0) return;
-  bw->bits_ |= (vp8l_atype_t)bits << bw->used_;
-  bw->used_ += n_bits;
-  if (bw->used_ > VP8L_WRITER_BITS) {
-    if (bw->cur_ + VP8L_WRITER_BYTES > bw->end_) {
-      const uint64_t extra_size = (bw->end_ - bw->buf_) + MIN_EXTRA_SIZE;
-      if (extra_size != (size_t)extra_size ||
-          !VP8LBitWriterResize(bw, (size_t)extra_size)) {
-        bw->cur_ = bw->buf_;
-        bw->error_ = 1;
-        return;
+void VP8LPutBits(VP8LBitWriter* const bw, uint32_t bits, int n_bits) {
+  assert(n_bits <= 32);
+  // That's the max we can handle:
+  assert(bw->used_ + n_bits <= 2 * VP8L_WRITER_MAX_BITS);
+  if (n_bits > 0) {
+    // Local field copy.
+    vp8l_atype_t lbits = bw->bits_;
+    int used = bw->used_;
+    // Special case of overflow handling for 32bit accumulator (2-steps flush).
+    if (VP8L_WRITER_BITS == 16) {
+      if (used + n_bits >= VP8L_WRITER_MAX_BITS) {
+        // Fill up all the VP8L_WRITER_MAX_BITS so it can be flushed out below.
+        const int shift = VP8L_WRITER_MAX_BITS - used;
+        lbits |= (vp8l_atype_t)bits << used;
+        used = VP8L_WRITER_MAX_BITS;
+        n_bits -= shift;
+        bits >>= shift;
+        assert(n_bits <= VP8L_WRITER_MAX_BITS);
       }
     }
-    *(vp8l_wtype_t*)bw->cur_ = (vp8l_wtype_t)WSWAP((vp8l_wtype_t)bw->bits_);
-    bw->cur_ += VP8L_WRITER_BYTES;
-    bw->bits_ >>= VP8L_WRITER_BITS;
-    bw->used_ -= VP8L_WRITER_BITS;
+    // If needed, make some room by flushing some bits out.
+    while (used >= VP8L_WRITER_BITS) {
+      if (bw->cur_ + VP8L_WRITER_BYTES > bw->end_) {
+        const uint64_t extra_size = (bw->end_ - bw->buf_) + MIN_EXTRA_SIZE;
+        if (extra_size != (size_t)extra_size ||
+            !VP8LBitWriterResize(bw, (size_t)extra_size)) {
+          bw->cur_ = bw->buf_;
+          bw->error_ = 1;
+          return;
+        }
+      }
+      *(vp8l_wtype_t*)bw->cur_ = (vp8l_wtype_t)WSWAP((vp8l_wtype_t)lbits);
+      bw->cur_ += VP8L_WRITER_BYTES;
+      lbits >>= VP8L_WRITER_BITS;
+      used -= VP8L_WRITER_BITS;
+    }
+    // Eventually, insert new bits.
+    bw->bits_ = lbits | ((vp8l_atype_t)bits << used);
+    bw->used_ = used + n_bits;
   }
 }
 
@@ -307,4 +306,3 @@ uint8_t* VP8LBitWriterFinish(VP8LBitWriter* const bw) {
 }
 
 //------------------------------------------------------------------------------
-

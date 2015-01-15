@@ -1,4 +1,4 @@
-/* $Id: tif_dir.c,v 1.9 2014/02/07 22:51:11 drolon Exp $ */
+/* $Id: tif_dir.c,v 1.11 2014/11/29 17:10:31 drolon Exp $ */
 
 /*
  * Copyright (c) 1988-1997 Sam Leffler
@@ -163,7 +163,8 @@ _TIFFVSetField(TIFF* tif, uint32 tag, va_list ap)
 	char* s;
 	const TIFFField *fip = TIFFFindField(tif, tag, TIFF_ANY);
 	uint32 standard_tag = tag;
-
+	if( fip == NULL ) /* cannot happen since OkToChangeTag() already checks it */
+	    return 0;
 	/*
 	 * We want to force the custom code to be used for custom
 	 * fields even if the tag happens to match a well known 
@@ -449,11 +450,11 @@ _TIFFVSetField(TIFF* tif, uint32 tag, va_list ap)
 		 * happens, for example, when tiffcp is used to convert between
 		 * compression schemes and codec-specific tags are blindly copied.
 		 */
-		if(fip == NULL || fip->field_bit != FIELD_CUSTOM) {
+		if(fip->field_bit != FIELD_CUSTOM) {
 			TIFFErrorExt(tif->tif_clientdata, module,
 			    "%s: Invalid %stag \"%s\" (not supported by codec)",
 			    tif->tif_name, isPseudoTag(tag) ? "pseudo-" : "",
-			    fip ? fip->field_name : "Unknown");
+			    fip->field_name);
 			status = 0;
 			break;
 		}
@@ -809,6 +810,8 @@ _TIFFVGetField(TIFF* tif, uint32 tag, va_list ap)
 	int ret_val = 1;
 	uint32 standard_tag = tag;
 	const TIFFField* fip = TIFFFindField(tif, tag, TIFF_ANY);
+	if( fip == NULL ) /* cannot happen since TIFFGetField() already checks it */
+	    return 0;
 	
 	/*
 	 * We want to force the custom code to be used for custom
@@ -1006,14 +1009,14 @@ _TIFFVGetField(TIFF* tif, uint32 tag, va_list ap)
 				 * get a tag that is not valid for the image's
 				 * codec then we'll arrive here.
 				 */
-				if( fip == NULL || fip->field_bit != FIELD_CUSTOM )
+				if( fip->field_bit != FIELD_CUSTOM )
 				{
 					TIFFErrorExt(tif->tif_clientdata, "_TIFFVGetField",
 					    "%s: Invalid %stag \"%s\" "
 					    "(not supported by codec)",
 					    tif->tif_name,
 					    isPseudoTag(tag) ? "pseudo-" : "",
-					    fip ? fip->field_name : "Unknown");
+					    fip->field_name);
 					ret_val = 0;
 					break;
 				}
