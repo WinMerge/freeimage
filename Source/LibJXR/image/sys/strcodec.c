@@ -664,7 +664,7 @@ ERR detach_SB(SimpleBitIO* pSB)
 //================================================================
 // Memory access functions
 //================================================================
-#if (defined(WIN32) && !defined(UNDER_CE) && !defined(__MINGW32__)) || (defined(UNDER_CE) && defined(_ARM_))
+#if (defined(WIN32) && !defined(UNDER_CE) && (!defined(__MINGW32__) || defined(__MINGW64_TOOLCHAIN__))) || (defined(UNDER_CE) && defined(_ARM_))
 // WinCE ARM and Desktop x86
 #else
 // other platform

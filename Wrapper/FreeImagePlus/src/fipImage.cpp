@@ -169,8 +169,12 @@ BITMAPINFOHEADER* fipImage::getInfoHeader() const {
 	return FreeImage_GetInfoHeader(_dib);
 }
 
-LONG fipImage::getImageSize() const {
+unsigned fipImage::getImageSize() const {
 	return FreeImage_GetDIBSize(_dib);
+}
+
+unsigned fipImage::getImageMemorySize() const {
+	return FreeImage_GetMemorySize(_dib);
 }
 
 unsigned fipImage::getBitsPerPixel() const {
@@ -633,6 +637,14 @@ BOOL fipImage::convertToRGBF() {
 	return FALSE;
 }
 
+BOOL fipImage::convertToRGBAF() {
+	if(_dib) {
+		FIBITMAP *dib = FreeImage_ConvertToRGBAF(_dib);
+		return replace(dib);
+	}
+	return FALSE;
+}
+
 BOOL fipImage::convertToUINT16() {
 	if(_dib) {
 		FIBITMAP *dib = FreeImage_ConvertToUINT16(_dib);
@@ -644,6 +656,14 @@ BOOL fipImage::convertToUINT16() {
 BOOL fipImage::convertToRGB16() {
 	if(_dib) {
 		FIBITMAP *dib = FreeImage_ConvertToRGB16(_dib);
+		return replace(dib);
+	}
+	return FALSE;
+}
+
+BOOL fipImage::convertToRGBA16() {
+	if(_dib) {
+		FIBITMAP *dib = FreeImage_ConvertToRGBA16(_dib);
 		return replace(dib);
 	}
 	return FALSE;

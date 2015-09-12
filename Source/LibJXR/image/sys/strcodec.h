@@ -62,7 +62,7 @@
 //#ifdef WIN32
 #if defined(WIN32) && !defined(UNDER_CE)   // WIN32 seems to be defined always in VS2005 for ARM platform
 #define PLATFORM_X86
-#include "..\x86\x86.h"
+#include "../x86/x86.h"
 #endif
 
 #ifndef UNREFERENCED_PARAMETER

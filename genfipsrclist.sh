@@ -4,7 +4,7 @@ DIRLIST=". Source Source/Metadata Source/FreeImageToolkit Source/LibJPEG Source/
 
 
 echo "VER_MAJOR = 3" > fipMakefile.srcs
-echo "VER_MINOR = 16.1" >> fipMakefile.srcs
+echo "VER_MINOR = 17.0" >> fipMakefile.srcs
 
 echo -n "SRCS = " >> fipMakefile.srcs
 for DIR in $DIRLIST; do

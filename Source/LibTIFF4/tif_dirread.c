@@ -1,4 +1,4 @@
-/* $Id: tif_dirread.c,v 1.10 2014/11/29 17:10:31 drolon Exp $ */
+/* $Id: tif_dirread.c,v 1.11 2015/02/19 22:39:58 drolon Exp $ */
 
 /*
  * Copyright (c) 1988-1997 Sam Leffler
@@ -3430,6 +3430,8 @@ TIFFReadDirectory(TIFF* tif)
 	const TIFFField* fip;
 	uint32 fii=FAILED_FII;
         toff_t nextdiroff;
+    int bitspersample_read = FALSE;
+
 	tif->tif_diroff=tif->tif_nextdiroff;
 	if (!TIFFCheckDirOffset(tif,tif->tif_nextdiroff))
 		return 0;           /* last offset or bad offset (IFD looping) */
@@ -3706,6 +3708,8 @@ TIFFReadDirectory(TIFF* tif)
 					}
 					if (!TIFFSetField(tif,dp->tdir_tag,value))
 						goto bad;
+                    if( dp->tdir_tag == TIFFTAG_BITSPERSAMPLE )
+                        bitspersample_read = TRUE;
 				}
 				break;
 			case TIFFTAG_SMINSAMPLEVALUE:
@@ -3763,6 +3767,19 @@ TIFFReadDirectory(TIFF* tif)
 					uint32 countrequired;
 					uint32 incrementpersample;
 					uint16* value=NULL;
+                    /* It would be dangerous to instanciate those tag values */
+                    /* since if td_bitspersample has not yet been read (due to */
+                    /* unordered tags), it could be read afterwards with a */
+                    /* values greater than the default one (1), which may cause */
+                    /* crashes in user code */
+                    if( !bitspersample_read )
+                    {
+                        fip = TIFFFieldWithTag(tif,dp->tdir_tag);
+                        TIFFWarningExt(tif->tif_clientdata,module,
+                                       "Ignoring %s since BitsPerSample tag not found",
+                                       fip ? fip->field_name : "unknown tagname");
+                        continue;
+                    }
 					countpersample=(1L<<tif->tif_dir.td_bitspersample);
 					if ((dp->tdir_tag==TIFFTAG_TRANSFERFUNCTION)&&(dp->tdir_count==(uint64)countpersample))
 					{
@@ -4278,7 +4295,8 @@ EstimateStripByteCounts(TIFF* tif, TIFFDirEntry* dir, uint16 dircount)
 	TIFFDirectory *td = &tif->tif_dir;
 	uint32 strip;
 
-    _TIFFFillStriles( tif );
+    if( !_TIFFFillStriles( tif ) )
+        return -1;
 
 	if (td->td_stripbytecount)
 		_TIFFfree(td->td_stripbytecount);
@@ -4377,6 +4395,11 @@ TIFFCheckDirOffset(TIFF* tif, uint64 diroff)
 
 	if (diroff == 0)			/* no more directories */
 		return 0;
+	if (tif->tif_dirnumber == 65535) {
+	    TIFFErrorExt(tif->tif_clientdata, "TIFFCheckDirOffset",
+			 "Cannot handle more than 65535 TIFF directories");
+	    return 0;
+	}
 
 	for (n = 0; n < tif->tif_dirnumber && tif->tif_dirlist; n++) {
 		if (tif->tif_dirlist[n] == diroff)
@@ -4396,7 +4419,10 @@ TIFFCheckDirOffset(TIFF* tif, uint64 diroff)
 		    tif->tif_dirnumber, 2 * sizeof(uint64), "for IFD list");
 		if (!new_dirlist)
 			return 0;
-		tif->tif_dirlistsize = 2 * tif->tif_dirnumber;
+		if( tif->tif_dirnumber >= 32768 )
+		    tif->tif_dirlistsize = 65535;
+		else
+		    tif->tif_dirlistsize = 2 * tif->tif_dirnumber;
 		tif->tif_dirlist = new_dirlist;
 	}
 

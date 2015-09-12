@@ -26,25 +26,25 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -302,10 +302,13 @@ copy Source\FreeImage.h Dist\x64
   <ItemGroup>
     <ClCompile Include="Source\FreeImage\BitmapAccess.cpp" />
     <ClCompile Include="Source\FreeImage\ColorLookup.cpp" />
+    <ClCompile Include="Source\FreeImage\ConversionRGBA16.cpp" />
+    <ClCompile Include="Source\FreeImage\ConversionRGBAF.cpp" />
     <ClCompile Include="Source\FreeImage\FreeImage.cpp" />
     <ClCompile Include="Source\FreeImage\FreeImageC.c" />
     <ClCompile Include="Source\FreeImage\FreeImageIO.cpp" />
     <ClCompile Include="Source\FreeImage\GetType.cpp" />
+    <ClCompile Include="Source\FreeImage\LFPQuantizer.cpp" />
     <ClCompile Include="Source\FreeImage\MemoryIO.cpp" />
     <ClCompile Include="Source\FreeImage\PixelAccess.cpp" />
     <ClCompile Include="Source\FreeImage\J2KHelper.cpp" />
@@ -396,6 +399,7 @@ copy Source\FreeImage.h Dist\x64
   <ItemGroup>
     <ClInclude Include="Source\CacheFile.h" />
     <ClInclude Include="Source\DeprecationManager\DeprecationMgr.h" />
+    <ClInclude Include="Source\MapIntrospector.h" />
     <ClInclude Include="Source\Metadata\FIRational.h" />
     <ClInclude Include="Source\FreeImage.h" />
     <ClInclude Include="Source\FreeImageIO.h" />

@@ -31,6 +31,45 @@ enum LibRaw_colormatrix_type
  LIBRAW_CMATRIX_OTHER=4
 };
 
+enum LibRaw_camera_mounts
+  {
+    LIBRAW_MOUNT_Unknown=0,
+    LIBRAW_MOUNT_Minolta_A=1,
+    LIBRAW_MOUNT_Sony_E=2,
+    LIBRAW_MOUNT_Canon_EF=3,
+    LIBRAW_MOUNT_Canon_EF_S=4,
+    LIBRAW_MOUNT_Canon_EF_M=5,
+    LIBRAW_MOUNT_Nikon_F=6,
+    LIBRAW_MOUNT_Nikon_CX=7,	// used in Nikon 1 series
+    LIBRAW_MOUNT_FT=8,	// original 4/3
+    LIBRAW_MOUNT_mFT=9,	// micro 4/3
+    LIBRAW_MOUNT_Pentax_K=10,
+    LIBRAW_MOUNT_Pentax_Q=11,
+    LIBRAW_MOUNT_Pentax_645=12,
+    LIBRAW_MOUNT_Fuji_X=13,
+    LIBRAW_MOUNT_Leica_M=14,
+    LIBRAW_MOUNT_Leica_R=15,
+    LIBRAW_MOUNT_Leica_S=16,
+    LIBRAW_MOUNT_Samsung_NX=17,
+    LIBRAW_MOUNT_RicohModule=18,
+    LIBRAW_MOUNT_Samsung_NX_M=19,
+    LIBRAW_MOUNT_Leica_T=20,
+    LIBRAW_MOUNT_Contax_N=21,
+    LIBRAW_MOUNT_Sigma_X3F=22,
+    LIBRAW_MOUNT_FixedLens=99
+  };
+
+enum LibRaw_camera_formats
+  {
+
+    LIBRAW_FORMAT_APSC=1,
+    LIBRAW_FORMAT_FF=2,
+    LIBRAW_FORMAT_MF=3,
+    LIBRAW_FORMAT_APSH=4,
+    LIBRAW_FORMAT_FT=8	
+  };
+
+
 enum LibRaw_sonyarw2_options
 {
   LIBRAW_SONYARW2_NONE=0,
@@ -48,14 +87,14 @@ enum LibRaw_dp2q_options
 
 enum LibRaw_decoder_flags
 {
-    LIBRAW_DECODER_LEGACY = 1,      
-    LIBRAW_DECODER_FLATFIELD = 1<<1,
+  //    LIBRAW_DECODER_LEGACY = 1,      
+  //  LIBRAW_DECODER_FLATFIELD = 1<<1,
     LIBRAW_DECODER_USEBAYER2 = 1<<3,
     LIBRAW_DECODER_HASCURVE = 1<<4,
     LIBRAW_DECODER_SONYARW2 = 1<<5,
     LIBRAW_DECODER_TRYRAWSPEED = 1<<6,
     LIBRAW_DECODER_OWNALLOC = 1<<7,
-	LIBRAW_DECODER_FIXEDMAXC = 1<<8,
+    LIBRAW_DECODER_FIXEDMAXC = 1<<8,
     LIBRAW_DECODER_NOTSET = 1<<15
 };
 
@@ -85,7 +124,8 @@ enum LibRaw_warnings
     LIBRAW_WARN_NO_JASPER = 1<<11,
     LIBRAW_WARN_RAWSPEED_PROBLEM = 1<<12,
     LIBRAW_WARN_RAWSPEED_UNSUPPORTED = 1<<13,
-    LIBRAW_WARN_RAWSPEED_PROCESSED = 1<<14
+    LIBRAW_WARN_RAWSPEED_PROCESSED = 1<<14,
+    LIBRAW_WARN_FALLBACK_TO_AHD = 1<<15
 };
 
 enum LibRaw_exceptions
@@ -102,7 +142,7 @@ enum LibRaw_exceptions
     LIBRAW_EXCEPTION_DECODE_JPEG2000=9
 };
 
-
+#if 0
 enum LibRaw_colorstate
 {
     LIBRAW_COLORSTATE_UNKNOWN   =0,
@@ -114,6 +154,7 @@ enum LibRaw_colorstate
     LIBRAW_COLORSTATE_RESERVED2 =6,
     LIBRAW_COLORSTATE_RESERVED3 =7
 };
+#endif
 
 enum LibRaw_progress
 {

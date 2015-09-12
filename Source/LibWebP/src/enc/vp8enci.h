@@ -69,64 +69,33 @@ typedef enum {   // Rate-distortion optimization levels
   RD_OPT_TRELLIS_ALL = 3   // trellis-quant for every scoring (much slower)
 } VP8RDLevel;
 
-// YUV-cache parameters. Cache is 16-pixels wide.
-// The original or reconstructed samples can be accessed using VP8Scan[]
+// YUV-cache parameters. Cache is 32-bytes wide (= one cacheline).
+// The original or reconstructed samples can be accessed using VP8Scan[].
 // The predicted blocks can be accessed using offsets to yuv_p_ and
-// the arrays VP8*ModeOffsets[];
-//         +----+      YUV Samples area. See VP8Scan[] for accessing the blocks.
-//  Y_OFF  |YYYY| <- original samples  ('yuv_in_')
-//         |YYYY|
-//         |YYYY|
-//         |YYYY|
-//  U_OFF  |UUVV| V_OFF  (=U_OFF + 8)
-//         |UUVV|
-//         +----+
-//  Y_OFF  |YYYY| <- compressed/decoded samples  ('yuv_out_')
-//         |YYYY|    There are two buffers like this ('yuv_out_'/'yuv_out2_')
-//         |YYYY|
-//         |YYYY|
-//  U_OFF  |UUVV| V_OFF
-//         |UUVV|
-//          x2 (for yuv_out2_)
-//         +----+     Prediction area ('yuv_p_', size = PRED_SIZE)
-// I16DC16 |YYYY|  Intra16 predictions (16x16 block each)
-//         |YYYY|
-//         |YYYY|
-//         |YYYY|
-// I16TM16 |YYYY|
-//         |YYYY|
-//         |YYYY|
-//         |YYYY|
-// I16VE16 |YYYY|
-//         |YYYY|
-//         |YYYY|
-//         |YYYY|
-// I16HE16 |YYYY|
-//         |YYYY|
-//         |YYYY|
-//         |YYYY|
-//         +----+  Chroma U/V predictions (16x8 block each)
-// C8DC8   |UUVV|
-//         |UUVV|
-// C8TM8   |UUVV|
-//         |UUVV|
-// C8VE8   |UUVV|
-//         |UUVV|
-// C8HE8   |UUVV|
-//         |UUVV|
-//         +----+  Intra 4x4 predictions (4x4 block each)
-//         |YYYY| I4DC4 I4TM4 I4VE4 I4HE4
-//         |YYYY| I4RD4 I4VR4 I4LD4 I4VL4
-//         |YY..| I4HD4 I4HU4 I4TMP
-//         +----+
-#define BPS       16   // this is the common stride
-#define Y_SIZE   (BPS * 16)
-#define UV_SIZE  (BPS * 8)
-#define YUV_SIZE (Y_SIZE + UV_SIZE)
-#define PRED_SIZE (6 * 16 * BPS + 12 * BPS)
+// the arrays VP8*ModeOffsets[].
+// * YUV Samples area (yuv_in_/yuv_out_/yuv_out2_)
+//   (see VP8Scan[] for accessing the blocks, along with Y_OFF/U_OFF/V_OFF):
+//         +----+----+
+//  Y_OFF  |YYYY|UUVV|
+//  U_OFF  |YYYY|UUVV|
+//  V_OFF  |YYYY|....| <- 25% wasted U/V area
+//         |YYYY|....|
+//         +----+----+
+// * Prediction area ('yuv_p_', size = PRED_SIZE)
+//   Intra16 predictions (16x16 block each, two per row):
+//         |I16DC16|I16TM16|
+//         |I16VE16|I16HE16|
+//   Chroma U/V predictions (16x8 block each, two per row):
+//         |C8DC8|C8TM8|
+//         |C8VE8|C8HE8|
+//   Intra 4x4 predictions (4x4 block each)
+//         |I4DC4 I4TM4 I4VE4 I4HE4|I4RD4 I4VR4 I4LD4 I4VL4|
+//         |I4HD4 I4HU4 I4TMP .....|.......................| <- ~31% wasted
+#define YUV_SIZE (BPS * 16)
+#define PRED_SIZE (32 * BPS + 16 * BPS + 8 * BPS)   // I16+Chroma+I4 preds
 #define Y_OFF    (0)
-#define U_OFF    (Y_SIZE)
-#define V_OFF    (U_OFF + 8)
+#define U_OFF    (16)
+#define V_OFF    (16 + 8)
 #define ALIGN_CST 15
 #define DO_ALIGN(PTR) ((uintptr_t)((PTR) + ALIGN_CST) & ~ALIGN_CST)
 
@@ -138,26 +107,26 @@ extern const int VP8I4ModeOffsets[NUM_BMODES];
 // Layout of prediction blocks
 // intra 16x16
 #define I16DC16 (0 * 16 * BPS)
-#define I16TM16 (1 * 16 * BPS)
-#define I16VE16 (2 * 16 * BPS)
-#define I16HE16 (3 * 16 * BPS)
+#define I16TM16 (I16DC16 + 16)
+#define I16VE16 (1 * 16 * BPS)
+#define I16HE16 (I16VE16 + 16)
 // chroma 8x8, two U/V blocks side by side (hence: 16x8 each)
-#define C8DC8 (4 * 16 * BPS)
-#define C8TM8 (4 * 16 * BPS + 8 * BPS)
-#define C8VE8 (5 * 16 * BPS)
-#define C8HE8 (5 * 16 * BPS + 8 * BPS)
+#define C8DC8 (2 * 16 * BPS)
+#define C8TM8 (C8DC8 + 1 * 16)
+#define C8VE8 (2 * 16 * BPS + 8 * BPS)
+#define C8HE8 (C8VE8 + 1 * 16)
 // intra 4x4
-#define I4DC4 (6 * 16 * BPS +  0)
-#define I4TM4 (6 * 16 * BPS +  4)
-#define I4VE4 (6 * 16 * BPS +  8)
-#define I4HE4 (6 * 16 * BPS + 12)
-#define I4RD4 (6 * 16 * BPS + 4 * BPS +  0)
-#define I4VR4 (6 * 16 * BPS + 4 * BPS +  4)
-#define I4LD4 (6 * 16 * BPS + 4 * BPS +  8)
-#define I4VL4 (6 * 16 * BPS + 4 * BPS + 12)
-#define I4HD4 (6 * 16 * BPS + 8 * BPS +  0)
-#define I4HU4 (6 * 16 * BPS + 8 * BPS +  4)
-#define I4TMP (6 * 16 * BPS + 8 * BPS +  8)
+#define I4DC4 (3 * 16 * BPS +  0)
+#define I4TM4 (I4DC4 +  4)
+#define I4VE4 (I4DC4 +  8)
+#define I4HE4 (I4DC4 + 12)
+#define I4RD4 (I4DC4 + 16)
+#define I4VR4 (I4DC4 + 20)
+#define I4LD4 (I4DC4 + 24)
+#define I4VL4 (I4DC4 + 28)
+#define I4HD4 (3 * 16 * BPS + 4 * BPS)
+#define I4HU4 (I4HD4 + 4)
+#define I4TMP (I4HD4 + 8)
 
 typedef int64_t score_t;     // type used for scores, rate, distortion
 // Note that MAX_COST is not the maximum allowed by sizeof(score_t),
@@ -172,14 +141,6 @@ static WEBP_INLINE int QUANTDIV(uint32_t n, uint32_t iQ, uint32_t B) {
   return (int)((n * iQ + B) >> QFIX);
 }
 
-// size of histogram used by CollectHistogram.
-#define MAX_COEFF_THRESH   31
-typedef struct VP8Histogram VP8Histogram;
-struct VP8Histogram {
-  // TODO(skal): we only need to store the max_value and last_non_zero actually.
-  int distribution[MAX_COEFF_THRESH + 1];
-};
-
 // Uncomment the following to remove token-buffer code:
 // #define DISABLE_TOKEN_BUFFER
 
@@ -190,6 +151,8 @@ typedef uint32_t proba_t;   // 16b + 16b
 typedef uint8_t ProbaArray[NUM_CTX][NUM_PROBAS];
 typedef proba_t StatsArray[NUM_CTX][NUM_PROBAS];
 typedef uint16_t CostArray[NUM_CTX][MAX_VARIABLE_LEVEL + 1];
+typedef const uint16_t* (*CostArrayPtr)[NUM_CTX];   // for easy casting
+typedef const uint16_t* CostArrayMap[16][NUM_CTX];
 typedef double LFStats[NUM_MB_SEGMENTS][MAX_LF_LEVELS];  // filter stats
 
 typedef struct VP8Encoder VP8Encoder;
@@ -209,6 +172,7 @@ typedef struct {
   ProbaArray coeffs_[NUM_TYPES][NUM_BANDS];      // 1056 bytes
   StatsArray stats_[NUM_TYPES][NUM_BANDS];       // 4224 bytes
   CostArray level_cost_[NUM_TYPES][NUM_BANDS];   // 13056 bytes
+  CostArrayMap remapped_costs_[NUM_TYPES];       // 1536 bytes
   int dirty_;               // if true, need to call VP8CalculateLevelCosts()
   int use_skip_proba_;      // Note: we always use skip_proba for now.
   int nb_skip_;             // number of skipped blocks
@@ -381,7 +345,8 @@ int VP8EmitTokens(VP8TBuffer* const b, VP8BitWriter* const bw,
                   const uint8_t* const probas, int final_pass);
 
 // record the coding of coefficients without knowing the probabilities yet
-int VP8RecordCoeffTokens(int ctx, int coeff_type, int first, int last,
+int VP8RecordCoeffTokens(const int ctx, const int coeff_type,
+                         int first, int last,
                          const int16_t* const coeffs,
                          VP8TBuffer* const tokens);
 
@@ -486,7 +451,6 @@ int VP8EncWrite(VP8Encoder* const enc);
 void VP8EncFreeBitWriters(VP8Encoder* const enc);
 
   // in frame.c
-extern const uint8_t VP8EncBands[16 + 1];
 extern const uint8_t VP8Cat3[];
 extern const uint8_t VP8Cat4[];
 extern const uint8_t VP8Cat5[];

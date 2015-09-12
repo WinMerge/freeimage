@@ -73,6 +73,7 @@ int main(int argc, char *argv[]) {
 
 	// test memory IO
 	testMemIO("sample.png");
+	testMemIO("exif.jxr");
 
 	// test multipage functions
 	testMultiPage("sample.png");

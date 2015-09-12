@@ -1,4 +1,4 @@
-/* $Id: tif_dir.c,v 1.11 2014/11/29 17:10:31 drolon Exp $ */
+/* $Id: tif_dir.c,v 1.12 2015/02/19 22:39:58 drolon Exp $ */
 
 /*
  * Copyright (c) 1988-1997 Sam Leffler
@@ -160,6 +160,7 @@ _TIFFVSetField(TIFF* tif, uint32 tag, va_list ap)
 	TIFFDirectory* td = &tif->tif_dir;
 	int status = 1;
 	uint32 v32, i, v;
+    double dblval;
 	char* s;
 	const TIFFField *fip = TIFFFindField(tif, tag, TIFF_ANY);
 	uint32 standard_tag = tag;
@@ -284,10 +285,16 @@ _TIFFVSetField(TIFF* tif, uint32 tag, va_list ap)
 			setDoubleArrayOneValue(&td->td_smaxsamplevalue, va_arg(ap, double), td->td_samplesperpixel);
 		break;
 	case TIFFTAG_XRESOLUTION:
-		td->td_xresolution = (float) va_arg(ap, double);
+        dblval = va_arg(ap, double);
+        if( dblval < 0 )
+            goto badvaluedouble;
+		td->td_xresolution = (float) dblval;
 		break;
 	case TIFFTAG_YRESOLUTION:
-		td->td_yresolution = (float) va_arg(ap, double);
+        dblval = va_arg(ap, double);
+        if( dblval < 0 )
+            goto badvaluedouble;
+		td->td_yresolution = (float) dblval;
 		break;
 	case TIFFTAG_PLANARCONFIG:
 		v = (uint16) va_arg(ap, uint16_vap);
@@ -694,6 +701,16 @@ badvalue32:
 		va_end(ap);
         }
 	return (0);
+badvaluedouble:
+        {
+        const TIFFField* fip=TIFFFieldWithTag(tif,tag);
+        TIFFErrorExt(tif->tif_clientdata, module,
+             "%s: Bad value %f for \"%s\" tag",
+             tif->tif_name, dblval,
+             fip ? fip->field_name : "Unknown");
+        va_end(ap);
+        }
+    return (0);
 }
 
 /*
@@ -1305,8 +1322,20 @@ TIFFDefaultDirectory(TIFF* tif)
 	tif->tif_tagmethods.printdir = NULL;
 	/*
 	 *  Give client code a chance to install their own
-	 *  tag extensions & methods, prior to compression overloads.
+	 *  tag extensions & methods, prior to compression overloads,
+	 *  but do some prior cleanup first. (http://trac.osgeo.org/gdal/ticket/5054)
 	 */
+	if (tif->tif_nfieldscompat > 0) {
+		uint32 i;
+
+		for (i = 0; i < tif->tif_nfieldscompat; i++) {
+				if (tif->tif_fieldscompat[i].allocated_size)
+						_TIFFfree(tif->tif_fieldscompat[i].fields);
+		}
+		_TIFFfree(tif->tif_fieldscompat);
+		tif->tif_nfieldscompat = 0;
+		tif->tif_fieldscompat = NULL;
+	}
 	if (_TIFFextender)
 		(*_TIFFextender)(tif);
 	(void) TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_NONE);

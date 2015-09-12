@@ -3,7 +3,7 @@
 DIRLIST=". Source Source/Metadata Source/FreeImageToolkit Source/LibJPEG Source/LibPNG Source/LibTIFF4 Source/ZLib Source/LibOpenJPEG Source/OpenEXR Source/OpenEXR/Half Source/OpenEXR/Iex Source/OpenEXR/IlmImf Source/OpenEXR/IlmThread Source/OpenEXR/Imath Source/OpenEXR/IexMath Source/LibRawLite Source/LibRawLite/dcraw Source/LibRawLite/internal Source/LibRawLite/libraw Source/LibRawLite/src Source/LibWebP Source/LibJXR Source/LibJXR/common/include Source/LibJXR/image/sys Source/LibJXR/jxrgluelib"
 
 echo "VER_MAJOR = 3" > Makefile.srcs
-echo "VER_MINOR = 16.1" >> Makefile.srcs
+echo "VER_MINOR = 17.0" >> Makefile.srcs
 
 echo -n "SRCS = " >> Makefile.srcs
 for DIR in $DIRLIST; do

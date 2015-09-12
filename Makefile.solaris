@@ -34,9 +34,10 @@ default: all
 all: dist
 
 dist: FreeImage
-	cp *.a Dist
-	cp *.so Dist
-	cp Source/FreeImage.h Dist
+	mkdir -p Dist
+	cp *.a Dist/
+	cp *.so Dist/
+	cp Source/FreeImage.h Dist/
 
 dos2unix:
 	@$(DOS2UNIX) $(SRCS) $(INCLS)

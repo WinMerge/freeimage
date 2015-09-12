@@ -59,6 +59,18 @@ extern VP8LConvertFunc VP8LConvertBGRAToRGBA4444;
 extern VP8LConvertFunc VP8LConvertBGRAToRGB565;
 extern VP8LConvertFunc VP8LConvertBGRAToBGR;
 
+typedef void (*VP8LCollectColorBlueTransformsFunc)(
+    const uint32_t* argb, int stride,
+    int tile_width, int tile_height,
+    int green_to_blue, int red_to_blue, int histo[]);
+extern VP8LCollectColorBlueTransformsFunc VP8LCollectColorBlueTransforms;
+
+typedef void (*VP8LCollectColorRedTransformsFunc)(
+    const uint32_t* argb, int stride,
+    int tile_width, int tile_height,
+    int green_to_red, int histo[]);
+extern VP8LCollectColorRedTransformsFunc VP8LCollectColorRedTransforms;
+
 // Expose some C-only fallback functions
 void VP8LTransformColor_C(const VP8LMultipliers* const m,
                           uint32_t* data, int num_pixels);
@@ -98,7 +110,7 @@ void VP8LColorIndexInverseTransformAlpha(
     const struct VP8LTransform* const transform, int y_start, int y_end,
     const uint8_t* src, uint8_t* dst);
 
-void VP8LResidualImage(int width, int height, int bits,
+void VP8LResidualImage(int width, int height, int bits, int low_effort,
                        uint32_t* const argb, uint32_t* const argb_scratch,
                        uint32_t* const image);
 

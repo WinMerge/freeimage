@@ -6,6 +6,7 @@
 // - Hervé Drolon (drolon@infonie.fr)
 // - Jani Kajala (janik@remedy.fi)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
+// - Carsten Klein (cklein05@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
 //
@@ -372,7 +373,8 @@ FreeImage_ColorQuantizeEx(FIBITMAP *dib, FREE_IMAGE_QUANTIZE quantize, int Palet
 	if( ReserveSize < 0 ) ReserveSize = 0;
 	if( ReserveSize > PaletteSize ) ReserveSize = PaletteSize;
 	if (FreeImage_HasPixels(dib)) {
-		if (FreeImage_GetBPP(dib) == 24) {
+		const unsigned bpp = FreeImage_GetBPP(dib);
+		if((FreeImage_GetImageType(dib) == FIT_BITMAP) && (bpp == 24 || bpp == 32)) {
 			switch(quantize) {
 				case FIQ_WUQUANT :
 				{
@@ -387,15 +389,30 @@ FreeImage_ColorQuantizeEx(FIBITMAP *dib, FREE_IMAGE_QUANTIZE quantize, int Palet
 					} catch (const char *) {
 						return NULL;
 					}
+					break;
 				}
 				case FIQ_NNQUANT :
 				{
+					if (bpp == 32) {
+						// 32-bit images not supported by NNQUANT
+						return NULL;
+					}
 					// sampling factor in range 1..30. 
 					// 1 => slower (but better), 30 => faster. Default value is 1
 					const int sampling = 1;
 
 					NNQuantizer Q(PaletteSize);
 					FIBITMAP *dst = Q.Quantize(dib, ReserveSize, ReservePalette, sampling);
+					if(dst) {
+						// copy metadata from src to dst
+						FreeImage_CloneMetadata(dst, dib);
+					}
+					return dst;
+				}
+				case FIQ_LFPQUANT :
+				{
+					LFPQuantizer Q(PaletteSize);
+					FIBITMAP *dst = Q.Quantize(dib, ReserveSize, ReservePalette);
 					if(dst) {
 						// copy metadata from src to dst
 						FreeImage_CloneMetadata(dst, dib);

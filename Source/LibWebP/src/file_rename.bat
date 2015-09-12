@@ -5,33 +5,65 @@
 : copy all src WebP files into src\, then, run this script to rename files
 :
 
+setlocal
+
 : dec\
+del /Q .\dec\dec.*.c
+pushd "dec\" && for /f "delims=" %%A in ('dir /a-d /b *.c') do (
+copy /Y "%%~fA" "%%~dpAdec.%%A"
+del /Q "%%~fA"
+)
+popd
 
-copy /Y dec\alpha.c dec\dec_alpha.c
-copy /Y dec\frame.c dec\dec_frame.c
-copy /Y dec\quant.c dec\dec_quant.c
-copy /Y dec\tree.c dec\dec_tree.c
-copy /Y dec\vp8l.c dec\dec_vp8l.c
+: demux\
+del /Q .\demux\demux.*.c
+pushd "demux\" && for /f "delims=" %%A in ('dir /a-d /b *.c') do (
+copy /Y "%%~fA" "%%~dpAdemux.%%A"
+del /Q "%%~fA"
+)
+popd
 
-del /Q dec\alpha.c
-del /Q dec\frame.c
-del /Q dec\quant.c
-del /Q dec\tree.c
-del /Q dec\vp8l.c
+: dsp\
+del /Q .\dsp\dsp.*.c
+pushd "dsp\" && for /f "delims=" %%A in ('dir /a-d /b *.c') do (
+copy /Y "%%~fA" "%%~dpAdsp.%%A"
+del /Q "%%~fA"
+)
+popd
 
 : enc\
+del /Q .\enc\enc.*.c
+pushd "enc\" && for /f "delims=" %%A in ('dir /a-d /b *.c') do (
+copy /Y "%%~fA" "%%~dpAenc.%%A"
+del /Q "%%~fA"
+)
+popd
 
-copy /Y enc\alpha.c enc\enc_alpha.c
-copy /Y enc\frame.c enc\enc_frame.c
-copy /Y enc\quant.c enc\enc_quant.c
-copy /Y enc\tree.c enc\enc_tree.c
-copy /Y enc\vp8l.c enc\enc_vp8l.c
+: mux\
+del /Q .\mux\mux.*.c
+pushd "mux\" && for /f "delims=" %%A in ('dir /a-d /b *.c') do (
+copy /Y "%%~fA" "%%~dpAmux.%%A"
+del /Q "%%~fA"
+)
+popd
 
-del /Q enc\alpha.c
-del /Q enc\frame.c
-del /Q enc\quant.c
-del /Q enc\tree.c
-del /Q enc\vp8l.c
+: utils\
+del /Q .\utils\utils.*.c
+pushd "utils\" && for /f "delims=" %%A in ('dir /a-d /b *.c') do (
+copy /Y "%%~fA" "%%~dpAutils.%%A"
+del /Q "%%~fA"
+)
+popd
+
+: webp\
+del /Q .\webp\webp.*.c
+pushd "webp\" && for /f "delims=" %%A in ('dir /a-d /b *.c') do (
+copy /Y "%%~fA" "%%~dpAwebp.%%A"
+del /Q "%%~fA"
+)
+popd
+
+endlocal
 
 : Makefiles
 
@@ -39,3 +71,5 @@ del /S /Q Makefile.am
 del /S /Q *.pc.in
 
 pause -1
+
+
