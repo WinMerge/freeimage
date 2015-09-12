@@ -21,15 +21,15 @@ it under the terms of the one of three licenses as you choose:
    for more information
 */
 
-#line 27 "dcraw/dcraw.c"
+#line 33 "dcraw/dcraw.c"
 #ifndef USE_JPEG
 #define NO_JPEG
 #endif
 #ifndef USE_JASPER
 #define NO_JASPER
 #endif
-#line 38 "dcraw/dcraw.c"
-#define DCRAW_VERSION "9.22"
+#line 44 "dcraw/dcraw.c"
+#define DCRAW_VERSION "9.24"
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
@@ -47,7 +47,7 @@ it under the terms of the one of three licenses as you choose:
 #include <string.h>
 #include <time.h>
 #include <sys/types.h>
-#line 65 "dcraw/dcraw.c"
+#line 71 "dcraw/dcraw.c"
 #ifdef __CYGWIN__
 #include <io.h>
 #endif
@@ -58,7 +58,7 @@ it under the terms of the one of three licenses as you choose:
 #define snprintf _snprintf
 #define strcasecmp stricmp
 #define strncasecmp strnicmp
-#line 79 "dcraw/dcraw.c"
+#line 85 "dcraw/dcraw.c"
 #else
 #include <unistd.h>
 #include <utime.h>
@@ -101,7 +101,7 @@ typedef uint64_t UINT64;
 #ifndef LONG_BIT
 #define LONG_BIT (8 * sizeof (long))
 #endif
-#line 193 "dcraw/dcraw.c"
+#line 199 "dcraw/dcraw.c"
 #define FORC(cnt) for (c=0; c < cnt; c++)
 #define FORC3 FORC(3)
 #define FORC4 FORC(4)
@@ -115,6 +115,8 @@ typedef uint64_t UINT64;
 #define ULIM(x,y,z) ((y) < (z) ? LIM(x,y,z) : LIM(x,z,y))
 #define CLIP(x) LIM(x,0,65535)
 #define SWAP(a,b) { a=a+b; b=a-b; a=a-b; }
+
+#define my_swap(type, i, j) {type t = i; i = j; j = t;}
 
 /*
    In order to inline this calculation, I make the risky
@@ -157,7 +159,7 @@ typedef uint64_t UINT64;
 
 #define RAW(row,col) \
 	raw_image[(row)*raw_width+(col)]
-#line 254 "dcraw/dcraw.c"
+#line 262 "dcraw/dcraw.c"
 #define BAYER(row,col) \
 	image[((row) >> shrink)*iwidth + ((col) >> shrink)][FC(row,col)]
 

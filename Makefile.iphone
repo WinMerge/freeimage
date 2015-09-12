@@ -68,8 +68,9 @@ default: all
 all: dist
 
 dist: FreeImage
-	cp *.a Dist
-	cp Source/FreeImage.h Dist
+	mkdir -p Dist
+	cp *.a Dist/
+	cp Source/FreeImage.h Dist/
 
 FreeImage: $(STATICLIB_SIM) $(STATICLIB_PHONE)
 

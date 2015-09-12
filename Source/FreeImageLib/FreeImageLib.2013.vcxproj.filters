@@ -296,6 +296,15 @@
     <ClCompile Include="..\FreeImageToolkit\Resize.cpp">
       <Filter>Toolkit Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\FreeImage\LFPQuantizer.cpp">
+      <Filter>Source Files\Quantizers</Filter>
+    </ClCompile>
+    <ClCompile Include="..\FreeImage\ConversionRGBAF.cpp">
+      <Filter>Source Files\Conversion</Filter>
+    </ClCompile>
+    <ClCompile Include="..\FreeImage\ConversionRGBA16.cpp">
+      <Filter>Source Files\Conversion</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\CacheFile.h">
@@ -333,6 +342,9 @@
     </ClInclude>
     <ClInclude Include="..\FreeImageToolkit\Resize.h">
       <Filter>Toolkit Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\MapIntrospector.h">
+      <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

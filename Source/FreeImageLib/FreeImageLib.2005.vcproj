@@ -373,6 +373,10 @@
 				Name="Quantizers"
 				>
 				<File
+					RelativePath="..\FreeImage\LFPQuantizer.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\FreeImage\NNQuantizer.cpp"
 					>
 				</File>
@@ -418,6 +422,14 @@
 				</File>
 				<File
 					RelativePath="..\FreeImage\ConversionRGB16.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\FreeImage\ConversionRGBA16.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\FreeImage\ConversionRGBAF.cpp"
 					>
 				</File>
 				<File
@@ -700,6 +712,10 @@
 			</File>
 			<File
 				RelativePath="..\FreeImage\J2KHelper.h"
+				>
+			</File>
+			<File
+				RelativePath="..\MapIntrospector.h"
 				>
 			</File>
 			<File

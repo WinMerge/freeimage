@@ -32,6 +32,19 @@ it under the terms of the one of three licenses as you choose:
 
 // inline functions
     ushort      sget2 (uchar *s);
+    ushort      sget2Rev(uchar *s);
+    void	setCanonBodyFeatures (unsigned id);
+    void 	processCanonCameraInfo (unsigned id, uchar *CameraInfo);
+    void	processNikonLensData (uchar *LensData, unsigned len);
+    void	setOlympusBodyFeatures (unsigned long id);
+    void	setPhaseOneFeatures (unsigned id);
+    void	setPentaxBodyFeatures (unsigned id);
+    void	setSonyBodyFeatures (unsigned id);
+    void	parseSonyLensType2 (uchar a, uchar b);
+    void 	parseSonyLensFeatures (uchar a, uchar b);
+    void	process_Sony_0x9050 (uchar * buf, unsigned id);
+    void	process_Sony_0x940c (uchar * buf);
+
     ushort      get2();
     unsigned    sget4 (uchar *s);
     unsigned    getint (int type);
@@ -50,13 +63,14 @@ it under the terms of the one of three licenses as you choose:
 void        parse_ciff (int offset, int length, int);
     void        ciff_block_1030();
 
+
 // LJPEG decoder
     unsigned    getbithuff (int nbits, ushort *huff);
     ushort*     make_decoder_ref (const uchar **source);
     ushort*     make_decoder (const uchar *source);
     int         ljpeg_start (struct jhead *jh, int info_only);
     void        ljpeg_end(struct jhead *jh);
-    int         ljpeg_diff (ushort *huff); 
+    int         ljpeg_diff (ushort *huff);
     ushort *    ljpeg_row (int jrow, struct jhead *jh);
     unsigned    ph1_bithuff (int nbits, ushort *huff);
 
@@ -80,6 +94,7 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
 // Nikon (and Minolta Z2)
     void        nikon_load_raw();
     void        nikon_load_sraw();
+    void        nikon_yuv_load_raw();
     void	nikon_coolscan_load_raw();
     int         nikon_e995();
     int         nikon_e2100();
@@ -119,6 +134,8 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
 
 // Misc P&S cameras
     void        nokia_load_raw();
+    void        android_loose_load_raw();
+    void        android_tight_load_raw();
     void        canon_rmf_load_raw();
     unsigned    pana_bits (int nbits);
     void        panasonic_load_raw();
@@ -147,8 +164,10 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
     int         kodak_65000_decode (short *out, int bsize);
     void        kodak_65000_load_raw();
     void        kodak_rgb_load_raw();
-    void        kodak_yrgb_load_raw();
     void        kodak_ycbcr_load_raw();
+//    void        kodak_yrgb_load_raw();
+    void        kodak_c330_load_raw();
+    void        kodak_c603_load_raw();
     void        kodak_rgb_load_thumb();
     void        kodak_ycbcr_load_thumb();
 
@@ -159,6 +178,7 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
     void        sony_arw2_load_raw();
     void        samsung_load_raw();
     void        samsung2_load_raw();
+    void        samsung3_load_raw();
     void        parse_minolta (int base);
 
 // Foveon/Sigma
@@ -194,7 +214,7 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
     void        tiff_get (unsigned base,unsigned *tag, unsigned *type, unsigned *len, unsigned *save);
     void        parse_thumb_note (int base, unsigned toff, unsigned tlen);
     void        parse_makernote (int base, int uptag);
-	void        parse_makernote_nikon_iso (int base, int uptag);
+		void        parse_makernote_0xc634(int base, int uptag, unsigned dng_writer);
     void        parse_exif (int base);
     void        linear_table (unsigned len);
     void        parse_kodak_ifd (int base);
@@ -202,9 +222,10 @@ void        crw_init_tables (unsigned table, ushort *huff[2]);
     int         parse_tiff (int base);
     void        apply_tiff(void);
     void        parse_gps (int base);
-	void        parse_gps_libraw(int base);
-	void        romm_coeff(float romm_cam[3][3]);
+		void        parse_gps_libraw(int base);
+		void        romm_coeff(float romm_cam[3][3]);
     void        parse_mos (int offset);
+    void        parse_qt (int end);
     void        get_timestamp (int reversed);
 
 // External JPEGs, what cameras uses it ?

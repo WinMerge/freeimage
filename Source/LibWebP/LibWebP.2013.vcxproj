@@ -27,24 +27,24 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
     <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v120_xp</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
@@ -100,6 +100,7 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <CompileAs>Default</CompileAs>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ProjectReference>
       <LinkLibraryDependencies>true</LinkLibraryDependencies>
@@ -135,7 +136,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <Optimization>Full</Optimization>
+      <Optimization>MinSpace</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>false</StringPooling>
@@ -150,6 +151,8 @@
       <CompileAs>CompileAsC</CompileAs>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <Lib />
   </ItemDefinitionGroup>
@@ -158,7 +161,7 @@
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <Optimization>Full</Optimization>
+      <Optimization>MinSpace</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>false</StringPooling>
@@ -173,88 +176,10 @@
       <CompileAs>CompileAsC</CompileAs>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
     </ClCompile>
     <Lib />
   </ItemDefinitionGroup>
-  <ItemGroup>
-    <ClCompile Include="src\dec\buffer.c" />
-    <ClCompile Include="src\dec\dec_alpha.c" />
-    <ClCompile Include="src\dec\dec_frame.c" />
-    <ClCompile Include="src\dec\dec_quant.c" />
-    <ClCompile Include="src\dec\dec_tree.c" />
-    <ClCompile Include="src\dec\dec_vp8l.c" />
-    <ClCompile Include="src\dec\idec.c" />
-    <ClCompile Include="src\dec\io.c" />
-    <ClCompile Include="src\dec\vp8.c" />
-    <ClCompile Include="src\dec\webp.c" />
-    <ClCompile Include="src\dsp\alpha_processing.c" />
-    <ClCompile Include="src\dsp\alpha_processing_mips_dsp_r2.c" />
-    <ClCompile Include="src\dsp\alpha_processing_sse2.c" />
-    <ClCompile Include="src\dsp\cpu.c" />
-    <ClCompile Include="src\dsp\dec.c" />
-    <ClCompile Include="src\dsp\dec_clip_tables.c" />
-    <ClCompile Include="src\dsp\dec_mips32.c" />
-    <ClCompile Include="src\dsp\dec_mips_dsp_r2.c" />
-    <ClCompile Include="src\dsp\dec_neon.c" />
-    <ClCompile Include="src\dsp\dec_sse2.c" />
-    <ClCompile Include="src\dsp\enc.c" />
-    <ClCompile Include="src\dsp\enc_avx2.c" />
-    <ClCompile Include="src\dsp\enc_mips32.c" />
-    <ClCompile Include="src\dsp\enc_mips_dsp_r2.c" />
-    <ClCompile Include="src\dsp\enc_neon.c" />
-    <ClCompile Include="src\dsp\enc_sse2.c" />
-    <ClCompile Include="src\dsp\filters_mips_dsp_r2.c" />
-    <ClCompile Include="src\dsp\lossless.c" />
-    <ClCompile Include="src\dsp\lossless_mips32.c" />
-    <ClCompile Include="src\dsp\lossless_mips_dsp_r2.c" />
-    <ClCompile Include="src\dsp\lossless_neon.c" />
-    <ClCompile Include="src\dsp\lossless_sse2.c" />
-    <ClCompile Include="src\dsp\upsampling.c" />
-    <ClCompile Include="src\dsp\upsampling_mips_dsp_r2.c" />
-    <ClCompile Include="src\dsp\upsampling_neon.c" />
-    <ClCompile Include="src\dsp\upsampling_sse2.c" />
-    <ClCompile Include="src\dsp\yuv.c" />
-    <ClCompile Include="src\dsp\yuv_mips32.c" />
-    <ClCompile Include="src\dsp\yuv_mips_dsp_r2.c" />
-    <ClCompile Include="src\dsp\yuv_sse2.c" />
-    <ClCompile Include="src\enc\analysis.c" />
-    <ClCompile Include="src\enc\backward_references.c" />
-    <ClCompile Include="src\enc\config.c" />
-    <ClCompile Include="src\enc\cost.c" />
-    <ClCompile Include="src\enc\enc_alpha.c" />
-    <ClCompile Include="src\enc\enc_frame.c" />
-    <ClCompile Include="src\enc\enc_quant.c" />
-    <ClCompile Include="src\enc\enc_tree.c" />
-    <ClCompile Include="src\enc\enc_vp8l.c" />
-    <ClCompile Include="src\enc\filter.c" />
-    <ClCompile Include="src\enc\histogram.c" />
-    <ClCompile Include="src\enc\iterator.c" />
-    <ClCompile Include="src\enc\near_lossless.c" />
-    <ClCompile Include="src\enc\picture.c" />
-    <ClCompile Include="src\enc\picture_csp.c" />
-    <ClCompile Include="src\enc\picture_psnr.c" />
-    <ClCompile Include="src\enc\picture_rescale.c" />
-    <ClCompile Include="src\enc\picture_tools.c" />
-    <ClCompile Include="src\enc\syntax.c" />
-    <ClCompile Include="src\enc\token.c" />
-    <ClCompile Include="src\enc\webpenc.c" />
-    <ClCompile Include="src\utils\bit_reader.c" />
-    <ClCompile Include="src\utils\bit_writer.c" />
-    <ClCompile Include="src\utils\color_cache.c" />
-    <ClCompile Include="src\utils\filters.c" />
-    <ClCompile Include="src\utils\huffman.c" />
-    <ClCompile Include="src\utils\huffman_encode.c" />
-    <ClCompile Include="src\utils\quant_levels.c" />
-    <ClCompile Include="src\utils\quant_levels_dec.c" />
-    <ClCompile Include="src\utils\random.c" />
-    <ClCompile Include="src\utils\rescaler.c" />
-    <ClCompile Include="src\utils\thread.c" />
-    <ClCompile Include="src\utils\utils.c" />
-    <ClCompile Include="src\mux\muxedit.c" />
-    <ClCompile Include="src\mux\muxinternal.c" />
-    <ClCompile Include="src\mux\muxread.c" />
-    <ClCompile Include="src\demux\demux.c" />
-  </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\dec\alphai.h" />
     <ClInclude Include="src\dec\decode_vp8.h" />
@@ -294,6 +219,98 @@
     <ClInclude Include="src\utils\thread.h" />
     <ClInclude Include="src\utils\utils.h" />
     <ClInclude Include="src\mux\muxi.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\dec\dec.alpha.c" />
+    <ClCompile Include="src\dec\dec.buffer.c" />
+    <ClCompile Include="src\dec\dec.frame.c" />
+    <ClCompile Include="src\dec\dec.idec.c" />
+    <ClCompile Include="src\dec\dec.io.c" />
+    <ClCompile Include="src\dec\dec.quant.c" />
+    <ClCompile Include="src\dec\dec.tree.c" />
+    <ClCompile Include="src\dec\dec.vp8.c" />
+    <ClCompile Include="src\dec\dec.vp8l.c" />
+    <ClCompile Include="src\dec\dec.webp.c" />
+    <ClCompile Include="src\demux\demux.demux.c" />
+    <ClCompile Include="src\dsp\dsp.alpha_processing.c" />
+    <ClCompile Include="src\dsp\dsp.alpha_processing_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.alpha_processing_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.argb.c" />
+    <ClCompile Include="src\dsp\dsp.argb_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.argb_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.cost.c" />
+    <ClCompile Include="src\dsp\dsp.cost_mips32.c" />
+    <ClCompile Include="src\dsp\dsp.cost_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.cost_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.cpu.c" />
+    <ClCompile Include="src\dsp\dsp.dec.c" />
+    <ClCompile Include="src\dsp\dsp.dec_clip_tables.c" />
+    <ClCompile Include="src\dsp\dsp.dec_mips32.c" />
+    <ClCompile Include="src\dsp\dsp.dec_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.dec_neon.c" />
+    <ClCompile Include="src\dsp\dsp.dec_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.enc.c" />
+    <ClCompile Include="src\dsp\dsp.enc_avx2.c" />
+    <ClCompile Include="src\dsp\dsp.enc_mips32.c" />
+    <ClCompile Include="src\dsp\dsp.enc_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.enc_neon.c" />
+    <ClCompile Include="src\dsp\dsp.enc_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.filters.c" />
+    <ClCompile Include="src\dsp\dsp.filters_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.filters_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.lossless.c" />
+    <ClCompile Include="src\dsp\dsp.lossless_mips32.c" />
+    <ClCompile Include="src\dsp\dsp.lossless_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.lossless_neon.c" />
+    <ClCompile Include="src\dsp\dsp.lossless_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.rescaler.c" />
+    <ClCompile Include="src\dsp\dsp.rescaler_mips32.c" />
+    <ClCompile Include="src\dsp\dsp.rescaler_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.upsampling.c" />
+    <ClCompile Include="src\dsp\dsp.upsampling_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.upsampling_neon.c" />
+    <ClCompile Include="src\dsp\dsp.upsampling_sse2.c" />
+    <ClCompile Include="src\dsp\dsp.yuv.c" />
+    <ClCompile Include="src\dsp\dsp.yuv_mips32.c" />
+    <ClCompile Include="src\dsp\dsp.yuv_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\dsp.yuv_sse2.c" />
+    <ClCompile Include="src\enc\enc.alpha.c" />
+    <ClCompile Include="src\enc\enc.analysis.c" />
+    <ClCompile Include="src\enc\enc.backward_references.c" />
+    <ClCompile Include="src\enc\enc.config.c" />
+    <ClCompile Include="src\enc\enc.cost.c" />
+    <ClCompile Include="src\enc\enc.filter.c" />
+    <ClCompile Include="src\enc\enc.frame.c" />
+    <ClCompile Include="src\enc\enc.histogram.c" />
+    <ClCompile Include="src\enc\enc.iterator.c" />
+    <ClCompile Include="src\enc\enc.near_lossless.c" />
+    <ClCompile Include="src\enc\enc.picture.c" />
+    <ClCompile Include="src\enc\enc.picture_csp.c" />
+    <ClCompile Include="src\enc\enc.picture_psnr.c" />
+    <ClCompile Include="src\enc\enc.picture_rescale.c" />
+    <ClCompile Include="src\enc\enc.picture_tools.c" />
+    <ClCompile Include="src\enc\enc.quant.c" />
+    <ClCompile Include="src\enc\enc.syntax.c" />
+    <ClCompile Include="src\enc\enc.token.c" />
+    <ClCompile Include="src\enc\enc.tree.c" />
+    <ClCompile Include="src\enc\enc.vp8l.c" />
+    <ClCompile Include="src\enc\enc.webpenc.c" />
+    <ClCompile Include="src\mux\mux.anim_encode.c" />
+    <ClCompile Include="src\mux\mux.muxedit.c" />
+    <ClCompile Include="src\mux\mux.muxinternal.c" />
+    <ClCompile Include="src\mux\mux.muxread.c" />
+    <ClCompile Include="src\utils\utils.bit_reader.c" />
+    <ClCompile Include="src\utils\utils.bit_writer.c" />
+    <ClCompile Include="src\utils\utils.color_cache.c" />
+    <ClCompile Include="src\utils\utils.filters.c" />
+    <ClCompile Include="src\utils\utils.huffman.c" />
+    <ClCompile Include="src\utils\utils.huffman_encode.c" />
+    <ClCompile Include="src\utils\utils.quant_levels.c" />
+    <ClCompile Include="src\utils\utils.quant_levels_dec.c" />
+    <ClCompile Include="src\utils\utils.random.c" />
+    <ClCompile Include="src\utils\utils.rescaler.c" />
+    <ClCompile Include="src\utils\utils.thread.c" />
+    <ClCompile Include="src\utils\utils.utils.c" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -380,7 +380,6 @@ Note that some formats don't have a Bayer matrix (e.g. Foveon, Canon sRAW, demos
 static FIBITMAP * 
 libraw_LoadUnprocessedData(LibRaw *RawProcessor) {
 	FIBITMAP *dib = NULL;
-	libraw_decoder_info_t decoder_info;
 
 	try {
 		// unpack data
@@ -389,10 +388,7 @@ libraw_LoadUnprocessedData(LibRaw *RawProcessor) {
 		}
 
 		// check for a supported Bayer format
-		if(RawProcessor->get_decoder_info(&decoder_info) != LIBRAW_SUCCESS) {
-			throw "LibRaw : failed to get decoder info";
-		}
-		if(!(decoder_info.decoder_flags & LIBRAW_DECODER_FLATFIELD)) {
+		if(!(RawProcessor->imgdata.idata.filters || RawProcessor->imgdata.idata.colors == 1)) {
 			throw "LibRaw : only Bayer-pattern RAW files are supported";
 		}
 

@@ -1,4 +1,4 @@
-/* $Id: tif_strip.c,v 1.10 2014/11/29 17:10:32 drolon Exp $ */
+/* $Id: tif_strip.c,v 1.11 2015/02/19 22:39:59 drolon Exp $ */
 
 /*
  * Copyright (c) 1991-1997 Sam Leffler

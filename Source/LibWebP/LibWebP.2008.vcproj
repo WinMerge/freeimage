@@ -314,43 +314,43 @@
 				Name="dec"
 				>
 				<File
-					RelativePath=".\src\dec\buffer.c"
+					RelativePath=".\src\dec\dec.alpha.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\dec_alpha.c"
+					RelativePath=".\src\dec\dec.buffer.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\dec_frame.c"
+					RelativePath=".\src\dec\dec.frame.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\dec_quant.c"
+					RelativePath=".\src\dec\dec.idec.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\dec_tree.c"
+					RelativePath=".\src\dec\dec.io.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\dec_vp8l.c"
+					RelativePath=".\src\dec\dec.quant.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\idec.c"
+					RelativePath=".\src\dec\dec.tree.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\io.c"
+					RelativePath=".\src\dec\dec.vp8.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\vp8.c"
+					RelativePath=".\src\dec\dec.vp8l.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dec\webp.c"
+					RelativePath=".\src\dec\dec.webp.c"
 					>
 				</File>
 			</Filter>
@@ -358,123 +358,171 @@
 				Name="dsp"
 				>
 				<File
-					RelativePath=".\src\dsp\alpha_processing.c"
+					RelativePath=".\src\dsp\dsp.alpha_processing.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\alpha_processing_mips_dsp_r2.c"
+					RelativePath=".\src\dsp\dsp.alpha_processing_mips_dsp_r2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\alpha_processing_sse2.c"
+					RelativePath=".\src\dsp\dsp.alpha_processing_sse2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\cpu.c"
+					RelativePath=".\src\dsp\dsp.argb.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\dec.c"
+					RelativePath=".\src\dsp\dsp.argb_mips_dsp_r2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\dec_clip_tables.c"
+					RelativePath=".\src\dsp\dsp.argb_sse2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\dec_mips32.c"
+					RelativePath=".\src\dsp\dsp.cost.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\dec_mips_dsp_r2.c"
+					RelativePath=".\src\dsp\dsp.cost_mips32.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\dec_neon.c"
+					RelativePath=".\src\dsp\dsp.cost_mips_dsp_r2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\dec_sse2.c"
+					RelativePath=".\src\dsp\dsp.cost_sse2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\enc.c"
+					RelativePath=".\src\dsp\dsp.cpu.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\enc_avx2.c"
+					RelativePath=".\src\dsp\dsp.dec.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\enc_mips32.c"
+					RelativePath=".\src\dsp\dsp.dec_clip_tables.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\enc_mips_dsp_r2.c"
+					RelativePath=".\src\dsp\dsp.dec_mips32.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\enc_neon.c"
+					RelativePath=".\src\dsp\dsp.dec_mips_dsp_r2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\enc_sse2.c"
+					RelativePath=".\src\dsp\dsp.dec_neon.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\filters_mips_dsp_r2.c"
+					RelativePath=".\src\dsp\dsp.dec_sse2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\lossless.c"
+					RelativePath=".\src\dsp\dsp.enc.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\lossless_mips32.c"
+					RelativePath=".\src\dsp\dsp.enc_avx2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\lossless_mips_dsp_r2.c"
+					RelativePath=".\src\dsp\dsp.enc_mips32.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\lossless_neon.c"
+					RelativePath=".\src\dsp\dsp.enc_mips_dsp_r2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\lossless_sse2.c"
+					RelativePath=".\src\dsp\dsp.enc_neon.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\upsampling.c"
+					RelativePath=".\src\dsp\dsp.enc_sse2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\upsampling_mips_dsp_r2.c"
+					RelativePath=".\src\dsp\dsp.filters.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\upsampling_neon.c"
+					RelativePath=".\src\dsp\dsp.filters_mips_dsp_r2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\upsampling_sse2.c"
+					RelativePath=".\src\dsp\dsp.filters_sse2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\yuv.c"
+					RelativePath=".\src\dsp\dsp.lossless.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\yuv_mips32.c"
+					RelativePath=".\src\dsp\dsp.lossless_mips32.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\yuv_mips_dsp_r2.c"
+					RelativePath=".\src\dsp\dsp.lossless_mips_dsp_r2.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\dsp\yuv_sse2.c"
+					RelativePath=".\src\dsp\dsp.lossless_neon.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.lossless_sse2.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.rescaler.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.rescaler_mips32.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.rescaler_mips_dsp_r2.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.upsampling.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.upsampling_mips_dsp_r2.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.upsampling_neon.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.upsampling_sse2.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.yuv.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.yuv_mips32.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.yuv_mips_dsp_r2.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\dsp\dsp.yuv_sse2.c"
 					>
 				</File>
 			</Filter>
@@ -482,87 +530,87 @@
 				Name="enc"
 				>
 				<File
-					RelativePath=".\src\enc\analysis.c"
+					RelativePath=".\src\enc\enc.alpha.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\backward_references.c"
+					RelativePath=".\src\enc\enc.analysis.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\config.c"
+					RelativePath=".\src\enc\enc.backward_references.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\cost.c"
+					RelativePath=".\src\enc\enc.config.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\enc_alpha.c"
+					RelativePath=".\src\enc\enc.cost.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\enc_frame.c"
+					RelativePath=".\src\enc\enc.filter.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\enc_quant.c"
+					RelativePath=".\src\enc\enc.frame.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\enc_tree.c"
+					RelativePath=".\src\enc\enc.histogram.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\enc_vp8l.c"
+					RelativePath=".\src\enc\enc.iterator.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\filter.c"
+					RelativePath=".\src\enc\enc.near_lossless.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\histogram.c"
+					RelativePath=".\src\enc\enc.picture.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\iterator.c"
+					RelativePath=".\src\enc\enc.picture_csp.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\near_lossless.c"
+					RelativePath=".\src\enc\enc.picture_psnr.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\picture.c"
+					RelativePath=".\src\enc\enc.picture_rescale.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\picture_csp.c"
+					RelativePath=".\src\enc\enc.picture_tools.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\picture_psnr.c"
+					RelativePath=".\src\enc\enc.quant.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\picture_rescale.c"
+					RelativePath=".\src\enc\enc.syntax.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\picture_tools.c"
+					RelativePath=".\src\enc\enc.token.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\syntax.c"
+					RelativePath=".\src\enc\enc.tree.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\token.c"
+					RelativePath=".\src\enc\enc.vp8l.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\enc\webpenc.c"
+					RelativePath=".\src\enc\enc.webpenc.c"
 					>
 				</File>
 			</Filter>
@@ -570,51 +618,51 @@
 				Name="utils"
 				>
 				<File
-					RelativePath=".\src\utils\bit_reader.c"
+					RelativePath=".\src\utils\utils.bit_reader.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\bit_writer.c"
+					RelativePath=".\src\utils\utils.bit_writer.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\color_cache.c"
+					RelativePath=".\src\utils\utils.color_cache.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\filters.c"
+					RelativePath=".\src\utils\utils.filters.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\huffman.c"
+					RelativePath=".\src\utils\utils.huffman.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\huffman_encode.c"
+					RelativePath=".\src\utils\utils.huffman_encode.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\quant_levels.c"
+					RelativePath=".\src\utils\utils.quant_levels.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\quant_levels_dec.c"
+					RelativePath=".\src\utils\utils.quant_levels_dec.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\random.c"
+					RelativePath=".\src\utils\utils.random.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\rescaler.c"
+					RelativePath=".\src\utils\utils.rescaler.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\thread.c"
+					RelativePath=".\src\utils\utils.thread.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\utils\utils.c"
+					RelativePath=".\src\utils\utils.utils.c"
 					>
 				</File>
 			</Filter>
@@ -622,15 +670,19 @@
 				Name="mux"
 				>
 				<File
-					RelativePath=".\src\mux\muxedit.c"
+					RelativePath=".\src\mux\mux.anim_encode.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\mux\muxinternal.c"
+					RelativePath=".\src\mux\mux.muxedit.c"
 					>
 				</File>
 				<File
-					RelativePath=".\src\mux\muxread.c"
+					RelativePath=".\src\mux\mux.muxinternal.c"
+					>
+				</File>
+				<File
+					RelativePath=".\src\mux\mux.muxread.c"
 					>
 				</File>
 			</Filter>
@@ -638,7 +690,7 @@
 				Name="demux"
 				>
 				<File
-					RelativePath=".\src\demux\demux.c"
+					RelativePath=".\src\demux\demux.demux.c"
 					>
 				</File>
 			</Filter>

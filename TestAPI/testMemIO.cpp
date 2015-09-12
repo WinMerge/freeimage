@@ -35,8 +35,9 @@ void testSaveMemIO(const char *lpszPathName) {
 	// save the file to memory
 	FreeImage_SaveToMemory(fif, dib, hmem, 0);
 
-	// at this point, hmem contains the entire PNG data in memory. 
+	// at this point, hmem contains the entire FREE_IMAGE_FORMAT data in memory. 
 	// the amount of space used by the memory is equal to file_size
+	FreeImage_SeekMemory(hmem, 0, SEEK_END);
 	long file_size = FreeImage_TellMemory(hmem);
 	printf("File size : %ld\n", file_size);
 

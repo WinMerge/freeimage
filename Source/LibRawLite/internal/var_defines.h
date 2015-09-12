@@ -21,18 +21,19 @@ it under the terms of the one of three licenses as you choose:
 #ifndef VAR_DEFINES_H
 #define VAR_DEFINES_H
 
+
 // imgdata.idata
 #define make            (imgdata.idata.make)
 #define model           (imgdata.idata.model)
-#define software           (imgdata.idata.software)
+#define software        (imgdata.idata.software)
 #define is_raw          (imgdata.idata.raw_count)
 #define dng_version     (imgdata.idata.dng_version)
 #define is_foveon       (imgdata.idata.is_foveon)
 #define colors          (imgdata.idata.colors)
 #define cdesc           (imgdata.idata.cdesc)
 #define filters         (imgdata.idata.filters)
-#define xtrans         (imgdata.idata.xtrans)
-#define xtrans_abs         (imgdata.idata.xtrans_abs)
+#define xtrans          (imgdata.idata.xtrans)
+#define xtrans_abs      (imgdata.idata.xtrans_abs)
 #define xmpdata			(imgdata.idata.xmpdata)
 #define xmplen			(imgdata.idata.xmplen)
 //imgdata image
@@ -201,6 +202,7 @@ it under the terms of the one of three licenses as you choose:
 #define fseeko(stream,o,w)	 stream->seek(o,w)
 #define ftell(stream)		 stream->tell()
 #define ftello(stream)		 stream->tell()
+#define feof(stream)		 stream->eof()
 #ifdef getc
 #undef getc
 #endif

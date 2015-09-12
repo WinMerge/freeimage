@@ -291,13 +291,21 @@
 // Helper functions to deal with the FITAG structure
 // --------------------------------------------------------------------------
 
-/** 
+/**
 Describes the tag format descriptor
+Given a FREE_IMAGE_MDTYPE, calculate the size of this type in bytes unit
 @param type Tag data type
-@return Returns the width of a single element, in bytes
+@return Returns the size of the data type, in bytes
 @see FREE_IMAGE_MDTYPE
 */
 unsigned FreeImage_TagDataWidth(FREE_IMAGE_MDTYPE type);
+
+/**
+Calculate the memory size required by a tag, including the size of the structure
+@param tag The tag to examine
+@return Retuns the memory size used by a tag
+*/
+size_t FreeImage_GetTagMemorySize(FITAG *tag);
 
 // --------------------------------------------------------------------------
 

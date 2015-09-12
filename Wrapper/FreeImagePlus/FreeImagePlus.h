@@ -374,7 +374,13 @@ public:
 	The size of the bitmap is the BITMAPINFOHEADER + the size of the palette + the size of the bitmap data. 
 	@see FreeImage_GetDIBSize
 	*/
-	LONG getImageSize() const;
+	unsigned getImageSize() const;
+
+	/**
+	Returns the memory footprint of a bitmap, in bytes. 
+	@see FreeImage_GetMemorySize
+	*/
+	unsigned getImageMemorySize() const;
 	
 	/**
 	Returns the bitdepth of the bitmap. <br>
@@ -454,14 +460,14 @@ public:
 
 	/**
 	Retrieves a copy the thumbnail possibly attached to the bitmap
-	@return Returns TRUE if the thumbnail is present in the bitmap and successfully retrieved, returns FALSE otherwise
+	@return Returns TRUE if the thumbnail is present in the bitmap and successfuly retrieved, returns FALSE otherwise
 	@see FreeImage_GetThumbnail
 	*/
 	BOOL getThumbnail(fipImage& image) const;
 
 	/**
 	Attach a thumbnail to the bitmap
-	@return Returns TRUE if the thumbnail was successfully set, returns FALSE otherwise
+	@return Returns TRUE if the thumbnail was successfuly set, returns FALSE otherwise
 	@see FreeImage_SetThumbnail
 	*/
 	BOOL setThumbnail(const fipImage& image);
@@ -507,7 +513,7 @@ public:
 	@param x Pixel position in horizontal direction
 	@param y Pixel position in vertical direction
 	@param value Pixel index (returned value)
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_GetPixelIndex
 	*/
 	BOOL getPixelIndex(unsigned x, unsigned y, BYTE *value) const;
@@ -517,7 +523,7 @@ public:
 	@param x Pixel position in horizontal direction
 	@param y Pixel position in vertical direction
 	@param value Pixel color (returned value)
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_GetPixelColor
 	*/
 	BOOL getPixelColor(unsigned x, unsigned y, RGBQUAD *value) const;
@@ -527,7 +533,7 @@ public:
 	@param x Pixel position in horizontal direction
 	@param y Pixel position in vertical direction
 	@param value Pixel index
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_SetPixelIndex
 	*/
 	BOOL setPixelIndex(unsigned x, unsigned y, BYTE *value);
@@ -537,7 +543,7 @@ public:
 	@param x Pixel position in horizontal direction
 	@param y Pixel position in vertical direction
 	@param value Pixel color
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_SetPixelColor
 	*/
 	BOOL setPixelColor(unsigned x, unsigned y, RGBQUAD *value);
@@ -552,7 +558,7 @@ public:
 	Converts an image to a type supported by FreeImage.
 	@param image_type New image type
 	@param scale_linear TRUE if image pixels must be scaled linearly when converting to a standard bitmap
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertToType, FreeImage_ConvertToStandardType
 	*/
 	BOOL convertToType(FREE_IMAGE_TYPE image_type, BOOL scale_linear = TRUE);
@@ -560,7 +566,7 @@ public:
 	/** 
 	Converts the bitmap to 1 bit using a threshold T.
 	@param T Threshold value in [0..255]
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_Threshold
 	*/
 	BOOL threshold(BYTE T);
@@ -568,21 +574,21 @@ public:
 	/** 
 	Converts a 8-bit image to a monochrome 1-bit image using a dithering algorithm.
 	@param algorithm Dithering algorithm to use.
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_Dither, FREE_IMAGE_DITHER
 	*/
 	BOOL dither(FREE_IMAGE_DITHER algorithm);
 
 	/** 
 	Converts the bitmap to 4 bits. Unless the bitmap is a 1-bit palettized bitmap, colour values are converted to greyscale.
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertTo4Bits
 	*/
 	BOOL convertTo4Bits();
 
 	/** 
 	Converts the bitmap to 8 bits. If the bitmap is 24 or 32-bit RGB, the colour values are converted to greyscale.
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertTo8Bits
 	*/
 	BOOL convertTo8Bits();
@@ -591,7 +597,7 @@ public:
 	Converts the bitmap to 8 bits.<br> 
 	For palletized bitmaps, the color map is converted to a greyscale ramp.
 	@see FreeImage_ConvertToGreyscale
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	*/
 	BOOL convertToGrayscale();
 	
@@ -599,66 +605,80 @@ public:
 	Quantizes a full colour 24-bit bitmap to a palletised 8-bit bitmap.<br>
 	The quantize parameter specifies which colour reduction algorithm should be used.
 	@param algorithm Color quantization algorithm to use.
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ColorQuantize, FREE_IMAGE_QUANTIZE
 	*/
 	BOOL colorQuantize(FREE_IMAGE_QUANTIZE algorithm);
 
 	/** 
 	Converts the bitmap to 16 bits. The resulting bitmap has a layout of 5 bits red, 5 bits green, 5 bits blue and 1 unused bit. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertTo16Bits555
 	*/
 	BOOL convertTo16Bits555();
 	
 	/** 
 	Converts the bitmap to 16 bits. The resulting bitmap has a layout of 5 bits red, 6 bits green and 5 bits blue. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertTo16Bits565
 	*/
 	BOOL convertTo16Bits565();
 	
 	/** 
 	Converts the bitmap to 24 bits. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertTo24Bits
 	*/
 	BOOL convertTo24Bits();
 	
 	/** 
 	Converts the bitmap to 32 bits. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertTo32Bits
 	*/
 	BOOL convertTo32Bits();
 
 	/** 
 	Converts the bitmap to a 32-bit float image. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertToFloat
 	*/
 	BOOL convertToFloat();
 
 	/** 
 	Converts the bitmap to a 96-bit RGBF image. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertToRGBF
 	*/
 	BOOL convertToRGBF();
 
 	/** 
+	Converts the bitmap to a 128-bit RGBAF image. 
+	@return Returns TRUE if successful, FALSE otherwise. 
+	@see FreeImage_ConvertToRGBAF
+	*/
+	BOOL convertToRGBAF();
+
+	/** 
 	Converts the bitmap to a 16-bit unsigned short image. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertToUINT16
 	*/
 	BOOL convertToUINT16();
 
 	/** 
 	Converts the bitmap to a 48-bit RGB16 image. 
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ConvertToRGB16
 	*/
 	BOOL convertToRGB16();
+
+	/** 
+	Converts the bitmap to a 64-bit RGBA16 image. 
+	@return Returns TRUE if successful, FALSE otherwise. 
+	@see FreeImage_ConvertToRGBA16
+	*/
+	BOOL convertToRGBA16();
 
 	/**
 	Converts a High Dynamic Range image (48-bit RGB or 96-bit RGB Float) to a 24-bit RGB image. 
@@ -667,7 +687,7 @@ public:
 	@param second_param Second tone mapping algorithm parameter (algorithm dependant)
 	@param third_param Third tone mapping algorithm parameter (algorithm dependant)
 	@param fourth_param Fourth tone mapping algorithm parameter (algorithm dependant)
-	@return Returns TRUE if successfull, FALSE otherwise. 
+	@return Returns TRUE if successful, FALSE otherwise. 
 	@see FreeImage_ToneMapping, FreeImage_TmoReinhard05Ex
 	*/
 	BOOL toneMapping(FREE_IMAGE_TMO tmo, double first_param = 0, double second_param = 0, double third_param = 1, double fourth_param = 0);

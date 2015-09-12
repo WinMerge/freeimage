@@ -24,6 +24,8 @@
 extern "C" {
 #endif
 
+#define BPS 32   // this is the common stride for enc/dec
+
 //------------------------------------------------------------------------------
 // CPU detection
 
@@ -68,6 +70,11 @@ extern "C" {
 
 #if defined(__ARM_NEON__) || defined(WEBP_ANDROID_NEON) || defined(__aarch64__)
 #define WEBP_USE_NEON
+#endif
+
+#if defined(_MSC_VER) && _MSC_VER >= 1700 && defined(_M_ARM)
+#define WEBP_USE_NEON
+#define WEBP_USE_INTRINSICS
 #endif
 
 #if defined(__mips__) && !defined(__mips64) && (__mips_isa_rev < 6)
@@ -132,6 +139,7 @@ extern VP8WMetric VP8TDisto4x4, VP8TDisto16x16;
 
 typedef void (*VP8BlockCopy)(const uint8_t* src, uint8_t* dst);
 extern VP8BlockCopy VP8Copy4x4;
+extern VP8BlockCopy VP8Copy16x8;
 // Quantization
 struct VP8Matrix;   // forward declaration
 typedef int (*VP8QuantizeBlock)(int16_t in[16], int16_t out[16],
@@ -148,16 +156,46 @@ typedef int (*VP8QuantizeBlockWHT)(int16_t in[16], int16_t out[16],
                                    const struct VP8Matrix* const mtx);
 extern VP8QuantizeBlockWHT VP8EncQuantizeBlockWHT;
 
-// Collect histogram for susceptibility calculation and accumulate in histo[].
-struct VP8Histogram;
+extern const int VP8DspScan[16 + 4 + 4];
+
+// Collect histogram for susceptibility calculation.
+#define MAX_COEFF_THRESH   31   // size of histogram used by CollectHistogram.
+typedef struct {
+  // We only need to store max_value and last_non_zero, not the distribution.
+  int max_value;
+  int last_non_zero;
+} VP8Histogram;
 typedef void (*VP8CHisto)(const uint8_t* ref, const uint8_t* pred,
                           int start_block, int end_block,
-                          struct VP8Histogram* const histo);
-extern const int VP8DspScan[16 + 4 + 4];
+                          VP8Histogram* const histo);
 extern VP8CHisto VP8CollectHistogram;
+// General-purpose util function to help VP8CollectHistogram().
+void VP8LSetHistogramData(const int distribution[MAX_COEFF_THRESH + 1],
+                          VP8Histogram* const histo);
 
 // must be called before using any of the above
-WEBP_TSAN_IGNORE_FUNCTION void VP8EncDspInit(void);
+void VP8EncDspInit(void);
+
+//------------------------------------------------------------------------------
+// cost functions (encoding)
+
+extern const uint16_t VP8EntropyCost[256];        // 8bit fixed-point log(p)
+// approximate cost per level:
+extern const uint16_t VP8LevelFixedCosts[2047 /*MAX_LEVEL*/ + 1];
+extern const uint8_t VP8EncBands[16 + 1];
+
+struct VP8Residual;
+typedef void (*VP8SetResidualCoeffsFunc)(const int16_t* const coeffs,
+                                         struct VP8Residual* const res);
+extern VP8SetResidualCoeffsFunc VP8SetResidualCoeffs;
+
+// Cost calculation function.
+typedef int (*VP8GetResidualCostFunc)(int ctx0,
+                                      const struct VP8Residual* const res);
+extern VP8GetResidualCostFunc VP8GetResidualCost;
+
+// must be called before anything using the above
+void VP8EncDspCostInit(void);
 
 //------------------------------------------------------------------------------
 // Decoding
@@ -175,7 +213,7 @@ extern VP8WHT VP8TransformWHT;
 // *dst is the destination block, with stride BPS. Boundary samples are
 // assumed accessible when needed.
 typedef void (*VP8PredFunc)(uint8_t* dst);
-extern const VP8PredFunc VP8PredLuma16[/* NUM_B_DC_MODES */];
+extern VP8PredFunc VP8PredLuma16[/* NUM_B_DC_MODES */];
 extern VP8PredFunc VP8PredChroma8[/* NUM_B_DC_MODES */];
 extern VP8PredFunc VP8PredLuma4[/* NUM_BMODES */];
 
@@ -185,7 +223,7 @@ extern const int8_t* const VP8ksclip2;  // clips [-112, 112] to [-16, 15]
 extern const uint8_t* const VP8kclip1;  // clips [-255,511] to [0,255]
 extern const uint8_t* const VP8kabs0;   // abs(x) for x in [-255,255]
 // must be called first
-WEBP_TSAN_IGNORE_FUNCTION void VP8InitClipTables(void);
+void VP8InitClipTables(void);
 
 // simple filter (only for luma)
 typedef void (*VP8SimpleFilterFunc)(uint8_t* p, int stride, int thresh);
@@ -212,7 +250,7 @@ extern VP8ChromaFilterFunc VP8VFilter8i;  // filtering u and v altogether
 extern VP8ChromaFilterFunc VP8HFilter8i;
 
 // must be called before anything using the above
-WEBP_TSAN_IGNORE_FUNCTION void VP8DspInit(void);
+void VP8DspInit(void);
 
 //------------------------------------------------------------------------------
 // WebP I/O
@@ -261,11 +299,30 @@ extern WebPYUV444Converter WebPYUV444Converters[/* MODE_LAST */];
 
 // Must be called before using the WebPUpsamplers[] (and for premultiplied
 // colorspaces like rgbA, rgbA4444, etc)
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitUpsamplers(void);
+void WebPInitUpsamplers(void);
 // Must be called before using WebPSamplers[]
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitSamplers(void);
+void WebPInitSamplers(void);
 // Must be called before using WebPYUV444Converters[]
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitYUV444Converters(void);
+void WebPInitYUV444Converters(void);
+
+//------------------------------------------------------------------------------
+// Rescaler
+
+struct WebPRescaler;
+
+// Import a row of data and save its contribution in the rescaler.
+// 'channel' denotes the channel number to be imported.
+extern void (*WebPRescalerImportRow)(struct WebPRescaler* const wrk,
+                                     const uint8_t* const src, int channel);
+
+// Export one row (starting at x_out position) from rescaler.
+extern void (*WebPRescalerExportRow)(struct WebPRescaler* const wrk, int x_out);
+
+// Plain-C implementation, as fall-back.
+extern void WebPRescalerExportRowC(struct WebPRescaler* const wrk, int x_out);
+
+// Must be called first before using the above.
+void WebPRescalerDspInit(void);
 
 //------------------------------------------------------------------------------
 // Utilities for processing transparent channel.
@@ -323,7 +380,52 @@ void WebPMultRowC(uint8_t* const ptr, const uint8_t* const alpha,
 void WebPMultARGBRowC(uint32_t* const ptr, int width, int inverse);
 
 // To be called first before using the above.
-WEBP_TSAN_IGNORE_FUNCTION void WebPInitAlphaProcessing(void);
+void WebPInitAlphaProcessing(void);
+
+// ARGB packing function: a/r/g/b input is rgba or bgra order.
+extern void (*VP8PackARGB)(const uint8_t* a, const uint8_t* r,
+                           const uint8_t* g, const uint8_t* b, int len,
+                           uint32_t* out);
+
+// RGB packing function. 'step' can be 3 or 4. r/g/b input is rgb or bgr order.
+extern void (*VP8PackRGB)(const uint8_t* r, const uint8_t* g, const uint8_t* b,
+                          int len, int step, uint32_t* out);
+
+// To be called first before using the above.
+void VP8EncDspARGBInit(void);
+
+//------------------------------------------------------------------------------
+// Filter functions
+
+typedef enum {     // Filter types.
+  WEBP_FILTER_NONE = 0,
+  WEBP_FILTER_HORIZONTAL,
+  WEBP_FILTER_VERTICAL,
+  WEBP_FILTER_GRADIENT,
+  WEBP_FILTER_LAST = WEBP_FILTER_GRADIENT + 1,  // end marker
+  WEBP_FILTER_BEST,    // meta-types
+  WEBP_FILTER_FAST
+} WEBP_FILTER_TYPE;
+
+typedef void (*WebPFilterFunc)(const uint8_t* in, int width, int height,
+                               int stride, uint8_t* out);
+typedef void (*WebPUnfilterFunc)(int width, int height, int stride,
+                                 int row, int num_rows, uint8_t* data);
+
+// Filter the given data using the given predictor.
+// 'in' corresponds to a 2-dimensional pixel array of size (stride * height)
+// in raster order.
+// 'stride' is number of bytes per scan line (with possible padding).
+// 'out' should be pre-allocated.
+extern WebPFilterFunc WebPFilters[WEBP_FILTER_LAST];
+
+// In-place reconstruct the original data from the given filtered data.
+// The reconstruction will be done for 'num_rows' rows starting from 'row'
+// (assuming rows upto 'row - 1' are already reconstructed).
+extern WebPUnfilterFunc WebPUnfilters[WEBP_FILTER_LAST];
+
+// To be called first before using the above.
+void VP8FiltersInit(void);
 
 #ifdef __cplusplus
 }    // extern "C"

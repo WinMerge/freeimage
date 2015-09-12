@@ -33,10 +33,11 @@ default: all
 all: dist
 
 dist: FreeImage
-	cp *.a Dist
-	cp *.dll Dist
-	cp *.dll.a Dist
-	cp $(HEADER) Dist
+	mkdir -p Dist
+	cp *.a Dist/
+	cp *.dll Dist/
+	cp *.dll.a Dist/
+	cp $(HEADER) Dist/
 
 dos2unix:
 	@$(DOS2UNIX) $(SRCS) $(INCLS)

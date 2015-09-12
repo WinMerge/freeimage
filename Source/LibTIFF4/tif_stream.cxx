@@ -1,4 +1,4 @@
-/* $Id: tif_stream.cxx,v 1.10 2014/11/29 17:10:32 drolon Exp $ */
+/* $Id: tif_stream.cxx,v 1.11 2015/02/19 22:39:59 drolon Exp $ */
 
 /*
  * Copyright (c) 1988-1996 Sam Leffler
@@ -340,12 +340,16 @@ _tiffisCloseProc(thandle_t fd)
 static int
 _tiffDummyMapProc(thandle_t , void** base, toff_t* size )
 {
+	(void) base;
+	(void) size;
 	return (0);
 }
 
 static void
 _tiffDummyUnmapProc(thandle_t , void* base, toff_t size )
 {
+	(void) base;
+	(void) size;
 }
 
 /*
