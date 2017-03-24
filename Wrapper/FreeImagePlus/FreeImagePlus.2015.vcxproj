@@ -145,6 +145,9 @@ copy $(OutDir)$(TargetName).lib dist\x32
 copy FreeImagePlus.h dist\x32
 </Command>
     </PostBuildEvent>
+    <Lib>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Midl>
@@ -242,6 +245,9 @@ copy $(OutDir)$(TargetName).lib dist\x32
 copy FreeImagePlus.h dist\x32
 </Command>
     </PostBuildEvent>
+    <Lib>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Lib>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>

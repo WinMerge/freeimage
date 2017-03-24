@@ -110,6 +110,7 @@
     </ProjectReference>
     <Lib>
       <SuppressStartupBanner>true</SuppressStartupBanner>
+      <TargetMachine>MachineX86</TargetMachine>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\x32
@@ -187,6 +188,7 @@ copy ..\FreeImage.h ..\..\Dist\x64
     <Lib>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <LinkTimeCodeGeneration>true</LinkTimeCodeGeneration>
+      <TargetMachine>MachineX86</TargetMachine>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\x32
