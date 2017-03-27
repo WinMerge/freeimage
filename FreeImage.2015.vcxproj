@@ -296,6 +296,7 @@ copy Source\FreeImage.h Dist\x32
       <OptimizeReferences>true</OptimizeReferences>
       <AdditionalDependencies />
       <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
       <Command>mkdir Dist\x64
