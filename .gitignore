@@ -1,0 +1,16 @@
+
+**/.vs/*
+
+*.VC.opendb
+*.VC.db
+
+**/Dist/*
+**/Win32/*
+**/x64/*
+
+TestAPI/*.png
+TestAPI/*.tif
+TestAPI/*.TIFF
+TestAPI/*.jpg
+TestAPI/*.gif
+TestAPI/*.ico
