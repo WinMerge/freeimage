@@ -213,6 +213,7 @@ copy FreeImagePlus.h dist\x64</Command>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <FunctionLevelLinking>true</FunctionLevelLinking>
+      <ProgramDataBaseFileName>$(IntDir)$(ProjectName)d.pdb</ProgramDataBaseFileName>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -231,6 +232,7 @@ copy FreeImagePlus.h dist\x64</Command>
     <PostBuildEvent>
       <Command>mkdir dist\x32
 copy $(OutDir)$(TargetName).lib dist\x32
+copy $(OutDir)$(TargetName).pdb dist\x32
 copy FreeImagePlus.h dist\x32
 </Command>
     </PostBuildEvent>
@@ -263,6 +265,7 @@ copy FreeImagePlus.h dist\x32
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
       <FunctionLevelLinking>true</FunctionLevelLinking>
+      <ProgramDataBaseFileName>$(IntDir)$(ProjectName)d.pdb</ProgramDataBaseFileName>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -273,7 +276,6 @@ copy FreeImagePlus.h dist\x32
       <OutputFile>Debug/FreeImagePlusd.lib</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ProgramDatabaseFile>.\Debug/FreeImagePlusd.pdb</ProgramDatabaseFile>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention />
       <ImportLibrary>.\Debug/FreeImagePlusd.lib</ImportLibrary>
@@ -282,6 +284,7 @@ copy FreeImagePlus.h dist\x32
     <PostBuildEvent>
       <Command>mkdir dist\x64
 copy $(OutDir)$(TargetName).lib dist\x64
+copy $(OutDir)$(TargetName).pdb dist\x64
 copy FreeImagePlus.h dist\x64</Command>
     </PostBuildEvent>
     <Lib>

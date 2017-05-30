@@ -112,22 +112,18 @@
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>FreeImaged.lib;FreeImagePlusd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImageLibd.lib;FreeImagePlusd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention />
       <TargetMachine>MachineX86</TargetMachine>
-      <AdditionalLibraryDirectories>..\..\..\Dist\x32;..\dist\x32</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\..\freeimage\Wrapper\FreeImagePlus\dist\x32;..\..\..\..\freeimage\Dist\x32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent>
-      <Command>copy ..\..\..\Dist\x32\FreeImaged.dll .\$(Platform)\$(Configuration)\
-copy ..\dist\x32\FreeImagePlusd.dll .\$(Platform)\$(Configuration)\
-
-</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -154,13 +150,13 @@ copy ..\dist\x32\FreeImagePlusd.dll .\$(Platform)\$(Configuration)\
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>FreeImage.lib;FreeImagePlus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImageLib.lib;FreeImagePlus.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Console</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention />
       <TargetMachine>MachineX86</TargetMachine>
-      <AdditionalLibraryDirectories>..\..\..\Dist\x32;..\dist\x32</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\..\freeimage\Wrapper\FreeImagePlus\dist\x32;..\..\..\..\freeimage\Dist\x32;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
@@ -188,14 +184,14 @@ copy ..\dist\x32\FreeImagePlusd.dll .\$(Platform)\$(Configuration)\
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>FreeImaged.lib;FreeImagePlusd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImageLibd.lib;FreeImagePlusd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention />
       <TargetMachine>MachineX64</TargetMachine>
-      <AdditionalLibraryDirectories>..\..\..\Dist\x64;..\dist\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\..\freeimage\Wrapper\FreeImagePlus\dist\$(Platform);..\..\..\..\freeimage\Dist\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
@@ -224,13 +220,13 @@ copy ..\dist\x32\FreeImagePlusd.dll .\$(Platform)\$(Configuration)\
       <Culture>0x040c</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>FreeImage.lib;FreeImagePlus.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>FreeImageLib.lib;FreeImagePlus.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <SubSystem>Console</SubSystem>
       <RandomizedBaseAddress>false</RandomizedBaseAddress>
       <DataExecutionPrevention />
       <TargetMachine>MachineX64</TargetMachine>
-      <AdditionalLibraryDirectories>..\..\..\Dist\x64;..\dist\x64</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>..\..\..\..\freeimage\Wrapper\FreeImagePlus\dist\$(Platform);..\..\..\..\freeimage\Dist\$(Platform);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ImageHasSafeExceptionHandlers>false</ImageHasSafeExceptionHandlers>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
