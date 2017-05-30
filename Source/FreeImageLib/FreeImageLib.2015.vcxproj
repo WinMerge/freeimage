@@ -119,6 +119,7 @@
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\x32
 copy $(TargetPath) ..\..\Dist\x32\$(ProjectName)d.lib
+copy $(OutDir)$(TargetName).pdb ..\..\Dist\x32\$(ProjectName)d.pdb
 copy ..\FreeImage.h ..\..\Dist\x32
 </Command>
     </PostBuildEvent>
@@ -157,6 +158,7 @@ copy ..\FreeImage.h ..\..\Dist\x32
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\x64
 copy $(TargetPath) ..\..\Dist\x64\$(ProjectName)d.lib
+copy $(OutDir)$(TargetName).pdb ..\..\Dist\x64\$(ProjectName)d.pdb
 copy ..\FreeImage.h ..\..\Dist\x64
 </Command>
     </PostBuildEvent>
