@@ -261,6 +261,7 @@ copy Source\FreeImage.h Dist\x64
       <Command>mkdir Dist\x32
 copy $(OutDir)$(TargetName).dll Dist\x32
 copy $(OutDir)$(TargetName).lib Dist\x32
+copy $(OutDir)$(TargetName).pdb Dist\x32
 copy Source\FreeImage.h Dist\x32
 </Command>
     </PostBuildEvent>
@@ -314,6 +315,7 @@ copy Source\FreeImage.h Dist\x32
       <Command>mkdir Dist\x64
 copy $(OutDir)$(TargetName).dll Dist\x64
 copy $(OutDir)$(TargetName).lib Dist\x64
+copy $(OutDir)$(TargetName).pdb Dist\x64
 copy Source\FreeImage.h Dist\x64
 </Command>
     </PostBuildEvent>
