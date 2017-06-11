@@ -14,3 +14,6 @@ TestAPI/*.TIFF
 TestAPI/*.jpg
 TestAPI/*.gif
 TestAPI/*.ico
+Wrapper/FreeImagePlus/test/*.png
+Wrapper/FreeImagePlus/test/*.tif
+Wrapper/FreeImagePlus/test/*.tiff
