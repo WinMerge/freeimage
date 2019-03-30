@@ -98,7 +98,7 @@ static TagInfo
     {  0x829A, (char *) "ExposureTime", (char *) "Exposure time"},
     {  0x829D, (char *) "FNumber", (char *) "F number"},
     {  0x83BB, (char *) "IPTC/NAA", (char *) NULL},
-    {  0x8773, (char *) "InterColorProfile", (char *) NULL},
+    {  0x8773, (char *) "InterColorProfile", (char *) "ICC profile data"},
     {  0x8822, (char *) "ExposureProgram", (char *) "Exposure program"},
     {  0x8824, (char *) "SpectralSensitivity", (char *) "Spectral sensitivity"},
     {  0x8825, (char *) "GPSInfo", (char *) NULL},

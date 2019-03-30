@@ -1,5 +1,3 @@
-/* $Id: tif_next.c,v 1.11 2015/02/19 22:39:58 drolon Exp $ */
-
 /*
  * Copyright (c) 1988-1997 Sam Leffler
  * Copyright (c) 1991-1997 Silicon Graphics, Inc.
@@ -37,7 +35,7 @@
 	case 0:	op[0]  = (unsigned char) ((v) << 6); break;	\
 	case 1:	op[0] |= (v) << 4; break;	\
 	case 2:	op[0] |= (v) << 2; break;	\
-	case 3:	*op++ |= (v);	   break;	\
+	case 3:	*op++ |= (v);	   op_offset++; break;	\
 	}					\
 }
 
@@ -72,7 +70,8 @@ NeXTDecode(TIFF* tif, uint8* buf, tmsize_t occ, uint16 s)
 		return (0);
 	}
 	for (row = buf; cc > 0 && occ > 0; occ -= scanline, row += scanline) {
-		n = *bp++, cc--;
+		n = *bp++;
+		cc--;
 		switch (n) {
 		case LITERALROW:
 			/*
@@ -103,6 +102,7 @@ NeXTDecode(TIFF* tif, uint8* buf, tmsize_t occ, uint16 s)
 		}
 		default: {
 			uint32 npixels = 0, grey;
+			tmsize_t op_offset = 0;
 			uint32 imagewidth = tif->tif_dir.td_imagewidth;
             if( isTiled(tif) )
                 imagewidth = tif->tif_dir.td_tilewidth;
@@ -122,13 +122,19 @@ NeXTDecode(TIFF* tif, uint8* buf, tmsize_t occ, uint16 s)
 				 * bounds, potentially resulting in a security
 				 * issue.
 				 */
-				while (n-- > 0 && npixels < imagewidth)
+				while (n-- > 0 && npixels < imagewidth && op_offset < scanline)
 					SETPIXEL(op, grey);
 				if (npixels >= imagewidth)
 					break;
+                if (op_offset >= scanline ) {
+                    TIFFErrorExt(tif->tif_clientdata, module, "Invalid data for scanline %ld",
+                        (long) tif->tif_row);
+                    return (0);
+                }
 				if (cc == 0)
 					goto bad;
-				n = *bp++, cc--;
+				n = *bp++;
+				cc--;
 			}
 			break;
 		}

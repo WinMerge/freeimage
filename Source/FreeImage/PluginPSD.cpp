@@ -4,6 +4,7 @@
 // Design and implementation by
 // - Hervé Drolon (drolon@infonie.fr)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
+// - Garrick Meeker (garrickmeeker@users.sourceforge.net)
 //
 // Based on LGPL code created and published by http://sourceforge.net/projects/elynx/
 //
@@ -48,7 +49,7 @@ Description() {
 
 static const char * DLL_CALLCONV
 Extension() {
-	return "psd";
+	return "psd,psb";
 }
 
 static const char * DLL_CALLCONV
@@ -71,12 +72,26 @@ Validate(FreeImageIO *io, fi_handle handle) {
 
 static BOOL DLL_CALLCONV
 SupportsExportDepth(int depth) {
-	return FALSE;
+	return (
+			(depth == 1)  ||
+			(depth == 8)  ||
+			(depth == 24) ||
+			(depth == 32)
+		);
 }
 
-static BOOL DLL_CALLCONV 
+static BOOL DLL_CALLCONV
 SupportsExportType(FREE_IMAGE_TYPE type) {
-	return FALSE;
+	return (
+		(type == FIT_BITMAP)  ||
+		(type == FIT_UINT16)  ||
+		(type == FIT_INT16)   ||
+		(type == FIT_FLOAT)   ||
+		(type == FIT_RGB16)   ||
+		(type == FIT_RGBA16)  ||
+		(type == FIT_RGBF)    ||
+		(type == FIT_RGBAF)
+	);
 }
 
 static BOOL DLL_CALLCONV
@@ -93,15 +108,38 @@ SupportsNoPixels() {
 
 static FIBITMAP * DLL_CALLCONV
 Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
-	if(handle) {
-		psdParser parser;
-		
-		FIBITMAP *dib = parser.Load(io, handle, s_format_id, flags);
-
-		return dib;
+	if(!handle) {
+		return NULL;
 	}
+	try {
+		psdParser parser;
 
-	return NULL;
+		FIBITMAP *dib = parser.Load(io, handle, s_format_id, flags);
+		
+		return dib;
+
+	} catch(const char *text) {
+		FreeImage_OutputMessageProc(s_format_id, text);
+		return NULL;
+	}
+}
+
+static BOOL DLL_CALLCONV
+Save(FreeImageIO *io, FIBITMAP *dib, fi_handle handle, int page, int flags, void *data) {
+	if(!handle) {
+		return NULL;
+	}
+	try {
+		psdParser parser;
+
+		bool b = parser.Save(io, dib, handle, page, flags, data);
+		
+		return b;
+
+	} catch(const char *text) {
+		FreeImage_OutputMessageProc(s_format_id, text);
+		return FALSE;
+	}
 }
 
 // ==========================================================
@@ -121,7 +159,7 @@ InitPSD(Plugin *plugin, int format_id) {
 	plugin->pagecount_proc = NULL;
 	plugin->pagecapability_proc = NULL;
 	plugin->load_proc = Load;
-	plugin->save_proc = NULL;
+	plugin->save_proc = Save;
 	plugin->validate_proc = Validate;
 	plugin->mime_proc = MimeType;
 	plugin->supports_export_bpp_proc = SupportsExportDepth;

@@ -389,8 +389,6 @@ copy Source\FreeImage.h Dist\x64
     <ClCompile Include="Source\FreeImage\ToneMapping.cpp" />
     <ClCompile Include="Source\FreeImage\NNQuantizer.cpp" />
     <ClCompile Include="Source\FreeImage\WuQuantizer.cpp" />
-    <ClCompile Include="Source\DeprecationManager\Deprecated.cpp" />
-    <ClCompile Include="Source\DeprecationManager\DeprecationMgr.cpp" />
     <ClCompile Include="Source\FreeImage\CacheFile.cpp" />
     <ClCompile Include="Source\FreeImage\MultiPage.cpp" />
     <ClCompile Include="Source\FreeImage\ZLibInterface.cpp" />

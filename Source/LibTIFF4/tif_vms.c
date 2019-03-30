@@ -1,5 +1,3 @@
-/* $Id: tif_vms.c,v 1.11 2015/02/19 22:39:59 drolon Exp $ */
-
 /*
  * Copyright (c) 1988-1997 Sam Leffler
  * Copyright (c) 1991-1997 Silicon Graphics, Inc.
@@ -28,9 +26,9 @@
  * TIFF Library VMS-specific Routines.
  */
 
+#include "tiffiop.h"
 #include <stdlib.h>
 #include <unixio.h>
-#include "tiffiop.h"
 #if !HAVE_IEEEFP
 #include <math.h>
 #endif
@@ -66,7 +64,7 @@ _tiffWriteProc(thandle_t fd, tdata_t buf, tsize_t size)
 static toff_t
 _tiffSeekProc(thandle_t fd, toff_t off, int whence)
 {
-	return ((toff_t) lseek((int) fd, (off_t) off, whence));
+	return ((toff_t) _TIFF_lseek_f((int) fd, (_TIFF_off_t) off, whence));
 }
 
 static int
@@ -80,8 +78,8 @@ _tiffCloseProc(thandle_t fd)
 static toff_t
 _tiffSizeProc(thandle_t fd)
 {
-	struct stat sb;
-	return (toff_t) (fstat((int) fd, &sb) < 0 ? 0 : sb.st_size);
+	_TIFF_stat_s sb;
+	return (toff_t) (_TIFF_fstat_f((int) fd, &sb) < 0 ? 0 : sb.st_size);
 }
 
 #ifdef HAVE_MMAP
@@ -268,6 +266,14 @@ _TIFFmalloc(tsize_t s)
                 return ((void *) NULL);
 
 	return (malloc((size_t) s));
+}
+
+void* _TIFFcalloc(tmsize_t nmemb, tmsize_t siz)
+{
+    if( nmemb == 0 || siz == 0 )
+        return ((void *) NULL);
+
+    return calloc((size_t) nmemb, (size_t)siz);
 }
 
 void

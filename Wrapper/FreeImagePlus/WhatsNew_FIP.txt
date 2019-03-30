@@ -5,6 +5,19 @@ What's New for FreeImagePlus
 ! : changed
 + : added
 
+July 31st, 2018
+! [Herve Drolon] fipMultiPage::open now use FreeImage_GetFileType
++ [Herve Drolon] added fipImage._fif handling
++ [Herve Drolon] added fipImage::clearMetadata
++ [Herve Drolon] added fipImage::createView
++ [Herve Drolon] added new fipImage::load / fipImage::loadU / fipImage::save / fipImage::saveU functions
++ [Herve Drolon] added fipImage::loadFromMemory(FREE_IMAGE_FORMAT fif, ...)
+* [Herve Drolon] fixed a bug in fipWinImage::copyFromHandle
+* [Herve Drolon] minor refactoring
+* [Ghislain Vaillant] fixed Doxygen files against hardcoded Windows paths
+* [Ghislain Vaillant] fixed missing cstdio.h include in fip test suite
+* [W. Scott Dillman] fixed a bug in fipMultiPage::open when using the function with a file that does not exist yet
+
 March 01st, 2015
 + [Herve Drolon] added fipImage::convertToRGBAF
 + [Herve Drolon] added fipImage::convertToRGBA16

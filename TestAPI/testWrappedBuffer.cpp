@@ -112,3 +112,52 @@ void testWrappedBuffer(const char *lpszPathName, int flags) {
 	// -------------------------------
 	FreeImage_Unload(dib);
 }
+
+void testCreateView(const char *lpszPathName, int flags) {
+	FIBITMAP *dib = NULL;
+	FIBITMAP *view = NULL;
+
+	// test working with views
+	// -------------------------------
+
+	// load the dib
+	FREE_IMAGE_FORMAT fif = FreeImage_GetFileType(lpszPathName);
+	dib = FreeImage_Load(fif, lpszPathName, flags);
+	assert(dib != NULL);
+
+	// get data info
+	FREE_IMAGE_TYPE type = FreeImage_GetImageType(dib);
+	assert(type == FIT_BITMAP);
+
+	unsigned width = FreeImage_GetWidth(dib);
+	unsigned height = FreeImage_GetHeight(dib);
+	unsigned pitch = FreeImage_GetPitch(dib);
+	unsigned bpp = FreeImage_GetBPP(dib);
+
+	// create a view around the center of the image
+	int cx = width / 2;
+	int cy = height / 2;
+	int ext_x = width / 4;
+	int ext_y = height / 4;
+
+	unsigned left = cx - ext_x;
+	unsigned right = cx + ext_x;
+	unsigned top = cy - ext_y;
+	unsigned bottom = cy + ext_y;
+	// make pitch odd
+	if ((right - left) % 2 == 0) {
+		right++;
+	}
+
+	view = FreeImage_CreateView(dib, left, top, right, bottom);
+	assert(FreeImage_GetPitch(view) == pitch);
+	assert(FreeImage_GetBPP(view) == bpp);
+
+	// save as BMP - check correct pitch handling
+	FreeImage_Save(FIF_BMP, view, "test_view.bmp", 0);
+
+	// no longer needed
+	FreeImage_Unload(view);
+
+	FreeImage_Unload(dib);
+}

@@ -5,6 +5,52 @@ What's New for FreeImage
 ! : changed
 + : added
 
+July 31st, 2018 - 3.18.0
+! FreeImage now uses ZLib 1.2.11
+! FreeImage now uses LibRaw 0.19
+! FreeImage now uses LibWebP 1.0.0 (GIT patch 2018-07-24)
+! FreeImage now uses LibPNG 1.6.35
+! FreeImage now uses LibTIFF 4.0.9 (GIT patch 2018-07-02)
+! FreeImage now uses OpenEXR 2.2.1
+! FreeImage now uses LibJPEG 9c
++ [Herve Drolon] added VS 2017 project files
+- [Herve Drolon] removed VS 2005 project files : this IDE is no longer supported because of its outdated C++ compiler
+- [Herve Drolon] removed VS 2008 project files : this IDE is no longer supported because of its outdated C++ compiler
+- [Herve Drolon] removed FreeImage_RotateClassic (deprecated function)
+- [Herve Drolon] removed internal Deprecation Manager (class DeprecationMgr)
+! [Herve Drolon] DDS plugin now convert 16-bit uncompressed RGB (RGB444, RGB555, RGB565) to 24-bit RGB on loading
++ [Garrick Meeker] added saving support to the PSD plugin
++ [Tom Whittock] FreeImage_ConvertToRawBits now deals with palletized images containing transparency during conversion
++ [Mihail Naydenov] added saving support for 32-bit CMYK in JPEG plugin
++ [Herve Drolon] added FreeImage_Validate functions
+		added FreeImage_Validate
+		added FreeImage_ValidateU
+		added FreeImage_ValidateFromHandle
+		added FreeImage_ValidateFromMemory
+* [Pengsu Cheng] fixed PCX loader against malicious images with a bad window specification
+* [Herve Drolon] fixed TIFF loader with loading of RGB[A]F float images
+* [Garrick Meeker] improved loading speed of PSD plugin
+* [Herve Drolon] fixed support of snprintf in Visual Studio 2015
+* [Herve Drolon] improved GIF signature validation
+* [Herve Drolon] improved TARGA signature validation
+* [Herve Drolon] disabled ICC sRGB profile checking in PluginPNG:Save
+* [Ghislain Vaillant] fixed endianness detection on some architectures
+* [Mihail Naydenov] fixed saving of 32-bit CMYK converted to 24-bit RGB on loading (remove ICC profile from Exif metadata)
+* [Mihail Naydenov] fixed FreeImage_IsTransparent and FreeImage_GetColorType returned value for RGBA[16,F] images flagged as CMYK
+* [Mihail Naydenov] fixed a bug in FreeImage_Clone when working with wrapped buffer (obtained from FreeImage_ConvertFromRawBitsEx)
+* [Mihail Naydenov] fixed a bug in PluginBMP:Save when saving a dib created with FreeImage_CreateView
+* [John Wordsworth] fixed loading of uncompressed DDS files when width / height are not a multiple of 4
+* [Herve Drolon] fixed XPM loader against malicious images with a bad header specification
+* [Mihail Naydenov] fixed TIFF loader with Exif loading (saves and restores offset and dir when exif is loaded)
+* [Mihail Naydenov] refactored MultiPage and CacheFile mechanism
+* [Jojakim Stahl] fixed PCX file conversion crash on special files
+* [dartraiden] fixed FreeImage_FillBackground when using blending with an alpha-transparent foreground color over an opaque background
+* [Herve Drolon] fixed 64-bit conversion of parameters in sprintf calls (required with C++ 11)
+* [Peter Levine] fixed static cast to boolean in PluginJPEG
+* [Sergey Shambir] improved error handling in PluginPNG
+* [Joachim Reichel] fixed wrong exposure in exported HDR files
+* [Percy Schott] fixed PluginTIFF:ReadThumbnail behavior when reading TIF with Exif metadata
+
 March 15th, 2015 - 3.17.0
 ! FreeImage now uses LibPNG 1.6.16
 ! FreeImage now uses LibWebP 0.4.2 (GIT patch 2015-03-03)

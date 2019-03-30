@@ -19,6 +19,7 @@ del *.sdf /s /q
 del *.sql /s /q
 del *.suo /s /q /a:h
 del *.user /s /q
+del *.opensdf /s /q /a:h
 del TestAPI\*.tif
 del TestAPI\blob.png
 del TestAPI\buffer.png
@@ -32,6 +33,7 @@ del TestAPI\test.jpg
 del TestAPI\TestImageType.tif
 del TestAPI\viewport.png
 del TestAPI\zoneplate.png
+del TestAPI\test_view.bmp
 rd Source\FreeImageLib\Debug /s /q
 rd Source\FreeImageLib\Release /s /q
 rd Source\FreeImageLib\Win32 /s /q
@@ -93,3 +95,5 @@ rd Release /s /q
 del Dist\FreeImage.h
 rd Dist\x32 /s /q
 rd Dist\x64 /s /q
+rd .vs /s /q
+

@@ -1,5 +1,3 @@
-/* $Id: tiffio.h,v 1.11 2015/02/19 22:39:59 drolon Exp $ */
-
 /*
  * Copyright (c) 1988-1997 Sam Leffler
  * Copyright (c) 1991-1997 Silicon Graphics, Inc.
@@ -208,7 +206,7 @@ struct _TIFFRGBAImage {
 	uint16 orientation;                     /* image orientation */
 	uint16 req_orientation;                 /* requested orientation */
 	uint16 photometric;                     /* image photometric interp */
-	uint16* redcmap;                        /* colormap pallete */
+	uint16* redcmap;                        /* colormap palette */
 	uint16* greencmap;
 	uint16* bluecmap;
 	/* get image data routine */
@@ -225,7 +223,7 @@ struct _TIFFRGBAImage {
 	TIFFYCbCrToRGB* ycbcr;                  /* YCbCr conversion state */
 	TIFFCIELabToRGB* cielab;                /* CIE L*a*b conversion state */
 
-	uint8* UaToAa;                          /* Unassociated alpha to associated alpha convertion LUT */
+	uint8* UaToAa;                          /* Unassociated alpha to associated alpha conversion LUT */
 	uint8* Bitdepth16To8;                   /* LUT for conversion from 16bit to 8bit values */
 
 	int row_offset;
@@ -293,6 +291,7 @@ extern TIFFCodec* TIFFGetConfiguredCODECs(void);
  */
 
 extern void* _TIFFmalloc(tmsize_t s);
+extern void* _TIFFcalloc(tmsize_t nmemb, tmsize_t siz);
 extern void* _TIFFrealloc(void* p, tmsize_t s);
 extern void _TIFFmemset(void* p, int v, tmsize_t c);
 extern void _TIFFmemcpy(void* d, const void* s, tmsize_t c);
@@ -430,6 +429,8 @@ extern int TIFFReadRGBAImageOriented(TIFF*, uint32, uint32, uint32*, int, int);
 
 extern int TIFFReadRGBAStrip(TIFF*, uint32, uint32 * );
 extern int TIFFReadRGBATile(TIFF*, uint32, uint32, uint32 * );
+extern int TIFFReadRGBAStripExt(TIFF*, uint32, uint32 *, int stop_on_error );
+extern int TIFFReadRGBATileExt(TIFF*, uint32, uint32, uint32 *, int stop_on_error );
 extern int TIFFRGBAImageOK(TIFF*, char [1024]);
 extern int TIFFRGBAImageBegin(TIFFRGBAImage*, TIFF*, int, char [1024]);
 extern int TIFFRGBAImageGet(TIFFRGBAImage*, uint32*, uint32, uint32);

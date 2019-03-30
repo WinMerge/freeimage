@@ -1,5 +1,5 @@
-#ifndef J2K_HELPER_H
-#define J2K_HELPER_H
+#ifndef FREEIMAGE_J2K_HELPER_H
+#define FREEIMAGE_J2K_HELPER_H
 
 // ==========================================================
 // Helper functions (see J2KHelper.cpp)
@@ -33,4 +33,4 @@ Conversion FIBITMAP => opj_image_t
 */
 opj_image_t* FIBITMAPToJ2KImage(int format_id, FIBITMAP *dib, const opj_cparameters_t *parameters);
 
-#endif // J2K_HELPER_H
+#endif // FREEIMAGE_J2K_HELPER_H
