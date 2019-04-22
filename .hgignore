@@ -3,3 +3,4 @@ syntax: glob
 *.lastbuildstate
 *.idb
 *.res
+.vs/
