@@ -358,7 +358,7 @@ MimeType() {
 static BOOL 
 isTARGA20(FreeImageIO *io, fi_handle handle) {
 	const unsigned sizeofSig = 18;
-	BYTE signature[sizeofSig];
+	BYTE signature[sizeofSig] = { 0 };
 	// tga_signature = "TRUEVISION-XFILE." (TGA 2.0 only)
 	BYTE tga_signature[sizeofSig] = { 84, 82, 85, 69, 86, 73, 83, 73, 79, 78, 45, 88, 70, 73, 76, 69, 46, 0 };
 	// get the start offset
@@ -367,8 +367,11 @@ isTARGA20(FreeImageIO *io, fi_handle handle) {
 	io->seek_proc(handle, 0, SEEK_END);
 	const long eof = io->tell_proc(handle);
 	// read the signature
-	io->seek_proc(handle, start_offset + eof - sizeofSig, SEEK_SET);
-	io->read_proc(&signature, 1, sizeofSig, handle);
+	const long start_of_signature = start_offset + eof - sizeofSig;
+	if (start_of_signature > 0) {
+		io->seek_proc(handle, start_of_signature, SEEK_SET);
+		io->read_proc(&signature, 1, sizeofSig, handle);
+	}
 	// rewind
 	io->seek_proc(handle, start_offset, SEEK_SET);
 		
@@ -387,7 +390,9 @@ Validate(FreeImageIO *io, fi_handle handle) {
 		
 		// get the header
 		TGAHEADER header;
-		io->read_proc(&header, sizeof(tagTGAHEADER), 1, handle);
+		if (io->read_proc(&header, sizeof(tagTGAHEADER), 1, handle) < 1) {
+			return FALSE;
+		}
 #ifdef FREEIMAGE_BIGENDIAN
 		SwapHeader(&header);
 #endif
@@ -399,7 +404,7 @@ Validate(FreeImageIO *io, fi_handle handle) {
 			return FALSE;
 		}
 		// if the color map type is 1 then we validate the map entry information...
-		if(header.color_map_type > 0) {
+		if(header.color_map_type == 1) {
 			// it doesn't make any sense if the first entry is larger than the color map table
 			if(header.cm_first_entry >= header.cm_length) {
 				return FALSE;

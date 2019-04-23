@@ -26,25 +26,25 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
-    <PlatformToolset>v120_xp</PlatformToolset>
+    <PlatformToolset>v120</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -103,7 +103,6 @@
       <CompileAs>Default</CompileAs>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -161,12 +160,11 @@ copy ..\FreeImage.h ..\..\Dist\x64
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <Optimization>MinSpace</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
-      <OmitFramePointers>true</OmitFramePointers>
-      <WholeProgramOptimization>true</WholeProgramOptimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
       <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
@@ -179,7 +177,7 @@ copy ..\FreeImage.h ..\..\Dist\x64
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <DebugInformationFormat>None</DebugInformationFormat>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -204,11 +202,10 @@ copy ..\FreeImage.h ..\..\Dist\x32
       <TargetEnvironment>X64</TargetEnvironment>
     </Midl>
     <ClCompile>
-      <Optimization>MinSpace</Optimization>
+      <Optimization>MaxSpeed</Optimization>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
-      <OmitFramePointers>true</OmitFramePointers>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
@@ -222,6 +219,7 @@ copy ..\FreeImage.h ..\..\Dist\x32
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <MultiProcessorCompilation>false</MultiProcessorCompilation>
       <DebugInformationFormat>None</DebugInformationFormat>
+      <OmitFramePointers>true</OmitFramePointers>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -309,8 +307,6 @@ copy ..\FreeImage.h ..\..\Dist\x64
     <ClCompile Include="..\FreeImage\PluginXPM.cpp" />
     <ClCompile Include="..\FreeImage\PSDParser.cpp" />
     <ClCompile Include="..\FreeImage\TIFFLogLuv.cpp" />
-    <ClCompile Include="..\DeprecationManager\Deprecated.cpp" />
-    <ClCompile Include="..\DeprecationManager\DeprecationMgr.cpp" />
     <ClCompile Include="..\FreeImage\CacheFile.cpp" />
     <ClCompile Include="..\FreeImage\MultiPage.cpp" />
     <ClCompile Include="..\FreeImage\ZLibInterface.cpp" />
@@ -336,7 +332,6 @@ copy ..\FreeImage.h ..\..\Dist\x64
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\CacheFile.h" />
-    <ClInclude Include="..\DeprecationManager\DeprecationMgr.h" />
     <ClInclude Include="..\MapIntrospector.h" />
     <ClInclude Include="..\Metadata\FIRational.h" />
     <ClInclude Include="..\FreeImage.h" />

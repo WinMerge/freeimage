@@ -14,9 +14,6 @@
     <Filter Include="Source Files\Quantizers">
       <UniqueIdentifier>{a31a9907-daf4-49ba-b15d-fa58325e1a93}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\DeprecationMgr">
-      <UniqueIdentifier>{e04705f9-f5dc-4d94-a2b8-e382debdac6c}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Source Files\MultiPaging">
       <UniqueIdentifier>{8e548647-dbf1-4ab0-b9c3-a0b9fd1388c9}</UniqueIdentifier>
     </Filter>
@@ -227,12 +224,6 @@
     <ClCompile Include="Source\FreeImage\WuQuantizer.cpp">
       <Filter>Source Files\Quantizers</Filter>
     </ClCompile>
-    <ClCompile Include="Source\DeprecationManager\Deprecated.cpp">
-      <Filter>Source Files\DeprecationMgr</Filter>
-    </ClCompile>
-    <ClCompile Include="Source\DeprecationManager\DeprecationMgr.cpp">
-      <Filter>Source Files\DeprecationMgr</Filter>
-    </ClCompile>
     <ClCompile Include="Source\FreeImage\CacheFile.cpp">
       <Filter>Source Files\MultiPaging</Filter>
     </ClCompile>
@@ -316,9 +307,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Source\CacheFile.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Source\DeprecationManager\DeprecationMgr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Source\Metadata\FIRational.h">

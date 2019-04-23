@@ -34,7 +34,7 @@ void FreeImageErrorHandler(FREE_IMAGE_FORMAT fif, const char *message) {
 	if(fif != FIF_UNKNOWN) {
 		printf("%s Format\n", FreeImage_GetFormatFromFIF(fif));
 	}
-	printf(message);
+	printf("%s", message);
 	printf(" ***\n");
 }
 
@@ -49,6 +49,9 @@ int main(int argc, char *argv[]) {
 	// through a call to _CrtDumpMemoryLeaks 
 	// note that in debug mode, objects allocated with the new operator 
 	// may be destroyed *after* the end of the main function. 
+	// OpenEXR
+	// note that OpenEXR produce so called "false memory leaks"
+	// see http://lists.nongnu.org/archive/html/openexr-devel/2013-11/msg00000.html
 	_CrtSetDbgFlag(_CRTDBG_LEAK_CHECK_DF|_CRTDBG_ALLOC_MEM_DF);
 #endif
 
@@ -101,6 +104,9 @@ int main(int argc, char *argv[]) {
 
 	// test wrapped user buffer
 	testWrappedBuffer("exif.jpg", 0);
+
+	// test views
+	testCreateView("exif.jpg", 0);
 
 #if defined(FREEIMAGE_LIB) || !defined(WIN32)
 	FreeImage_DeInitialise();

@@ -4,6 +4,7 @@
 // Design and implementation by
 // - Hervé Drolon (drolon@infonie.fr)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
+// - Garrick Meeker (garrickmeeker@users.sourceforge.net)
 //
 // Based on LGPL code created and published by http://sourceforge.net/projects/elynx/
 //
@@ -22,8 +23,8 @@
 // Use at your own risk!
 // ==========================================================
 
-#ifndef PSDPARSER_H
-#define PSDPARSER_H
+#ifndef FREEIMAGE_PSDPARSER_H
+#define FREEIMAGE_PSDPARSER_H
 
 /**
 Table 2-12: File header section. 
@@ -31,7 +32,7 @@ The file header contains the basic properties of the image.
 */
 typedef struct psdHeader {
 	BYTE Signature[4];	//! Always equal 8BPS, do not try to read the file if the signature does not match this value.
-	BYTE Version[2];	//! Always equal 1, do not read file if the version does not match this value.
+	BYTE Version[2];	//! Version of file, PSD=1, PSB=2.
 	char Reserved[6];	//! Must be zero.
 	BYTE Channels[2];	//! Number of channels including any alpha channels, supported range is 1 to 24.
 	BYTE Rows[4];		//! The height of the image in pixels. Supported range is 1 to 30,000.
@@ -46,19 +47,28 @@ Table 2-12: HeaderInfo Color spaces
 */
 class psdHeaderInfo {
 public:
-	short _Channels;	//! Numer of channels including any alpha channels, supported range is 1 to 24.
+	short _Version;     //! Version of file, PSD=1, PSB=2.
+	short _Channels;	//! Number of channels including any alpha channels, supported range is 1 to 24.
 	int   _Height;		//! The height of the image in pixels. Supported range is 1 to 30,000.
 	int   _Width;		//! The width of the image in pixels. Supported range is 1 to 30,000.
 	short _BitsPerChannel;//! The number of bits per channel. Supported values are 1, 8, and 16.
 	short _ColourMode;	//! Colour mode of the file, Bitmap=0, Grayscale=1, Indexed=2, RGB=3, CMYK=4, Multichannel=7, Duotone=8, Lab=9. 
 
 public:
+	//! Default constructor
 	psdHeaderInfo();
+	//! Destructor
 	~psdHeaderInfo();
 	/**
-	@return Returns the number of bytes read
+	Read the psdHeader structure
+	@return Returns true if successful, false otherwise
 	*/
 	bool Read(FreeImageIO *io, fi_handle handle);
+	/**
+	Write the psdHeader structure
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle);
 };
 
 /**
@@ -83,9 +93,13 @@ public:
 	psdColourModeData();
 	~psdColourModeData();
 	/**
-	@return Returns the number of bytes read
+	@return Returns true if successful, false otherwise
 	*/
 	bool Read(FreeImageIO *io, fi_handle handle);
+	/**
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle);
 	bool FillPalette(FIBITMAP *dib);
 };
 
@@ -105,6 +119,7 @@ public:
 	psdImageResource();
 	~psdImageResource();
 	void Reset();
+	bool Write(FreeImageIO *io, fi_handle handle, int ID, int Size);
 };
 
 /**
@@ -130,6 +145,10 @@ public:
 	*/
 	int Read(FreeImageIO *io, fi_handle handle);
 	/**
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle);
+	/**
 	@param res_x [out] X resolution in pixels/meter
 	@param res_y [out] Y resolution in pixels/meter
 	*/
@@ -152,6 +171,10 @@ public:
 	@return Returns the number of bytes read
 	*/
 	int Read(FreeImageIO *io, fi_handle handle);
+	/**
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle);
 };
 
 /**
@@ -173,6 +196,10 @@ public:
 	@return Returns the number of bytes read
 	*/
 	int Read(FreeImageIO *io, fi_handle handle);
+	/**
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle);
 };
 
 /**
@@ -196,15 +223,21 @@ public:
 	short _BitPerPixel;		//! = 24. Bits per pixel.
 	short _Planes;			//! = 1. Number of planes.
 	FIBITMAP * _dib;		//! JFIF data as uncompressed dib. Note: For resource ID 1033 the data is in BGR format.
+	bool _owned;
 	
 public:
 	psdThumbnail();
 	~psdThumbnail();
 	FIBITMAP* getDib() { return _dib; }
+	void Init();
 	/**
 	@return Returns the number of bytes read
 	*/
 	int Read(FreeImageIO *io, fi_handle handle, int iResourceSize, bool isBGR);
+	/**
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle, bool isBGR);
 
 private:
 	psdThumbnail(const psdThumbnail&);
@@ -215,6 +248,7 @@ class psdICCProfile {
 public:
 	int _ProfileSize;
 	BYTE * _ProfileData;
+	bool _owned;
 public:
 	psdICCProfile();
 	~psdICCProfile();
@@ -223,6 +257,29 @@ public:
 	@return Returns the number of bytes read
 	*/
 	int Read(FreeImageIO *io, fi_handle handle, int size);
+	/**
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle);
+};
+
+class psdData {
+public:
+	unsigned _Size;
+	BYTE * _Data;
+	bool _owned;
+public:
+	psdData();
+	~psdData();
+	void clear();
+	/**
+	@return Returns the number of bytes read
+	*/
+	int Read(FreeImageIO *io, fi_handle handle, int size);
+	/**
+	@return Returns true if successful, false otherwise
+	*/
+	bool Write(FreeImageIO *io, fi_handle handle, int ID);
 };
 
 /**
@@ -237,6 +294,10 @@ private:
 	psdDisplayInfo			_displayInfo;
 	psdThumbnail			_thumbnail;
 	psdICCProfile			_iccProfile;
+	psdData					_iptc;
+	psdData					_exif1;
+	psdData					_exif3;
+	psdData					_xmp;
 
 	short _ColourCount;
 	short _TransparentIndex;
@@ -251,14 +312,22 @@ private:
 	int _fi_format_id;
 	
 private:
+	unsigned GetChannelOffset(FIBITMAP* bitmap, unsigned c) const;
 	/**	Actually ignore it */
 	bool ReadLayerAndMaskInfoSection(FreeImageIO *io, fi_handle handle);
+	void ReadImageLine(BYTE* dst, const BYTE* src, unsigned lineSize, unsigned dstBpp, unsigned bytes);
+	void UnpackRLE(BYTE* dst, const BYTE* src, BYTE* dst_end, unsigned srcSize);
 	FIBITMAP* ReadImageData(FreeImageIO *io, fi_handle handle);
+	bool WriteLayerAndMaskInfoSection(FreeImageIO *io, fi_handle handle);
+	void WriteImageLine(BYTE* dst, const BYTE* src, unsigned lineSize, unsigned srcBpp, unsigned bytes);
+	unsigned PackRLE(BYTE* line_start, const BYTE* src_line, unsigned srcSize);
+	bool WriteImageData(FreeImageIO *io, fi_handle handle, FIBITMAP* dib);
 
 public:
 	psdParser();
 	~psdParser();
 	FIBITMAP* Load(FreeImageIO *io, fi_handle handle, int s_format_id, int flags=0);
+	bool Save(FreeImageIO *io, FIBITMAP *dib, fi_handle handle, int page, int flags, void *data);
 	/** Also used by the TIFF plugin */
 	bool ReadImageResources(FreeImageIO *io, fi_handle handle, LONG length=0);
 	/** Used by the TIFF plugin */
@@ -267,5 +336,6 @@ public:
 	}
 };
 
-#endif // PSDPARSER_H
+#endif // FREEIMAGE_PSDPARSER_H
+
 

@@ -38,10 +38,6 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "IlmBaseConfig.h"
-
-#if !defined(HAVE_PTHREAD) && defined(_WIN32)
-
 #include "IlmThreadMutex.h"
 #include "Iex.h"
 
@@ -75,5 +71,3 @@ Mutex::unlock () const
 
 
 ILMTHREAD_INTERNAL_NAMESPACE_SOURCE_EXIT
-
-#endif

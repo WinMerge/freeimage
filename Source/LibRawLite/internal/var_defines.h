@@ -1,12 +1,12 @@
 /* -*- C++ -*-
  * File: var_defines.h
- * Copyright 2008-2013 LibRaw LLC (info@libraw.org)
+ * Copyright 2008-2018 LibRaw LLC (info@libraw.org)
  * Created: Sat Mar  8, 2008
  *
  * LibRaw redefinitions of dcraw internal variables
 
 LibRaw is free software; you can redistribute it and/or modify
-it under the terms of the one of three licenses as you choose:
+it under the terms of the one of two licenses as you choose:
 
 1. GNU LESSER GENERAL PUBLIC LICENSE version 2.1
    (See file LICENSE.LGPL provided in LibRaw distribution archive for details).
@@ -14,8 +14,6 @@ it under the terms of the one of three licenses as you choose:
 2. COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0
    (See file LICENSE.CDDL provided in LibRaw distribution archive for details).
 
-3. LibRaw Software License 27032010
-   (See file LICENSE.LibRaw.pdf provided in LibRaw distribution archive for details).
  */
 
 #ifndef VAR_DEFINES_H
@@ -124,22 +122,10 @@ it under the terms of the one of three licenses as you choose:
 #define use_fuji_rotate (imgdata.params.use_fuji_rotate)
 #define filtering_mode (imgdata.params.filtering_mode)
 
-// Demosaic packs
-//AFD
-//#define afd_noise_att				(imgdata.params.afd_noise_att)
-//#define afd_noise_thres				(imgdata.params.afd_noise_thres)
-//#define afd_luminance_passes		(imgdata.params.afd_luminance_passes)
-//#define afd_chrominance_method		(imgdata.params.afd_chrominance_method)
-//#define afd_luminance_only			(imgdata.params.afd_luminance_only)
 // DCB
 #define dcb_iterations   (imgdata.params.iterations)
 #define dcb_enhance_fl   (imgdata.params.dcb_enhance)
 #define fbdd_noiserd     (imgdata.params.fbdd_noiserd)
-// VCD
-#define eeci_refine    (imgdata.params.eeci_refine)
-#define es_med_passes  (imgdata.params.es_med_passes)
-
-
 
 //rgb_constants
 #define xyz_rgb         (rgb_constants.xyz_rgb)
@@ -172,6 +158,7 @@ it under the terms of the one of three licenses as you choose:
 //libraw_internal_data.identify_data
 #define exif_cfa        (libraw_internal_data.identify_data.olympus_exif_cfa)
 #define unique_id       (libraw_internal_data.identify_data.unique_id)
+#define OlyID           (libraw_internal_data.identify_data.OlyID)
 #define tiff_nifds      (libraw_internal_data.identify_data.tiff_nifds)
 #define tiff_flip       (libraw_internal_data.identify_data.tiff_flip)
 
@@ -195,6 +182,8 @@ it under the terms of the one of three licenses as you choose:
 #define tile_width      (libraw_internal_data.unpacker_data.tile_width)
 #define tile_length     (libraw_internal_data.unpacker_data.tile_length)
 #define load_flags      (libraw_internal_data.unpacker_data.load_flags)
+#define pana_encoding   (libraw_internal_data.unpacker_data.pana_encoding)
+#define pana_bpp        (libraw_internal_data.unpacker_data.pana_bpp)
 
 #ifdef LIBRAW_IO_REDEFINED
 #define fread(ptr,size,n,stream) stream->read(ptr,size,n)

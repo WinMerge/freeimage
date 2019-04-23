@@ -26,7 +26,6 @@
 
 #include "../LibWebP/src/webp/decode.h"
 #include "../LibWebP/src/webp/encode.h"
-#include "../LibWebP/src/enc/vp8enci.h"
 #include "../LibWebP/src/webp/mux.h"
 
 // ==========================================================

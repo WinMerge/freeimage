@@ -320,8 +320,6 @@ copy ..\FreeImage.h ..\..\Dist\x64
     <ClCompile Include="..\FreeImage\PluginXPM.cpp" />
     <ClCompile Include="..\FreeImage\PSDParser.cpp" />
     <ClCompile Include="..\FreeImage\TIFFLogLuv.cpp" />
-    <ClCompile Include="..\DeprecationManager\Deprecated.cpp" />
-    <ClCompile Include="..\DeprecationManager\DeprecationMgr.cpp" />
     <ClCompile Include="..\FreeImage\CacheFile.cpp" />
     <ClCompile Include="..\FreeImage\MultiPage.cpp" />
     <ClCompile Include="..\FreeImage\ZLibInterface.cpp" />
@@ -347,7 +345,6 @@ copy ..\FreeImage.h ..\..\Dist\x64
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\CacheFile.h" />
-    <ClInclude Include="..\DeprecationManager\DeprecationMgr.h" />
     <ClInclude Include="..\MapIntrospector.h" />
     <ClInclude Include="..\Metadata\FIRational.h" />
     <ClInclude Include="..\FreeImage.h" />

@@ -1,5 +1,3 @@
-/* $Id: tif_write.c,v 1.11 2015/02/19 22:39:59 drolon Exp $ */
-
 /*
  * Copyright (c) 1988-1997 Sam Leffler
  * Copyright (c) 1991-1997 Silicon Graphics, Inc.
@@ -115,6 +113,10 @@ TIFFWriteScanline(TIFF* tif, void* buf, uint32 row, uint16 sample)
 		if (strip >= td->td_stripsperimage && imagegrew)
 			td->td_stripsperimage =
 			    TIFFhowmany_32(td->td_imagelength,td->td_rowsperstrip);
+                if (td->td_stripsperimage == 0) {
+                        TIFFErrorExt(tif->tif_clientdata, module, "Zero strips per image");
+                        return (-1);
+                }
 		tif->tif_row =
 		    (strip % td->td_stripsperimage) * td->td_rowsperstrip;
 		if ((tif->tif_flags & TIFF_CODERSETUP) == 0) {
@@ -220,6 +222,11 @@ TIFFWriteEncodedStrip(TIFF* tif, uint32 strip, void* data, tmsize_t cc)
         tif->tif_flags |= TIFF_BUF4WRITE;
 	tif->tif_curstrip = strip;
 
+        if (td->td_stripsperimage == 0) {
+                TIFFErrorExt(tif->tif_clientdata, module, "Zero strips per image");
+                return ((tmsize_t) -1);
+        }
+
 	tif->tif_row = (strip % td->td_stripsperimage) * td->td_rowsperstrip;
 	if ((tif->tif_flags & TIFF_CODERSETUP) == 0) {
 		if (!(*tif->tif_setupencode)(tif))
@@ -249,6 +256,23 @@ TIFFWriteEncodedStrip(TIFF* tif, uint32 strip, void* data, tmsize_t cc)
     tif->tif_rawcp = tif->tif_rawdata;
 
 	tif->tif_flags &= ~TIFF_POSTENCODE;
+
+    /* shortcut to avoid an extra memcpy() */
+    if( td->td_compression == COMPRESSION_NONE )
+    {
+        /* swab if needed - note that source buffer will be altered */
+        tif->tif_postdecode( tif, (uint8*) data, cc );
+
+        if (!isFillOrder(tif, td->td_fillorder) &&
+            (tif->tif_flags & TIFF_NOBITREV) == 0)
+            TIFFReverseBits((uint8*) data, cc);
+
+        if (cc > 0 &&
+            !TIFFAppendToStrip(tif, strip, (uint8*) data, cc))
+            return ((tmsize_t) -1);
+        return (cc);
+    }
+
 	sample = (uint16)(strip / td->td_stripsperimage);
 	if (!(*tif->tif_preencode)(tif, sample))
 		return ((tmsize_t) -1);
@@ -257,7 +281,7 @@ TIFFWriteEncodedStrip(TIFF* tif, uint32 strip, void* data, tmsize_t cc)
 	tif->tif_postdecode( tif, (uint8*) data, cc );
 
 	if (!(*tif->tif_encodestrip)(tif, (uint8*) data, cc, sample))
-		return (0);
+		return ((tmsize_t) -1);
 	if (!(*tif->tif_postencode)(tif))
 		return ((tmsize_t) -1);
 	if (!isFillOrder(tif, td->td_fillorder) &&
@@ -311,6 +335,10 @@ TIFFWriteRawStrip(TIFF* tif, uint32 strip, void* data, tmsize_t cc)
 			return ((tmsize_t) -1);
 	}
 	tif->tif_curstrip = strip;
+        if (td->td_stripsperimage == 0) {
+                TIFFErrorExt(tif->tif_clientdata, module,"Zero strips per image");
+                return ((tmsize_t) -1);
+        }
 	tif->tif_row = (strip % td->td_stripsperimage) * td->td_rowsperstrip;
 	return (TIFFAppendToStrip(tif, strip, (uint8*) data, cc) ?
 	    cc : (tmsize_t) -1);
@@ -353,6 +381,7 @@ TIFFWriteEncodedTile(TIFF* tif, uint32 tile, void* data, tmsize_t cc)
 	static const char module[] = "TIFFWriteEncodedTile";
 	TIFFDirectory *td;
 	uint16 sample;
+        uint32 howmany32;
 
 	if (!WRITECHECKTILES(tif, module))
 		return ((tmsize_t)(-1));
@@ -398,10 +427,18 @@ TIFFWriteEncodedTile(TIFF* tif, uint32 tile, void* data, tmsize_t cc)
 	 * Compute tiles per row & per column to compute
 	 * current row and column
 	 */
-	tif->tif_row = (tile % TIFFhowmany_32(td->td_imagelength, td->td_tilelength))
-		* td->td_tilelength;
-	tif->tif_col = (tile % TIFFhowmany_32(td->td_imagewidth, td->td_tilewidth))
-		* td->td_tilewidth;
+        howmany32=TIFFhowmany_32(td->td_imagelength, td->td_tilelength);
+        if (howmany32 == 0) {
+                 TIFFErrorExt(tif->tif_clientdata,module,"Zero tiles");
+                return ((tmsize_t)(-1));
+        }
+	tif->tif_row = (tile % howmany32) * td->td_tilelength;
+        howmany32=TIFFhowmany_32(td->td_imagewidth, td->td_tilewidth);
+        if (howmany32 == 0) {
+                 TIFFErrorExt(tif->tif_clientdata,module,"Zero tiles");
+                return ((tmsize_t)(-1));
+        }
+	tif->tif_col = (tile % howmany32) * td->td_tilewidth;
 
 	if ((tif->tif_flags & TIFF_CODERSETUP) == 0) {
 		if (!(*tif->tif_setupencode)(tif))
@@ -409,9 +446,7 @@ TIFFWriteEncodedTile(TIFF* tif, uint32 tile, void* data, tmsize_t cc)
 		tif->tif_flags |= TIFF_CODERSETUP;
 	}
 	tif->tif_flags &= ~TIFF_POSTENCODE;
-	sample = (uint16)(tile/td->td_stripsperimage);
-	if (!(*tif->tif_preencode)(tif, sample))
-		return ((tmsize_t)(-1));
+
 	/*
 	 * Clamp write amount to the tile size.  This is mostly
 	 * done so that callers can pass in some large number
@@ -420,22 +455,41 @@ TIFFWriteEncodedTile(TIFF* tif, uint32 tile, void* data, tmsize_t cc)
 	if ( cc < 1 || cc > tif->tif_tilesize)
 		cc = tif->tif_tilesize;
 
+    /* shortcut to avoid an extra memcpy() */
+    if( td->td_compression == COMPRESSION_NONE )
+    {
         /* swab if needed - note that source buffer will be altered */
-	tif->tif_postdecode( tif, (uint8*) data, cc );
+        tif->tif_postdecode( tif, (uint8*) data, cc );
 
-	if (!(*tif->tif_encodetile)(tif, (uint8*) data, cc, sample))
-		return (0);
-	if (!(*tif->tif_postencode)(tif))
-		return ((tmsize_t)(-1));
-	if (!isFillOrder(tif, td->td_fillorder) &&
-	    (tif->tif_flags & TIFF_NOBITREV) == 0)
-		TIFFReverseBits((uint8*)tif->tif_rawdata, tif->tif_rawcc);
-	if (tif->tif_rawcc > 0 && !TIFFAppendToStrip(tif, tile,
-	    tif->tif_rawdata, tif->tif_rawcc))
-		return ((tmsize_t)(-1));
-	tif->tif_rawcc = 0;
-	tif->tif_rawcp = tif->tif_rawdata;
-	return (cc);
+        if (!isFillOrder(tif, td->td_fillorder) &&
+            (tif->tif_flags & TIFF_NOBITREV) == 0)
+            TIFFReverseBits((uint8*) data, cc);
+
+        if (cc > 0 &&
+            !TIFFAppendToStrip(tif, tile, (uint8*) data, cc))
+            return ((tmsize_t) -1);
+        return (cc);
+    }
+
+    sample = (uint16)(tile/td->td_stripsperimage);
+    if (!(*tif->tif_preencode)(tif, sample))
+        return ((tmsize_t)(-1));
+    /* swab if needed - note that source buffer will be altered */
+    tif->tif_postdecode( tif, (uint8*) data, cc );
+
+    if (!(*tif->tif_encodetile)(tif, (uint8*) data, cc, sample))
+            return ((tmsize_t) -1);
+    if (!(*tif->tif_postencode)(tif))
+            return ((tmsize_t)(-1));
+    if (!isFillOrder(tif, td->td_fillorder) &&
+        (tif->tif_flags & TIFF_NOBITREV) == 0)
+            TIFFReverseBits((uint8*)tif->tif_rawdata, tif->tif_rawcc);
+    if (tif->tif_rawcc > 0 && !TIFFAppendToStrip(tif, tile,
+        tif->tif_rawdata, tif->tif_rawcc))
+            return ((tmsize_t)(-1));
+    tif->tif_rawcc = 0;
+    tif->tif_rawcp = tif->tif_rawdata;
+    return (cc);
 }
 
 /*
@@ -742,7 +796,14 @@ TIFFFlushData1(TIFF* tif)
 		if (!TIFFAppendToStrip(tif,
 		    isTiled(tif) ? tif->tif_curtile : tif->tif_curstrip,
 		    tif->tif_rawdata, tif->tif_rawcc))
+        {
+            /* We update those variables even in case of error since there's */
+            /* code that doesn't really check the return code of this */
+            /* function */
+            tif->tif_rawcc = 0;
+            tif->tif_rawcp = tif->tif_rawdata;
 			return (0);
+        }
 		tif->tif_rawcc = 0;
 		tif->tif_rawcp = tif->tif_rawdata;
 	}

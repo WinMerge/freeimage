@@ -20,6 +20,9 @@
 // Use at your own risk!
 // =============================================================
 
+#ifndef FREEIMAGE_QUANTIZER_H
+#define FREEIMAGE_QUANTIZER_H
+
 // 
 ////////////////////////////////////////////////////////////////
 
@@ -352,3 +355,5 @@ protected:
 	void WritePalette(void *palette);
 
 };
+
+#endif // FREEIMAGE_QUANTIZER_H

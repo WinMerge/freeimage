@@ -38,10 +38,6 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "IlmBaseConfig.h"
-
-#if defined(_WIN32) && !defined(HAVE_PTHREAD) && !defined(HAVE_POSIX_SEMAPHORES)
-
 #include "IlmThreadSemaphore.h"
 #include "Iex.h"
 #include <string>
@@ -149,5 +145,3 @@ Semaphore::value() const
 
 
 ILMTHREAD_INTERNAL_NAMESPACE_SOURCE_EXIT
-
-#endif

@@ -36,11 +36,20 @@ BOOL fipMultiPage::isValid() const {
 }
 
 BOOL fipMultiPage::open(const char* lpszPathName, BOOL create_new, BOOL read_only, int flags) {
-	// try to guess the file format from the filename
-	FREE_IMAGE_FORMAT fif = FreeImage_GetFIFFromFilename(lpszPathName);
+	FREE_IMAGE_FORMAT fif = FIF_UNKNOWN;	// fif is used to get the file type
 
-	// open the stream
-	_mpage = FreeImage_OpenMultiBitmap(fif, lpszPathName, create_new, read_only, _bMemoryCache, flags);
+	// check if lpszPathName is a new file or an already existing file (here, we trust the 'create_new' flag)
+	if (create_new) {
+		fif = FreeImage_GetFIFFromFilename(lpszPathName);
+	}
+	else {
+		fif = FreeImage_GetFileType(lpszPathName);
+	}
+
+	if (fif != FIF_UNKNOWN) {
+		// open the stream
+		_mpage = FreeImage_OpenMultiBitmap(fif, lpszPathName, create_new, read_only, _bMemoryCache, flags);
+	}
 
 	return (NULL != _mpage ) ? TRUE : FALSE;
 }
@@ -57,7 +66,7 @@ BOOL fipMultiPage::open(fipMemoryIO& memIO, int flags) {
 
 BOOL fipMultiPage::open(FreeImageIO *io, fi_handle handle, int flags) {
 	// try to guess the file format from the handle
-	FREE_IMAGE_FORMAT fif = FreeImage_GetFileTypeFromHandle(io, handle, 0);
+	FREE_IMAGE_FORMAT fif = FreeImage_GetFileTypeFromHandle(io, handle);
 
 	// open the stream
 	_mpage = FreeImage_OpenMultiBitmapFromHandle(fif, io, handle, flags);

@@ -28,6 +28,7 @@
 #include <sys/stat.h>
 
 #include <iostream>
+#include <cstdio>
 
 // --------------------------------------------------------------------------
 // Memory IO test scripts

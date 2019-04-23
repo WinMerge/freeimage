@@ -1,8 +1,8 @@
-/* libpng 1.6.12 STANDARD API DEFINITION */
+/* libpng 1.6.18 STANDARD API DEFINITION */
 
 /* pnglibconf.h - library build configuration */
 
-/* Libpng version 1.6.12 - June 12, 2014 */
+/* Libpng version 1.6.18 - July 23, 2015 */
 
 /* Copyright (c) 1998-2014 Glenn Randers-Pehrson */
 
@@ -97,13 +97,10 @@
 #define PNG_READ_tIME_SUPPORTED
 #define PNG_READ_tRNS_SUPPORTED
 #define PNG_READ_zTXt_SUPPORTED
-/*#undef PNG_SAFE_LIMITS_SUPPORTED*/
 #define PNG_SAVE_INT_32_SUPPORTED
 #define PNG_SAVE_UNKNOWN_CHUNKS_SUPPORTED
 #define PNG_SEQUENTIAL_READ_SUPPORTED
 #define PNG_SETJMP_SUPPORTED
-#define PNG_SET_CHUNK_CACHE_LIMIT_SUPPORTED
-#define PNG_SET_CHUNK_MALLOC_LIMIT_SUPPORTED
 #define PNG_SET_OPTION_SUPPORTED
 #define PNG_SET_UNKNOWN_CHUNKS_SUPPORTED
 #define PNG_SET_USER_LIMITS_SUPPORTED
@@ -129,6 +126,7 @@
 #define PNG_WRITE_BGR_SUPPORTED
 #define PNG_WRITE_CHECK_FOR_INVALID_INDEX_SUPPORTED
 #define PNG_WRITE_COMPRESSED_TEXT_SUPPORTED
+#define PNG_WRITE_CUSTOMIZE_COMPRESSION_SUPPORTED
 #define PNG_WRITE_CUSTOMIZE_ZTXT_COMPRESSION_SUPPORTED
 #define PNG_WRITE_FILLER_SUPPORTED
 #define PNG_WRITE_FILTER_SUPPORTED
@@ -192,12 +190,20 @@
 #define PNG_GAMMA_THRESHOLD_FIXED 5000
 #define PNG_IDAT_READ_SIZE PNG_ZBUF_SIZE
 #define PNG_INFLATE_BUF_SIZE 1024
+#define PNG_LINKAGE_API extern
+#define PNG_LINKAGE_CALLBACK extern
+#define PNG_LINKAGE_DATA extern
+#define PNG_LINKAGE_FUNCTION extern
 #define PNG_MAX_GAMMA_8 11
 #define PNG_QUANTIZE_BLUE_BITS 5
 #define PNG_QUANTIZE_GREEN_BITS 5
 #define PNG_QUANTIZE_RED_BITS 5
 #define PNG_TEXT_Z_DEFAULT_COMPRESSION (-1)
 #define PNG_TEXT_Z_DEFAULT_STRATEGY 0
+#define PNG_USER_CHUNK_CACHE_MAX 1000
+#define PNG_USER_CHUNK_MALLOC_MAX 8000000
+#define PNG_USER_HEIGHT_MAX 1000000
+#define PNG_USER_WIDTH_MAX 1000000
 #define PNG_WEIGHT_SHIFT 8
 #define PNG_ZBUF_SIZE 8192
 #define PNG_ZLIB_VERNUM 0 /* unknown */
@@ -205,14 +211,6 @@
 #define PNG_Z_DEFAULT_NOFILTER_STRATEGY 0
 #define PNG_Z_DEFAULT_STRATEGY 1
 #define PNG_sCAL_PRECISION 5
-/**
-PNG_sRGB_PROFILE_CHECKS == 0
-   The MD5 is used if available, nothing else is checked.  No warning messages.
-PNG_sRGB_PROFILE_CHECKS == 1
-   The MD5 is checked and if it matches the adler32 (from the zlib stream)is also checked, the profile is regarded as not-sRGB if the check fails.
-PNG_SRGB_PROFILE_CHECKS == 2
-   In addition to the above a full crc32 is also calculated if everything passes.  The profile is only regarded as sRGB if this passes too.
-*/
-#define PNG_sRGB_PROFILE_CHECKS -1
+#define PNG_sRGB_PROFILE_CHECKS 2
 /* end of settings */
 #endif /* PNGLCONF_H */

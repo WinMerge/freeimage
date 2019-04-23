@@ -19,8 +19,8 @@
 // Use at your own risk!
 // ==========================================================
 
-#ifndef FIRATIONAL_H
-#define FIRATIONAL_H
+#ifndef FREEIMAGE_FIRATIONAL_H
+#define FREEIMAGE_FIRATIONAL_H
 
 /**
 Helper class to deal with rational numbers. 
@@ -104,5 +104,5 @@ private:
 
 };
 
-#endif // FIRATIONAL_H
+#endif // FREEIMAGE_FIRATIONAL_H
 

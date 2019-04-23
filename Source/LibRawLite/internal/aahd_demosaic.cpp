@@ -3,16 +3,13 @@
  * Copyright 2013 Anton Petrusevich
  * Created: Wed May  15, 2013
  *
- * This code is licensed under one of three licenses as you choose:
+ * This code is licensed under one of two licenses as you choose:
  *
  * 1. GNU LESSER GENERAL PUBLIC LICENSE version 2.1
  *    (See file LICENSE.LGPL provided in LibRaw distribution archive for details).
  *
  * 2. COMMON DEVELOPMENT AND DISTRIBUTION LICENSE (CDDL) Version 1.0
  *    (See file LICENSE.CDDL provided in LibRaw distribution archive for details).
- *
- * 3. LibRaw Software License 27032010
- *    (See file LICENSE.LibRaw.pdf provided in LibRaw distribution archive for details).
  *
  */
 
@@ -124,6 +121,9 @@ AAHD::AAHD(LibRaw& _libraw) :
 	nr_width = libraw.imgdata.sizes.iwidth + nr_margin * 2;
 	rgb_ahd[0] = (ushort3*) calloc(nr_height * nr_width,
 			(sizeof(ushort3) * 2 + sizeof(int3) * 2 + 3));
+	if(!rgb_ahd[0])
+		    throw LIBRAW_EXCEPTION_ALLOC;
+
 	rgb_ahd[1] = rgb_ahd[0] + nr_height * nr_width;
 	yuv[0] = (int3 *) (rgb_ahd[1] + nr_height * nr_width);
 	yuv[1] = yuv[0] + nr_height * nr_width;
@@ -694,7 +694,9 @@ AAHD::~AAHD() {
 }
 
 void LibRaw::aahd_interpolate() {
+#ifdef DCRAW_VERBOSE
 	printf("AAHD interpolating\n");
+#endif
 	AAHD aahd(*this);
 	aahd.hide_hots();
 	aahd.make_ahd_greens();
