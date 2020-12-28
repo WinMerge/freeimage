@@ -224,12 +224,6 @@
     <ClCompile Include="..\FreeImage\TIFFLogLuv.cpp">
       <Filter>Source Files\Plugins</Filter>
     </ClCompile>
-    <ClCompile Include="..\DeprecationManager\Deprecated.cpp">
-      <Filter>Source Files\DeprecationMgr</Filter>
-    </ClCompile>
-    <ClCompile Include="..\DeprecationManager\DeprecationMgr.cpp">
-      <Filter>Source Files\DeprecationMgr</Filter>
-    </ClCompile>
     <ClCompile Include="..\FreeImage\CacheFile.cpp">
       <Filter>Source Files\MultiPaging</Filter>
     </ClCompile>
@@ -308,9 +302,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\CacheFile.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\DeprecationManager\DeprecationMgr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\Metadata\FIRational.h">
