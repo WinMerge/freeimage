@@ -263,7 +263,7 @@ FreeImage_ConvertTo32Bits(FIBITMAP *dib) {
 			case 16:
 			{
 				for (int rows = 0; rows < height; rows++) {
-					if ((FreeImage_GetRedMask(dib) == FI16_565_RED_MASK) && (FreeImage_GetGreenMask(dib) == FI16_565_GREEN_MASK) && (FreeImage_GetBlueMask(dib) == FI16_565_BLUE_MASK)) {
+					if (/*(FreeImage_GetRedMask(dib) == FI16_565_RED_MASK) && */(FreeImage_GetGreenMask(dib) == FI16_565_GREEN_MASK)/* && (FreeImage_GetBlueMask(dib) == FI16_565_BLUE_MASK)*/) {
 						FreeImage_ConvertLine16To32_565(FreeImage_GetScanLine(new_dib, rows), FreeImage_GetScanLine(dib, rows), width);
 					} else {
 						// includes case where all the masks are 0
