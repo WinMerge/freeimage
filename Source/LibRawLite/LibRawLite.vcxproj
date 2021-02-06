@@ -219,7 +219,7 @@
     <ClInclude Include="libraw\libraw_version.h" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\LibJPEG\LibJPEG.vvcxproj">
+    <ProjectReference Include="..\LibJPEG\LibJPEG.vcxproj">
       <Project>{5e1d4e5f-e10c-4ba3-b663-f33014fd21d9}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
