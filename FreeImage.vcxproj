@@ -22,7 +22,8 @@
     <ProjectName>FreeImage</ProjectName>
     <ProjectGuid>{B39ED2B3-D53A-4077-B957-930979A3577D}</ProjectGuid>
     <RootNamespace>FreeImage</RootNamespace>
-    <WindowsTargetPlatformVersion>$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)' == '15'">10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)' == '16'">$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -42,7 +43,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <PlatformToolset Condition="'$(VisualStudioVersion)' == '15'">v141_xp</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)' == '15'">v141</PlatformToolset>
     <PlatformToolset Condition="'$(VisualStudioVersion)' == '16'">v142</PlatformToolset>
     <UseOfMfc>false</UseOfMfc>
     <CharacterSet>MultiByte</CharacterSet>
@@ -210,10 +211,10 @@ copy Source\FreeImage.h Dist\x32
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir Dist\x64
-copy $(OutDir)$(TargetName).dll Dist\x64
-copy $(OutDir)$(TargetName).lib Dist\x64
-copy Source\FreeImage.h Dist\x64
+      <Command>mkdir Dist\$(Platform)
+copy $(OutDir)$(TargetName).dll Dist\$(Platform)
+copy $(OutDir)$(TargetName).lib Dist\$(Platform)
+copy Source\FreeImage.h Dist\$(Platform)
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
@@ -319,11 +320,11 @@ copy Source\FreeImage.h Dist\x32
       <OptimizeReferences>false</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir Dist\x64
-copy $(OutDir)$(TargetName).dll Dist\x64
-copy $(OutDir)$(TargetName).lib Dist\x64
-copy $(OutDir)$(TargetName).pdb Dist\x64
-copy Source\FreeImage.h Dist\x64
+      <Command>mkdir Dist\$(Platform)
+copy $(OutDir)$(TargetName).dll Dist\$(Platform)
+copy $(OutDir)$(TargetName).lib Dist\$(Platform)
+copy $(OutDir)$(TargetName).pdb Dist\$(Platform)
+copy Source\FreeImage.h Dist\$(Platform)
 </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
