@@ -1511,8 +1511,10 @@ TagLib::~TagLib() {
 
 TagLib& 
 TagLib::instance() {
-	static TagLib s;
-	return s;
+	static TagLib *s;
+	if (!s)
+		s = new TagLib();
+	return *s;
 }
 
 const TagInfo* 

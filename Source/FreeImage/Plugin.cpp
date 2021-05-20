@@ -349,6 +349,7 @@ FreeImage_DeInitialise() {
 
 	if (s_plugin_reference_count == 0) {
 		delete s_plugins;
+		delete &TagLib::instance();
 	}
 }
 
