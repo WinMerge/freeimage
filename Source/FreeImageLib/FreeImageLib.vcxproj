@@ -162,8 +162,8 @@
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\x32
-copy $(TargetPath) ..\..\Dist\x32\$(ProjectName)d.lib
-copy $(OutDir)$(TargetName).pdb ..\..\Dist\x32\$(ProjectName)d.pdb
+copy "$(TargetPath)" ..\..\Dist\x32\$(ProjectName)d.lib
+copy "$(OutDir)$(TargetName).pdb" ..\..\Dist\x32\$(ProjectName)d.pdb
 copy ..\FreeImage.h ..\..\Dist\x32
 </Command>
     </PostBuildEvent>
@@ -203,8 +203,8 @@ copy ..\FreeImage.h ..\..\Dist\x32
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\$(Platform)
-copy $(TargetPath) ..\..\Dist\$(Platform)\$(ProjectName)d.lib
-copy $(OutDir)$(TargetName).pdb ..\..\Dist\$(Platform)\$(ProjectName)d.pdb
+copy "$(TargetPath)" ..\..\Dist\$(Platform)\$(ProjectName)d.lib
+copy "$(OutDir)$(TargetName).pdb" ..\..\Dist\$(Platform)\$(ProjectName)d.pdb
 copy ..\FreeImage.h ..\..\Dist\$(Platform)
 </Command>
     </PostBuildEvent>
@@ -242,8 +242,8 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\$(Platform)
-copy $(TargetPath) ..\..\Dist\$(Platform)\$(ProjectName)d.lib
-copy $(OutDir)$(TargetName).pdb ..\..\Dist\$(Platform)\$(ProjectName)d.pdb
+copy "$(TargetPath)" ..\..\Dist\$(Platform)\$(ProjectName)d.lib
+copy "$(OutDir)$(TargetName).pdb" ..\..\Dist\$(Platform)\$(ProjectName)d.pdb
 copy ..\FreeImage.h ..\..\Dist\$(Platform)
 </Command>
     </PostBuildEvent>
@@ -287,7 +287,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\x32
-copy $(TargetPath) ..\..\Dist\x32\$(ProjectName).lib
+copy "$(TargetPath)" ..\..\Dist\x32\$(ProjectName).lib
 copy ..\FreeImage.h ..\..\Dist\x32
 </Command>
     </PostBuildEvent>
@@ -332,7 +332,7 @@ copy ..\FreeImage.h ..\..\Dist\x32
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\$(Platform)
-copy $(TargetPath) ..\..\Dist\$(Platform)\$(ProjectName).lib
+copy "$(TargetPath)" ..\..\Dist\$(Platform)\$(ProjectName).lib
 copy ..\FreeImage.h ..\..\Dist\$(Platform)
 </Command>
     </PostBuildEvent>
@@ -375,7 +375,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     </Lib>
     <PostBuildEvent>
       <Command>mkdir ..\..\Dist\$(Platform)
-copy $(TargetPath) ..\..\Dist\$(Platform)\$(ProjectName).lib
+copy "$(TargetPath)" ..\..\Dist\$(Platform)\$(ProjectName).lib
 copy ..\FreeImage.h ..\..\Dist\$(Platform)
 </Command>
     </PostBuildEvent>

@@ -152,8 +152,8 @@
     </Link>
     <PostBuildEvent>
       <Command>mkdir Dist\x32
-copy $(OutDir)$(TargetName).dll Dist\x32
-copy $(OutDir)$(TargetName).lib Dist\x32
+copy "$(OutDir)$(TargetName).dll" Dist\x32
+copy "$(OutDir)$(TargetName).lib" Dist\x32
 copy Source\FreeImage.h Dist\x32
 </Command>
     </PostBuildEvent>
@@ -212,8 +212,8 @@ copy Source\FreeImage.h Dist\x32
     </Link>
     <PostBuildEvent>
       <Command>mkdir Dist\$(Platform)
-copy $(OutDir)$(TargetName).dll Dist\$(Platform)
-copy $(OutDir)$(TargetName).lib Dist\$(Platform)
+copy "$(OutDir)$(TargetName).dll" Dist\$(Platform)
+copy "$(OutDir)$(TargetName).lib" Dist\$(Platform)
 copy Source\FreeImage.h Dist\$(Platform)
 </Command>
     </PostBuildEvent>
@@ -266,9 +266,9 @@ copy Source\FreeImage.h Dist\$(Platform)
     </Link>
     <PostBuildEvent>
       <Command>mkdir Dist\x32
-copy $(OutDir)$(TargetName).dll Dist\x32
-copy $(OutDir)$(TargetName).lib Dist\x32
-copy $(OutDir)$(TargetName).pdb Dist\x32
+copy "$(OutDir)$(TargetName).dll" Dist\x32
+copy "$(OutDir)$(TargetName).lib" Dist\x32
+copy "$(OutDir)$(TargetName).pdb" Dist\x32
 copy Source\FreeImage.h Dist\x32
 </Command>
     </PostBuildEvent>
@@ -321,9 +321,9 @@ copy Source\FreeImage.h Dist\x32
     </Link>
     <PostBuildEvent>
       <Command>mkdir Dist\$(Platform)
-copy $(OutDir)$(TargetName).dll Dist\$(Platform)
-copy $(OutDir)$(TargetName).lib Dist\$(Platform)
-copy $(OutDir)$(TargetName).pdb Dist\$(Platform)
+copy "$(OutDir)$(TargetName).dll" Dist\$(Platform)
+copy "$(OutDir)$(TargetName).lib" Dist\$(Platform)
+copy "$(OutDir)$(TargetName).pdb" Dist\$(Platform)
 copy Source\FreeImage.h Dist\$(Platform)
 </Command>
     </PostBuildEvent>

@@ -183,7 +183,7 @@
     </ResourceCompile>
     <PostBuildEvent>
       <Command>mkdir dist\x32
-copy $(OutDir)$(TargetName).lib dist\x32
+copy "$(OutDir)$(TargetName).lib" dist\x32
 copy FreeImagePlus.h dist\x32
 </Command>
     </PostBuildEvent>
@@ -231,7 +231,7 @@ copy FreeImagePlus.h dist\x32
     </ResourceCompile>
     <PostBuildEvent>
       <Command>mkdir dist\$(Platform)
-copy $(OutDir)$(TargetName).lib dist\$(Platform)
+copy "$(OutDir)$(TargetName).lib" dist\$(Platform)
 copy FreeImagePlus.h dist\$(Platform)</Command>
     </PostBuildEvent>
     <Lib>
@@ -278,7 +278,7 @@ copy FreeImagePlus.h dist\$(Platform)</Command>
     </ResourceCompile>
     <PostBuildEvent>
       <Command>mkdir dist\$(Platform)
-copy $(OutDir)$(TargetName).lib dist\$(Platform)
+copy "$(OutDir)$(TargetName).lib" dist\$(Platform)
 copy FreeImagePlus.h dist\$(Platform)</Command>
     </PostBuildEvent>
     <Lib>
@@ -331,8 +331,8 @@ copy FreeImagePlus.h dist\$(Platform)</Command>
     </Link>
     <PostBuildEvent>
       <Command>mkdir dist\x32
-copy $(OutDir)$(TargetName).lib dist\x32
-copy $(OutDir)$(TargetName).pdb dist\x32
+copy "$(OutDir)$(TargetName).lib" dist\x32
+copy "$(OutDir)$(TargetName).pdb" dist\x32
 copy FreeImagePlus.h dist\x32
 </Command>
     </PostBuildEvent>
@@ -385,8 +385,8 @@ copy FreeImagePlus.h dist\x32
     </Link>
     <PostBuildEvent>
       <Command>mkdir dist\$(Platform)
-copy $(OutDir)$(TargetName).lib dist\$(Platform)
-copy $(OutDir)$(TargetName).pdb dist\$(Platform)
+copy "$(OutDir)$(TargetName).lib" dist\$(Platform)
+copy "$(OutDir)$(TargetName).pdb" dist\$(Platform)
 copy FreeImagePlus.h dist\$(Platform)</Command>
     </PostBuildEvent>
     <Lib>
@@ -438,8 +438,8 @@ copy FreeImagePlus.h dist\$(Platform)</Command>
     </Link>
     <PostBuildEvent>
       <Command>mkdir dist\$(Platform)
-copy $(OutDir)$(TargetName).lib dist\$(Platform)
-copy $(OutDir)$(TargetName).pdb dist\$(Platform)
+copy "$(OutDir)$(TargetName).lib" dist\$(Platform)
+copy "$(OutDir)$(TargetName).pdb" dist\$(Platform)
 copy FreeImagePlus.h dist\$(Platform)</Command>
     </PostBuildEvent>
     <Lib>
