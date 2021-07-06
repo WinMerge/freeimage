@@ -255,7 +255,6 @@
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <MinimalRebuild>false</MinimalRebuild>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <StringPooling>true</StringPooling>
       <AdditionalOptions>/source-charset:Windows-1252 %(AdditionalOptions)</AdditionalOptions>
@@ -291,7 +290,6 @@
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FunctionLevelLinking>true</FunctionLevelLinking>
-      <MinimalRebuild>false</MinimalRebuild>
       <AdditionalOptions>/source-charset:Windows-1252 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
@@ -322,7 +320,6 @@
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FunctionLevelLinking>true</FunctionLevelLinking>
-      <MinimalRebuild>false</MinimalRebuild>
       <AdditionalOptions>/source-charset:Windows-1252 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <ResourceCompile>
