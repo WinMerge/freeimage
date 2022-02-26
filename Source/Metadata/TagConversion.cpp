@@ -36,7 +36,7 @@ Convert a tag to a C string
 static const char* 
 ConvertAnyTag(FITAG *tag) {
 	char format[MAX_TEXT_EXTENT];
-	static std::string buffer;
+	thread_local static std::string buffer;
 	DWORD i;
 
 	if(!tag)
@@ -257,7 +257,7 @@ Convert a Exif tag to a C string
 static const char* 
 ConvertExifTag(FITAG *tag) {
 	char format[MAX_TEXT_EXTENT];
-	static std::string buffer;
+	thread_local static std::string buffer;
 
 	if(!tag)
 		return NULL;
@@ -991,7 +991,7 @@ Convert a Exif GPS tag to a C string
 static const char* 
 ConvertExifGPSTag(FITAG *tag) {
 	char format[MAX_TEXT_EXTENT];
-	static std::string buffer;
+	thread_local static std::string buffer;
 
 	if(!tag)
 		return NULL;
