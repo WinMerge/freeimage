@@ -698,20 +698,22 @@ LoadDXT_Helper(FreeImageIO *io, fi_handle handle, FIBITMAP *dib, int width, int 
 		return;
 	}
 
+	const int widthTrimmed = (width & ~3);
+	const int heightTrimmed = (height & ~3);
 	const int widthRest = (int) width & 3;
 	const int heightRest = (int) height & 3;
 	const int inputLine = (width + 3) / 4;
 	int y = 0;
 
 	if (height >= 4) {
-		for (; y < height; y += 4) {
+		for (; y < heightTrimmed; y += 4) {
 			io->read_proc (input_buffer, sizeof(typename INFO::Block), inputLine, handle);
 			// TODO: probably need some endian work here
 			const BYTE *pbSrc = (BYTE *)input_buffer;
 			BYTE *pbDst = FreeImage_GetScanLine (dib, height - y - 1);
 
-			if (width >= 4) {
-				for (int x = 0; x < width; x += 4) {
+			if (widthTrimmed >= 4) {
+				for (int x = 0; x < widthTrimmed; x += 4) {
 					DecodeDXTBlock<DECODER>(pbDst, pbSrc, line, 4, 4);
 					pbSrc += INFO::bytesPerBlock;
 					pbDst += 16;	// 4 * 4;
@@ -728,8 +730,8 @@ LoadDXT_Helper(FreeImageIO *io, fi_handle handle, FIBITMAP *dib, int width, int 
 		const BYTE *pbSrc = (BYTE *)input_buffer;
 		BYTE *pbDst = FreeImage_GetScanLine (dib, height - y - 1);
 
-		if (width >= 4) {
-			for (int x = 0; x < width; x += 4) {
+		if (widthTrimmed >= 4) {
+			for (int x = 0; x < widthTrimmed; x += 4) {
 				DecodeDXTBlock<DECODER>(pbDst, pbSrc, line, 4, heightRest);
 				pbSrc += INFO::bytesPerBlock;
 				pbDst += 16;	// 4 * 4;
@@ -753,8 +755,8 @@ LoadDXT_Helper(FreeImageIO *io, fi_handle handle, FIBITMAP *dib, int width, int 
 static FIBITMAP *
 LoadDXT(int decoder_type, const DDSURFACEDESC2 *desc, FreeImageIO *io, fi_handle handle) {
 	// get image size, rounded to 32-bit
-	int width = (int)desc->dwWidth & ~3;
-	int height = (int)desc->dwHeight & ~3;
+	int width = (int)desc->dwWidth;
+	int height = (int)desc->dwHeight;
 
 	// allocate a 32-bit dib
 	FIBITMAP *dib = FreeImage_Allocate(width, height, 32, FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK);
