@@ -245,7 +245,7 @@ _TIFFmemcmp(const void* p1, const void* p2, tmsize_t c) {
 //   in FreeImage warnings and errors are disabled
 // ----------------------------------------------------------
 
-#ifndef _WIN32
+//#ifndef _WIN32
 static void
 msdosWarningHandler(const char* module, const char* fmt, va_list ap) {
 }
@@ -266,7 +266,7 @@ msdosErrorHandler(const char* module, const char* fmt, va_list ap) {
 }
 
 TIFFErrorHandler _TIFFerrorHandler = msdosErrorHandler;
-#endif // ndef _WIN32
+//#endif // ndef _WIN32
 // ----------------------------------------------------------
 
 #define CVT(x)      (((x) * 255L) / ((1L<<16)-1))
