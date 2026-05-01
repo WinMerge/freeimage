@@ -44,6 +44,7 @@
 #include "IlmThreadMutex.h"
 #include "Iex.h"
 #include <string.h>
+#include <functional>
 #include <map>
 #include <functional>
 

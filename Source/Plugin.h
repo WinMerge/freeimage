@@ -131,7 +131,7 @@ void DLL_CALLCONV InitGIF(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitHDR(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitG3(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitSGI(Plugin *plugin, int format_id);
-#if INCLUDE_LIB_OPEN_EXR
+#if INCLUDE_LIB_OPENEXR
 void DLL_CALLCONV InitEXR(Plugin *plugin, int format_id);
 #endif
 void DLL_CALLCONV InitJ2K(Plugin *plugin, int format_id);

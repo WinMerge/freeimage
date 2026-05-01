@@ -593,7 +593,13 @@ loadRLE(FIBITMAP*& dib, int width, int height, FreeImageIO* io, fi_handle handle
 	if (remaining_size < height) {
 		throw FI_MSG_ERROR_CORRUPTED;
 	}
-	const long sz = (remaining_size / height);
+	long sz = (remaining_size / height);
+
+	// Ensure the cache is at least one pixel wide to prevent
+	// out-of-bounds reads when getBytes(file_pixel_size) is called.
+	if (sz < file_pixel_size) {
+		sz = file_pixel_size;
+	}
 
 	// ...and allocate cache of this size (yields good results)
 	IOCache cache(io, handle, sz);

@@ -175,7 +175,7 @@ endif()
 
 if(BUILD_LIBTIFF)
     set(FreeImage_LIBTIFF_SRCS 
-        Source/LibTIFF4/mkg3states.c Source/LibTIFF4/tif_error.c Source/LibTIFF4/tif_aux.c
+        Source/LibTIFF4/tif_error.c Source/LibTIFF4/tif_aux.c
         Source/LibTIFF4/tif_close.c Source/LibTIFF4/tif_codec.c Source/LibTIFF4/tif_color.c
         Source/LibTIFF4/tif_compress.c Source/LibTIFF4/tif_config.h
         Source/LibTIFF4/tif_config.vc.h Source/LibTIFF4/tif_config.wince.h
