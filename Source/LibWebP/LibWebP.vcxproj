@@ -394,6 +394,7 @@
     <ClInclude Include="src\dsp\mips_macro.h" />
     <ClInclude Include="src\dsp\msa_macro.h" />
     <ClInclude Include="src\dsp\neon.h" />
+    <ClInclude Include="src\dsp\quant.h" />
     <ClInclude Include="src\dsp\yuv.h" />
     <ClInclude Include="src\enc\backward_references_enc.h" />
     <ClInclude Include="src\enc\cost_enc.h" />
@@ -446,6 +447,7 @@
     <ClCompile Include="src\dsp\cost.c" />
     <ClCompile Include="src\dsp\cost_mips32.c" />
     <ClCompile Include="src\dsp\cost_mips_dsp_r2.c" />
+    <ClCompile Include="src\dsp\cost_neon.c" />
     <ClCompile Include="src\dsp\cost_sse2.c" />
     <ClCompile Include="src\dsp\cpu.c" />
     <ClCompile Include="src\dsp\dec.c" />
@@ -481,6 +483,7 @@
     <ClCompile Include="src\dsp\lossless_msa.c" />
     <ClCompile Include="src\dsp\lossless_neon.c" />
     <ClCompile Include="src\dsp\lossless_sse2.c" />
+    <ClCompile Include="src\dsp\lossless_sse41.c" />
     <ClCompile Include="src\dsp\rescaler.c" />
     <ClCompile Include="src\dsp\rescaler_mips32.c" />
     <ClCompile Include="src\dsp\rescaler_mips_dsp_r2.c" />
