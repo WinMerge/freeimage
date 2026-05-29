@@ -756,7 +756,13 @@ UnpackBits( FreeImageIO *io, fi_handle handle, FIBITMAP* dib, MacRect* bounds, W
 			}
 		}
 		else {
-			for ( int i = 0; i < height; i++ ) { 
+			// CWE-787: bound every PackBits write to the allocated raster.
+			// The RLE run length is attacker-controlled and the loop below
+			// advances dst without checking it against the bitmap bounds.
+			BYTE* const rasterStart = FreeImage_GetBits( dib );
+			BYTE* const rasterEnd = rasterStart +
+				(size_t)FreeImage_GetPitch( dib ) * FreeImage_GetHeight( dib );
+			for ( int i = 0; i < height; i++ ) {
 				// For each line do...
 				int    linelen;            // length of source line in bytes.
 				if (rowBytes > 250) {
@@ -784,16 +790,22 @@ UnpackBits( FreeImageIO *io, fi_handle handle, FIBITMAP* dib, MacRect* bounds, W
 							
 							// This is slow for some formats...
 							if (pixelSize == 16) {
+								if (dst < rasterStart ||
+									(size_t)(rasterEnd - dst) < (size_t)len*4*PixelPerRLEUnit)
+									break;
 								expandBuf( io, handle, 1, pixelSize, dst );
-								for ( int k = 1; k < len; k++ ) { 
+								for ( int k = 1; k < len; k++ ) {
 									// Repeat the pixel len times.
 									memcpy( dst+(k*4*PixelPerRLEUnit), dst,	4*PixelPerRLEUnit);
 								}
 								dst += len*4*PixelPerRLEUnit;
 							}
 							else {
+								if (dst < rasterStart ||
+									(size_t)(rasterEnd - dst) < (size_t)len*PixelPerRLEUnit)
+									break;
 								expandBuf8( io, handle, 1, pixelSize, dst );
-								for ( int k = 1; k < len; k++ ) { 
+								for ( int k = 1; k < len; k++ ) {
 									// Repeat the expanded byte len times.
 									memcpy( dst+(k*PixelPerRLEUnit), dst, PixelPerRLEUnit);
 								}
@@ -806,10 +818,16 @@ UnpackBits( FreeImageIO *io, fi_handle handle, FIBITMAP* dib, MacRect* bounds, W
 						// Unpacked data
 						int len = (FlagCounter & 255) + 1;
 						if (pixelSize == 16) {
+							if (dst < rasterStart ||
+								(size_t)(rasterEnd - dst) < (size_t)len*4*PixelPerRLEUnit)
+								break;
 							expandBuf( io, handle, len, pixelSize, dst );
 							dst += len*4*PixelPerRLEUnit;
 						}
 						else {
+							if (dst < rasterStart ||
+								(size_t)(rasterEnd - dst) < (size_t)len*PixelPerRLEUnit)
+								break;
 							expandBuf8( io, handle, len, pixelSize, dst );
 							dst += len*PixelPerRLEUnit;
 						}
