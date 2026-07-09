@@ -598,6 +598,13 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 		} else if((header.planes == 3) && (header.bpp == 8)) {
 			BYTE *pLine;
 
+			// sanity check: each plane provides header.bytes_per_line bytes, but the
+			// BGR expansion below reads pLine[x] for x in [0,width). Reject inputs
+			// where width exceeds bytes_per_line to avoid a heap over-read on `line`.
+			if (width > header.bytes_per_line) {
+				throw FI_MSG_ERROR_PARSING;
+			}
+
 			for (unsigned y = 0; y < height; y++) {
 				readLine(io, handle, line, lineLength, bIsRLE, ReadBuf, &ReadPos);
 
