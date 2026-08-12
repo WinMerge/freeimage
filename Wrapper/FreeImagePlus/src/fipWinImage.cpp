@@ -177,13 +177,16 @@ BOOL fipWinImage::copyFromHandle(HANDLE hMem) {
 
 	// Get a pointer to the palette
 	if(pHead->biBitCount < 16) {
-		pPalette = (RGBQUAD *)(((BYTE *)pHead) + sizeof(BITMAPINFOHEADER));
+		pPalette = (RGBQUAD *)((BYTE *)pHead + pHead->biSize);
 	}
 
 	// Get a pointer to the pixels
 	bits = (BYTE*)pHead + pHead->biSize;
 	if(pHead->biBitCount < 16) {
-		bits += sizeof(RGBQUAD) * pHead->biClrUsed;
+		DWORD colors = pHead->biClrUsed;
+		if (colors == 0)
+			colors = 1u << pHead->biBitCount;
+		bits += sizeof(RGBQUAD) * colors;
 	}
 
 	if(pHead->biCompression == BI_BITFIELDS) {
