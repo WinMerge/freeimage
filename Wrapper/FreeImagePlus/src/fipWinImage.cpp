@@ -181,13 +181,24 @@ BOOL fipWinImage::copyFromHandle(HANDLE hMem) {
 	}
 
 	// Get a pointer to the pixels
-	bits = ((BYTE*)pHead + sizeof(BITMAPINFOHEADER) + sizeof(RGBQUAD) * pHead->biClrUsed);
+	bits = (BYTE*)pHead + pHead->biSize;
+	if(pHead->biBitCount < 16) {
+		bits += sizeof(RGBQUAD) * pHead->biClrUsed;
+	}
 
 	if(pHead->biCompression == BI_BITFIELDS) {
 		// Take into account the color masks that specify the red, green, and blue components (16- and 32-bit)
-		unsigned mask_size = 3 * sizeof(DWORD);
-		memcpy(&bitfields[0], bits, mask_size);
-		bits += mask_size;
+		if(pHead->biSize >= sizeof(BITMAPV4HEADER)) {
+			const BITMAPV4HEADER *pV4Head = (const BITMAPV4HEADER *)pHead;
+			bitfields[0] = pV4Head->bV4BlueMask;
+			bitfields[1] = pV4Head->bV4GreenMask;
+			bitfields[2] = pV4Head->bV4RedMask;
+		}
+		else {
+			unsigned mask_size = 3 * sizeof(DWORD);
+			memcpy(&bitfields[0], bits, mask_size);
+			bits += mask_size;
+		}
 	} 
 
 	if(lpVoid) {
@@ -217,7 +228,9 @@ BOOL fipWinImage::copyFromHandle(HANDLE hMem) {
 		}
 
 		// Copy the palette
-		memcpy(FreeImage_GetPalette(_dib), pPalette, pHead->biClrUsed * sizeof(RGBQUAD));
+		if(pPalette) {
+			memcpy(FreeImage_GetPalette(_dib), pPalette, pHead->biClrUsed * sizeof(RGBQUAD));
+		}
 
 		// Copy the bitmap
 		memcpy(FreeImage_GetBits(_dib), bits, FreeImage_GetPitch(_dib) * FreeImage_GetHeight(_dib));
@@ -273,16 +286,55 @@ BOOL fipWinImage::copyFromBitmap(HBITMAP hbmp) {
 }
 
 BOOL fipWinImage::copyToClipboard(HWND hWndNewOwner) const {
-	HANDLE hDIB = copyToHandle();
+	if(!_dib) {
+		return FALSE;
+	}
 
-	if(OpenClipboard(hWndNewOwner)) {
-		if(EmptyClipboard()) {
-			if(SetClipboardData(CF_DIB, hDIB) == NULL) {
-				MessageBox(hWndNewOwner, "Unable to set Clipboard data", "FreeImage", MB_ICONERROR);
-				CloseClipboard();
-				return FALSE;
-			}
-		}
+	fipWinImage image(*this);
+	if(!image.convertTo32Bits()) {
+		return FALSE;
+	}
+
+	const DWORD width = FreeImage_GetWidth(image._dib);
+	const DWORD height = FreeImage_GetHeight(image._dib);
+	const DWORD pitch = FreeImage_GetPitch(image._dib);
+	const SIZE_T imageSize = static_cast<SIZE_T>(pitch) * height;
+	const SIZE_T dibSize = sizeof(BITMAPV5HEADER) + imageSize;
+	HGLOBAL hDIB = GlobalAlloc(GHND, dibSize);
+	if(!hDIB) {
+		return FALSE;
+	}
+
+	BITMAPV5HEADER *header = static_cast<BITMAPV5HEADER *>(GlobalLock(hDIB));
+	if(!header) {
+		GlobalFree(hDIB);
+		return FALSE;
+	}
+	header->bV5Size = sizeof(BITMAPV5HEADER);
+	header->bV5Width = static_cast<LONG>(width);
+	header->bV5Height = static_cast<LONG>(height);
+	header->bV5Planes = 1;
+	header->bV5BitCount = 32;
+	header->bV5Compression = BI_BITFIELDS;
+	header->bV5RedMask = 0x00FF0000;
+	header->bV5GreenMask = 0x0000FF00;
+	header->bV5BlueMask = 0x000000FF;
+	header->bV5AlphaMask = 0xFF000000;
+	header->bV5CSType = LCS_sRGB;
+	header->bV5Intent = LCS_GM_GRAPHICS;
+	header->bV5SizeImage = static_cast<DWORD>(imageSize);
+	memcpy(header + 1, FreeImage_GetBits(image._dib), imageSize);
+	GlobalUnlock(hDIB);
+
+	if(!OpenClipboard(hWndNewOwner)) {
+		GlobalFree(hDIB);
+		return FALSE;
+	}
+	EmptyClipboard();
+	if(!SetClipboardData(CF_DIBV5, hDIB)) {
+		CloseClipboard();
+		GlobalFree(hDIB);
+		return FALSE;
 	}
 	CloseClipboard();
 
@@ -290,20 +342,22 @@ BOOL fipWinImage::copyToClipboard(HWND hWndNewOwner) const {
 }
 
 BOOL fipWinImage::pasteFromClipboard() {
-	if(!IsClipboardFormatAvailable(CF_DIB)) {
+	if(!IsClipboardFormatAvailable(CF_DIBV5) && !IsClipboardFormatAvailable(CF_DIB)) {
 		return FALSE;
 	}
 
 	if(OpenClipboard(NULL)) {
 		BOOL bResult = FALSE;
-		HANDLE hDIB = GetClipboardData(CF_DIB);
+		HANDLE hDIB = GetClipboardData(CF_DIBV5);
+		if(!hDIB) {
+			hDIB = GetClipboardData(CF_DIB);
+		}
 		if(hDIB) {
 			bResult = copyFromHandle(hDIB);
 		}
 		CloseClipboard();
 		return bResult;
 	}
-	CloseClipboard();
 
 	return FALSE;
 }

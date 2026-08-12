@@ -1129,7 +1129,7 @@ public:
 	HANDLE copyToHandle() const;
 
 	/** Copy constructor used for clipboard paste.<br>
-	Converts a global object to a FIBITMAP. The clipboard format must be CF_DIB.<br>
+	Converts a global object to a FIBITMAP. The clipboard format must be CF_DIB or CF_DIBV5.<br>
 	When the BITMAPINFOHEADER->biCompression field is set to 0xFF + [one of the predefined FREE_IMAGE_TYPE], 
 	the bitmap is recognized as non standard and correctly copied. 
 	@return Returns TRUE if successful, returns FALSE otherwise
@@ -1154,7 +1154,7 @@ public:
 	BOOL copyToClipboard(HWND hWndNewOwner) const;
 
 	/**
-	Retrieves data from the clipboard. The clipboard format must be CF_DIB.
+	Retrieves data from the clipboard. The clipboard format must be CF_DIB or CF_DIBV5.
 	@return Returns TRUE if successful, returns FALSE otherwise
 	*/
 	BOOL pasteFromClipboard();
