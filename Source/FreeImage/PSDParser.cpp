@@ -1308,7 +1308,16 @@ void psdParser::ReadImageLine(BYTE* dst, const BYTE* src, unsigned lineSize, uns
 }
 
 void psdParser::UnpackRLE(BYTE* line, const BYTE* rle_line, BYTE* line_end, unsigned srcSize) {
-	while (srcSize > 0) {
+	// NOTE: line/line_end bound the destination scanline; srcSize bounds how
+	// many bytes remain in the (attacker-controlled) rle_line source buffer.
+	// Both the copy length written to the destination AND the amount
+	// consumed from the source must be clamped *before* len is used to
+	// advance line/rle_line/srcSize - advancing by the raw, unclamped len
+	// let line overrun line_end (turning line_end - line negative, which
+	// becomes a huge size_t on the next iteration's memcpy/memset) and let
+	// srcSize (unsigned) underflow to a huge value when len > srcSize,
+	// letting rle_line run past the end of its real buffer.
+	while (srcSize > 0 && line < line_end) {
 
 		int len = *rle_line++;
 		srcSize--;
@@ -1321,9 +1330,17 @@ void psdParser::UnpackRLE(BYTE* line, const BYTE* rle_line, BYTE* line_end, unsi
 			// (len + 1) bytes of data are copied
 			++len;
 
-			// assert we don't write beyound eol
-			memcpy(line, rle_line, line + len > line_end ? line_end - line : len);
-			line += len;
+			// clamp to what's actually left in the source buffer
+			if ((unsigned)len > srcSize) {
+				len = (int)srcSize;
+			}
+
+			// assert we don't write beyond eol
+			const auto remaining = line_end - line;
+			const int copyLen = (len > remaining) ? (int)remaining : len;
+
+			memcpy(line, rle_line, copyLen);
+			line += copyLen;
 			rle_line += len;
 			srcSize -= len;
 		}
@@ -1335,10 +1352,19 @@ void psdParser::UnpackRLE(BYTE* line, const BYTE* rle_line, BYTE* line_end, unsi
 			len ^= 0xFF; // same as (-len + 1) & 0xFF
 			len += 2;    //
 
-			// assert we don't write beyound eol
-			memset(line, *rle_line++, line + len > line_end ? line_end - line : len);
-			line += len;
+			if (srcSize < 1) {
+				// no repeat-value byte left in the source buffer
+				break;
+			}
+			const BYTE value = *rle_line++;
 			srcSize--;
+
+			// assert we don't write beyond eol
+			const auto remaining = line_end - line;
+			const int copyLen = (len > remaining) ? (int)remaining : len;
+
+			memset(line, value, copyLen);
+			line += copyLen;
 		}
 		else if ( 128 == len ) {
 			// Do nothing
