@@ -2,7 +2,7 @@
 // JPEG2000 J2K codestream Loader and Writer
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - Hervï¿½ Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
 //
@@ -167,6 +167,11 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 			
 			// read the main header of the codestream and if necessary the JP2 boxes
 			if( !opj_read_header(d_stream, d_codec, &image)) {
+				throw "Failed to read the header\n";
+			}
+			// opj_read_header() can report success while leaving image NULL
+			// for some malformed codestreams
+			if( !image ) {
 				throw "Failed to read the header\n";
 			}
 
