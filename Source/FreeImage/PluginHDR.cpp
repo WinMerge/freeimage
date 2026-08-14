@@ -2,7 +2,7 @@
 // HDR Loader and writer
 //
 // Design and implementation by 
-// - Hervé Drolon (drolon@infonie.fr)
+// - Hervï¿½ Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
 //
@@ -362,15 +362,42 @@ rgbe_WritePixels(FreeImageIO *io, fi_handle handle, FIRGBF *data, unsigned numpi
   return TRUE;
 }
 
-static BOOL 
+/**
+Safely compute scanline_width * num_scanlines as the unsigned pixel count
+rgbe_ReadPixels() expects. scanline_width is signed and num_scanlines is
+unsigned, so a naive `scanline_width * num_scanlines` first converts a
+negative scanline_width to a huge unsigned value (via the usual arithmetic
+conversions) rather than raising an error, and the product itself is not
+checked for overflow either - both would make rgbe_ReadPixels() write far
+past the end of the caller's data buffer. Returns FALSE if scanline_width
+is negative or the product doesn't fit in an unsigned.
+*/
+static BOOL
+rgbe_SafeScanlinePixelCount(int scanline_width, unsigned num_scanlines, unsigned *out_numpixels) {
+	if (scanline_width < 0) {
+		return FALSE;
+	}
+	const unsigned long long numpixels = (unsigned long long)(unsigned)scanline_width * num_scanlines;
+	if (numpixels > 0xFFFFFFFFull) {
+		return FALSE;
+	}
+	*out_numpixels = (unsigned)numpixels;
+	return TRUE;
+}
+
+static BOOL
 rgbe_ReadPixels_RLE(FreeImageIO *io, fi_handle handle, FIRGBF *data, int scanline_width, unsigned num_scanlines) {
 	BYTE rgbe[4], *scanline_buffer, *ptr, *ptr_end;
 	int i, count;
 	BYTE buf[2];
-	
+	unsigned numpixels;
+
 	if ((scanline_width < 8)||(scanline_width > 0x7fff)) {
 		// run length encoding is not allowed so read flat
-		return rgbe_ReadPixels(io, handle, data, scanline_width * num_scanlines);
+		if(!rgbe_SafeScanlinePixelCount(scanline_width, num_scanlines, &numpixels)) {
+			return rgbe_Error(rgbe_format_error, "invalid scanline width");
+		}
+		return rgbe_ReadPixels(io, handle, data, numpixels);
 	}
 	scanline_buffer = NULL;
 	// read in each successive scanline 
@@ -384,7 +411,13 @@ rgbe_ReadPixels_RLE(FreeImageIO *io, fi_handle handle, FIRGBF *data, int scanlin
 			rgbe_RGBEToFloat(data, rgbe);
 			data ++;
 			free(scanline_buffer);
-			return rgbe_ReadPixels(io, handle, data, scanline_width * num_scanlines - 1);
+			// scanline_width is already known positive/bounded here (the
+			// early-return above handles the rest), but num_scanlines could
+			// still make the product overflow an unsigned
+			if(!rgbe_SafeScanlinePixelCount(scanline_width, num_scanlines, &numpixels) || numpixels < 1) {
+				return rgbe_Error(rgbe_format_error, "invalid scanline width");
+			}
+			return rgbe_ReadPixels(io, handle, data, numpixels - 1);
 		}
 		if((((int)rgbe[2]) << 8 | rgbe[3]) != scanline_width) {
 			free(scanline_buffer);
