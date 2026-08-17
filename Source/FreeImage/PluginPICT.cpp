@@ -390,7 +390,8 @@ ReadColorTable( FreeImageIO *io, fi_handle handle, WORD* pNumColors, RGBQUAD* pP
 			// colours in order.
 			val = (WORD)i;
 		}
-		if (val >= numColors) {
+		if (val >= numColors || val >= 256) {
+			// pPal is always a fixed 256-entry array
 			throw "pixel value greater than color table size.";
 		}
 		// Mac colour tables contain 16-bit values for R, G, and B...
