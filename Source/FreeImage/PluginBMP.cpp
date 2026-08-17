@@ -431,8 +431,16 @@ LoadPixelDataRLE8(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 	BYTE delta_y = 0;
 
 	height = abs(height);
-	
-	while(scanline < height) {
+
+	// NB: this loop is intentionally not bounded by `scanline < height` - a
+	// well-formed RLE8 stream can (and often does) emit a trailing
+	// RLE_ENDOFBITMAP marker only after `scanline` has already reached
+	// `height` (e.g. right after the final RLE_ENDOFLINE), and bounding the
+	// loop on `scanline` prevents ever reading that marker, causing this
+	// function to spuriously fail on legitimate files (see issue #23).
+	// Safety against out-of-bounds writes (CVE-2020-21427) is instead
+	// enforced directly at each FreeImage_GetScanLine() call site below.
+	for (;;) {
 
 		if (io->read_proc(&status_byte, sizeof(BYTE), 1, handle) != 1) {
 			return FALSE;
@@ -469,6 +477,9 @@ LoadPixelDataRLE8(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 
 				default:
 					// absolute mode
+					if (scanline >= height) {
+						return FALSE;
+					}
 					count = MIN((int)status_byte, width - bits);
 					if (count < 0) {
 						return FALSE;
@@ -489,6 +500,9 @@ LoadPixelDataRLE8(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 			} // switch (status_byte)
 		}
 		else {
+			if (scanline >= height) {
+				return FALSE;
+			}
 			count = MIN((int)status_byte, width - bits);
 			if (count < 0) {
 				return FALSE;
