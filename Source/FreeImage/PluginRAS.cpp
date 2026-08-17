@@ -321,6 +321,10 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 				b = g + numcolors;
 
 				RGBQUAD *pal = FreeImage_GetPalette(dib);
+				if (!pal) {
+					free(r);
+					throw "No palette for bitmap!";
+				}
 
 				io->read_proc(r, 3 * numcolors, 1, handle);
 
