@@ -2314,6 +2314,13 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 
 		// copy ICC profile data (must be done after FreeImage_Allocate)
 
+		// ReadMetadata() -> tiff_read_exif_profile() may call TIFFReadEXIFDirectory()
+		// when the file has an ExifIFD, which switches libtiff to a different IFD and
+		// back, invalidating the iccBuf pointer fetched above (it points into libtiff's
+		// per-directory field storage). Re-fetch it now that we're back on the main IFD.
+		if (iccBuf) {
+			TIFFGetField(tif, TIFFTAG_ICCPROFILE, &iccSize, &iccBuf);
+		}
 		FreeImage_CreateICCProfile(dib, iccBuf, iccSize);
 		if (photometric == PHOTOMETRIC_SEPARATED) {
 			if (asCMYK) {
