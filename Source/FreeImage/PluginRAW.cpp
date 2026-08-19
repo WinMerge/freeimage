@@ -23,6 +23,19 @@
 
 #include "../LibRawLite/libraw/libraw.h"
 
+// libraw_types.h just typedef'd INT64/UINT64 as real C++ types (long long /
+// unsigned long long). FreeImage.h's own #ifndef INT64 guard only detects a
+// prior macro, not a typedef, so without this it would go on to #define
+// INT64 int64_t - on platforms where int64_t isn't long long (e.g. Linux,
+// where it's long), that turns LibRaw_freeimage_datastream's overrides
+// below into a different type than the LibRaw_abstract_datastream virtuals
+// they're meant to override. Pre-defining these as self-referential (a
+// same-name object-like macro expands to itself, i.e. a no-op) satisfies
+// the guard while leaving every "INT64"/"UINT64" token to resolve via the
+// real typedef instead.
+#define INT64 INT64
+#define UINT64 UINT64
+
 #include "FreeImage.h"
 #include "Utilities.h"
 #include "../Metadata/FreeImageTag.h"
