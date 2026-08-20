@@ -125,7 +125,11 @@ read_iptc_profile(FIBITMAP *dib, const BYTE *dataptr, unsigned int datalen) {
 				FreeImage_SetTagType(tag, FIDT_SSHORT);
 				FreeImage_SetTagCount(tag, 1);
 				short *pvalue = (short*)&iptc_value[0];
-				*pvalue = (short)((profile[offset] << 8) | profile[offset + 1]);
+				if (tagByteCount >= 2) {
+					*pvalue = (short)((profile[offset] << 8) | profile[offset + 1]);
+				} else {
+					*pvalue = (short)(profile[offset] << 8);
+				}
 				FreeImage_SetTagValue(tag, pvalue);
 				break;
 			}

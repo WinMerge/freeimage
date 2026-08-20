@@ -193,7 +193,7 @@ SupportsNoPixels() {
 static FIBITMAP * DLL_CALLCONV
 Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 	SUNHEADER header;	// Sun file header
-	WORD linelength;	// Length of raster line in bytes
+	DWORD linelength;	// Length of raster line in bytes
 	WORD fill;			// Number of fill bytes per raster line
 	BOOL rle;			// TRUE if RLE file
 	BOOL isRGB;			// TRUE if file type is RT_FORMAT_RGB
@@ -201,7 +201,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 
 	FIBITMAP *dib = NULL;
 	BYTE *bits;			// Pointer to dib data
-	WORD x, y;
+	DWORD x, y;
 
 	if(!handle) {
 		return NULL;
@@ -362,9 +362,9 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 		// Each row is multiple of 16 bits (2 bytes).
 
 		if (header.depth == 1) {
-			linelength = (WORD)((header.width / 8) + (header.width % 8 ? 1 : 0));
+			linelength = (header.width / 8) + (header.width % 8 ? 1 : 0);
 		} else {
-			linelength = (WORD)header.width;
+			linelength = header.width;
 		}
 
 		fill = (linelength % 2) ? 1 : 0;
@@ -396,7 +396,13 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 			{
 				BYTE *buf, *bp;
 
+				if (header.width > ((DWORD)-1) / 3) {
+					throw "RAS: invalid width";
+				}
 				buf = (BYTE*)malloc(header.width * 3);
+				if (!buf) {
+					throw FI_MSG_ERROR_MEMORY;
+				}
 
 				for (y = 0; y < header.height; y++) {
 					bits = FreeImage_GetBits(dib) + (header.height - 1 - y) * pitch;
@@ -436,7 +442,13 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 			{
 				BYTE *buf, *bp;
 
+				if (header.width > ((DWORD)-1) / 4) {
+					throw "RAS: invalid width";
+				}
 				buf = (BYTE*)malloc(header.width * 4);
+				if (!buf) {
+					throw FI_MSG_ERROR_MEMORY;
+				}
 
 				for (y = 0; y < header.height; y++) {
 					bits = FreeImage_GetBits(dib) + (header.height - 1 - y) * pitch;

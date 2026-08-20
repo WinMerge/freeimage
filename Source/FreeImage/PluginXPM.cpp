@@ -313,7 +313,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 		for(int y = 0; y < height; y++ ) {
 			BYTE *line = FreeImage_GetScanLine(dib, height - y - 1);
 			str = ReadString(io, handle);
-			if(!str)
+			if(!str || (strlen(str) < (size_t)width * (size_t)cpp))
 				throw "Error reading pixel strings";
 			char *pixel_ptr = str;
 
