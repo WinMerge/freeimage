@@ -252,7 +252,10 @@ FreeImage_SetTagValue(FITAG *tag, const void *value) {
 	if(tag && value) {
 		FITAGHEADER *tag_header = (FITAGHEADER *)tag->data;
 		// first, check the tag
-		if(tag_header->count * FreeImage_TagDataWidth((FREE_IMAGE_MDTYPE)tag_header->type) != tag_header->length) {
+		const unsigned type_width = FreeImage_TagDataWidth((FREE_IMAGE_MDTYPE)tag_header->type);
+		if ((type_width == 0) ||
+			(tag_header->count > (~(DWORD)0 / type_width)) ||
+			(tag_header->count * type_width != tag_header->length)) {
 			// invalid data count ?
 			return FALSE;
 		}

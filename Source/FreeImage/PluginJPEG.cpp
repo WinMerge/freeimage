@@ -207,9 +207,6 @@ empty_output_buffer (j_compress_ptr cinfo) {
 	freeimage_dst_ptr dest = (freeimage_dst_ptr) cinfo->dest;
 
 	if (dest->m_io->write_proc(dest->buffer, 1, OUTPUT_BUF_SIZE, dest->outfile) != OUTPUT_BUF_SIZE) {
-		// let the memory manager delete any temp files before we die
-		jpeg_destroy((j_common_ptr)cinfo);
-
 		JPEG_EXIT((j_common_ptr)cinfo, JERR_FILE_WRITE);
 	}
 
@@ -235,9 +232,6 @@ term_destination (j_compress_ptr cinfo) {
 
 	if (datacount > 0) {
 		if (dest->m_io->write_proc(dest->buffer, 1, (unsigned int)datacount, dest->outfile) != datacount) {
-			// let the memory manager delete any temp files before we die
-			jpeg_destroy((j_common_ptr)cinfo);
-			
 			JPEG_EXIT((j_common_ptr)cinfo, JERR_FILE_WRITE);
 		}
 	}
@@ -280,15 +274,15 @@ METHODDEF(boolean)
 fill_input_buffer (j_decompress_ptr cinfo) {
 	freeimage_src_ptr src = (freeimage_src_ptr) cinfo->src;
 
+	if (!src->buffer) {
+		JPEG_EXIT((j_common_ptr)cinfo, JERR_INPUT_EMPTY);
+	}
+
 	size_t nbytes = src->m_io->read_proc(src->buffer, 1, INPUT_BUF_SIZE, src->infile);
 
 	if (nbytes <= 0) {
 		if (src->start_of_file)	{
 			// treat empty input file as fatal error
-
-			// let the memory manager delete any temp files before we die
-			jpeg_destroy((j_common_ptr)cinfo);
-
 			JPEG_EXIT((j_common_ptr)cinfo, JERR_INPUT_EMPTY);
 		}
 
@@ -333,6 +327,9 @@ skip_input_data (j_decompress_ptr cinfo, long num_bytes) {
 		  num_bytes -= (long) src->pub.bytes_in_buffer;
 
 		  (void) fill_input_buffer(cinfo);
+		  if (src->pub.bytes_in_buffer == 0) {
+			  return;
+		  }
 
 		  /* note we assume that fill_input_buffer will never return FALSE,
 		   * so suspension need not be handled.

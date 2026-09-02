@@ -368,61 +368,77 @@ processCanonMakerNoteTag(FIBITMAP *dib, FITAG *tag) {
 
 	int subTagTypeBase = 0;
 
+	BOOL expand_shorts = FALSE;
+
 	switch(tag_id) {
 		case TAG_CANON_CAMERA_STATE_0x01:
 			subTagTypeBase = 0xC100;
 			startIndex = 1;
+			expand_shorts = TRUE;
 			break;
 		case TAG_CANON_CAMERA_STATE_0x02:
 			subTagTypeBase = 0xC200;
 			startIndex = 0;
+			expand_shorts = TRUE;
 			break;
 		case TAG_CANON_CAMERA_STATE_0x04:
 			subTagTypeBase = 0xC400;
 			startIndex = 1;
+			expand_shorts = TRUE;
 			break;
 		case TAG_CANON_CAMERA_STATE_0x12:
 			subTagTypeBase = 0x1200;
 			startIndex = 0;
+			expand_shorts = TRUE;
 			break;
 		case TAG_CANON_CAMERA_STATE_0xA0:
 			subTagTypeBase = 0xCA00;
 			startIndex = 1;
+			expand_shorts = TRUE;
 			break;
 		case TAG_CANON_CAMERA_STATE_0xE0:
 			subTagTypeBase = 0xCE00;
 			startIndex = 1;
+			expand_shorts = TRUE;
 			break;
-
-		default:
-		{
-			// process as a normal tag
-
-			// get the tag key and description
-			const char *key = s.getTagFieldName(TagLib::EXIF_MAKERNOTE_CANON, tag_id, defaultKey);
-			FreeImage_SetTagKey(tag, key);
-			const char *description = s.getTagDescription(TagLib::EXIF_MAKERNOTE_CANON, tag_id);
-			FreeImage_SetTagDescription(tag, description);
-
-			// store the tag
-			if(key) {
-				FreeImage_SetMetadata(FIMD_EXIF_MAKERNOTE, dib, key, tag);
-			}
-
-			return TRUE;
-		}
-		break;
-
 	}
 
-	WORD *pvalue = (WORD*)FreeImage_GetTagValue(tag);
+	WORD *pvalue = NULL;
+	DWORD wordCount = 0;
+	if (expand_shorts
+		&& ((FreeImage_GetTagType(tag) == FIDT_SHORT) || (FreeImage_GetTagType(tag) == FIDT_SSHORT))
+		&& FreeImage_GetTagValue(tag)) {
+		pvalue = (WORD*)FreeImage_GetTagValue(tag);
+		wordCount = FreeImage_GetTagLength(tag) / sizeof(WORD);
+		DWORD count = FreeImage_GetTagCount(tag);
+		if (count < wordCount) {
+			wordCount = count;
+		}
+	}
+
+	if (!pvalue) {
+		// process as a normal tag
+
+		// get the tag key and description
+		const char *key = s.getTagFieldName(TagLib::EXIF_MAKERNOTE_CANON, tag_id, defaultKey);
+		FreeImage_SetTagKey(tag, key);
+		const char *description = s.getTagDescription(TagLib::EXIF_MAKERNOTE_CANON, tag_id);
+		FreeImage_SetTagDescription(tag, description);
+
+		// store the tag
+		if(key) {
+			FreeImage_SetMetadata(FIMD_EXIF_MAKERNOTE, dib, key, tag);
+		}
+
+		return TRUE;
+	}
 
 	// create a tag
 	FITAG *canonTag = FreeImage_CreateTag();
 	if(!canonTag) return FALSE;
 
 	// we intentionally skip the first array member (if needed)
-    for (DWORD i = startIndex; i < FreeImage_GetTagCount(tag); i++) {
+    for (DWORD i = startIndex; i < wordCount; i++) {
 
 		tag_id = (WORD)(subTagTypeBase + i);
 

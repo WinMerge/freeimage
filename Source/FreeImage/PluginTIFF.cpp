@@ -76,6 +76,38 @@ typedef enum {
 	LoadAsHalfFloat		= 6
 } TIFFLoadMethod;
 
+static void
+AssignContigRow(BYTE *dst, const BYTE *src, tmsize_t src_line, unsigned dst_bpp, unsigned src_bpp, uint32_t width) {
+	if (!dst || !src || dst_bpp == 0) {
+		return;
+	}
+	const BYTE *const src_end = src + src_line;
+	for (uint32_t x = 0; x < width; x++) {
+		if ((src_end < src) || ((size_t)(src_end - src) < dst_bpp)) {
+			break;
+		}
+		AssignPixel(dst, src, dst_bpp);
+		dst += dst_bpp;
+		src += src_bpp;
+	}
+}
+
+static void
+AssignPlanarRow(BYTE *dst, const BYTE *src, tmsize_t src_line, unsigned dst_bpp, unsigned src_bpp, unsigned channelOffset, uint32_t width) {
+	if (!dst || !src || src_bpp == 0) {
+		return;
+	}
+	const BYTE *const src_end = src + src_line;
+	for (uint32_t x = 0; x < width; x++) {
+		if ((src_end < src) || ((size_t)(src_end - src) < src_bpp)) {
+			break;
+		}
+		AssignPixel(dst + channelOffset, src, src_bpp);
+		dst += dst_bpp;
+		src += src_bpp;
+	}
+}
+
 // ----------------------------------------------------------
 //   local prototypes
 // ----------------------------------------------------------
@@ -1804,21 +1836,27 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 						if(src_line != dst_line) {
 							// CMYKA+
 							if(alpha) {
+								const unsigned extra = (Bpc > 1) ? 2 : 1;
 								for (int l = 0; l < strips; l++) {
-									for(BYTE *pixel = bits, *al_pixel = alpha_bits, *src_pixel =  buf + l * src_line; pixel < bits + dib_pitch; pixel += dibBpp, al_pixel += alpha_Bpp, src_pixel += srcBpp) {
-										// copy pixel byte by byte
-										BYTE b = 0;
-										for( ; b < dibBpp; ++b) {
-											pixel[b] =  src_pixel[b];
+									BYTE *pixel = bits;
+									BYTE *al_pixel = alpha_bits;
+									const BYTE *src_pixel = buf + l * src_line;
+									const BYTE *const src_end = src_pixel + src_line;
+									for (uint32_t x = 0; x < width; x++) {
+										if ((src_end < src_pixel) || ((size_t)(src_end - src_pixel) < (dibBpp + extra))) {
+											break;
 										}
-										// TODO write the remaining bytes to extra channel(s)
-
+										for (unsigned b = 0; b < dibBpp; ++b) {
+											pixel[b] = src_pixel[b];
+										}
 										// HACK write the first alpha to a separate dib (assume BYTE or WORD)
-										al_pixel[0] = src_pixel[b];
-										if(Bpc > 1) {
-											al_pixel[1] = src_pixel[b + 1];
+										al_pixel[0] = src_pixel[dibBpp];
+										if (Bpc > 1) {
+											al_pixel[1] = src_pixel[dibBpp + 1];
 										}
-
+										pixel += dibBpp;
+										al_pixel += alpha_Bpp;
+										src_pixel += srcBpp;
 									}
 									bits -= dib_pitch;
 									alpha_bits -= alpha_pitch;
@@ -1827,9 +1865,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 							else {
 								// alpha/extra channels alloc failed
 								for (int l = 0; l < strips; l++) {
-									for(BYTE* pixel = bits, * src_pixel =  buf + l * src_line; pixel < bits + dst_line; pixel += dibBpp, src_pixel += srcBpp) {
-										AssignPixel(pixel, src_pixel, dibBpp);
-									}
+									AssignContigRow(bits, buf + l * src_line, src_line, dibBpp, srcBpp, width);
 									bits -= dib_pitch;
 								}
 							}
@@ -1895,13 +1931,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 							BYTE *src_line_begin = buf;
 							BYTE *dst_line_begin = dst_strip;
 							for (int l = 0; l < strips; l++, src_line_begin += src_line, dst_line_begin -= dst_pitch ) {
-								// - loop for pixels in strip -
-
-								const BYTE* const src_line_end = src_line_begin + src_line;
-								for (BYTE *src_bits = src_line_begin, * dst_bits = dst_line_begin; src_bits < src_line_end; src_bits += Bpc, dst_bits += Bpp) {
-									AssignPixel(dst_bits + channelOffset, src_bits, Bpc);
-								} // line
-
+								AssignPlanarRow(dst_line_begin, src_line_begin, src_line, Bpp, Bpc, channelOffset, width);
 							} // strips
 
 						} // channels
@@ -2010,9 +2040,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 						}
 						else {
 							for (int l = 0; l < strips; l++) {
-								for(BYTE *pixel = bits, *src_pixel =  buf + l * src_line; pixel < bits + dst_pitch; pixel += Bpp, src_pixel += srcBpp) {
-									AssignPixel(pixel, src_pixel, Bpp);
-								}
+								AssignContigRow(bits, buf + l * src_line, src_line, Bpp, srcBpp, width);
 								bits -= dst_pitch;
 							}
 						}
@@ -2048,16 +2076,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 							BYTE* src_line_begin = buf;
 							BYTE* dst_line_begin = dib_strip;
 							for (int l = 0; l < strips; l++, src_line_begin += src_line, dst_line_begin -= dst_pitch ) {
-
-								// - loop for pixels in strip -
-
-								const BYTE* const src_line_end = src_line_begin + src_line;
-
-								for (BYTE* src_bits = src_line_begin, * dst_bits = dst_line_begin; src_bits < src_line_end; src_bits += Bpc, dst_bits += Bpp) {
-									// actually assigns channel
-									AssignPixel(dst_bits + channelOffset, src_bits, Bpc);
-								} // line
-
+								AssignPlanarRow(dst_line_begin, src_line_begin, src_line, Bpp, Bpc, channelOffset, width);
 							} // strips
 
 						} // channels

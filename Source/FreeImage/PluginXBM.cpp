@@ -51,14 +51,21 @@ The result stored in str is appended with a null character.
 */
 static char* 
 readLine(char *str, int n, FreeImageIO *io, fi_handle handle) {
-	char c;
-	int count, i = 0;
+	char c = 0;
+	int count = 0, i = 0;
+	if (n <= 1) {
+		return NULL;
+	}
 	do {
 		count = io->read_proc(&c, 1, 1, handle);
+		if (count <= 0) {
+			if (i == 0) {
+				return NULL;
+			}
+			break;
+		}
 		str[i++] = c;
-	} while((c != '\n') && (i < n));
-	if(count <= 0)
-		return NULL;
+	} while((c != '\n') && (i < n - 1));
 	str[i] = '\0';
 	return str;
 }
@@ -292,7 +299,7 @@ MimeType() {
 static BOOL DLL_CALLCONV
 Validate(FreeImageIO *io, fi_handle handle) {
 	char magic[8];
-	if(readLine(magic, 7, io, handle)) {
+	if(readLine(magic, (int)sizeof(magic), io, handle)) {
 		if(strcmp(magic, "#define") == 0)
 			return TRUE;
 	}
