@@ -131,6 +131,45 @@ jobs:
         run: |
           ctest --test-dir build --build-config Debug --verbose
 
+  windows-mingw32:
+    name: Windows MinGW32 (static=${{ matrix.static }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        static: ["ON", "OFF"]
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up 32-bit GCC
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          install: >-
+            mingw-w64-i686-toolchain
+            mingw-w64-i686-cmake
+            mingw-w64-i686-ninja
+      - name: Check SSE kernel without SSE2
+        run: >-
+          g++ -msse -mno-sse2 -DFREEIMAGE_OPENJPH_SIMD=1
+          -I Source/OpenEXR/OpenJPH/openjph
+          -c Source/OpenEXR/OpenJPH/codestream/ojph_codestream_sse.cpp
+          -o sse-only.o
+      - name: Configure bundled codecs
+        run: >-
+          cmake -S . -B build-mingw32 -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_STANDARD=17
+          -DFREEIMAGE_STATIC=${{ matrix.static }} -DBUILD_OPENEXR=ON
+          -DFREEIMAGE_OPENJPH_SIMD=ON -DBUILD_TESTS=ON
+      - name: Build library and tests
+        run: cmake --build build-mingw32 -j2
+      - name: Run test suites
+        run: ctest --test-dir build-mingw32 --output-on-failure --verbose
+
   windows-clang-cl:
     # Issue #29: build with Clang on Windows via clang-cl, the MSVC-ABI-compatible
     # driver windows-latest ships preinstalled as a VS toolset. Same generator as

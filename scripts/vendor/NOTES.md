@@ -82,3 +82,7 @@ the proposed [OpenEXR #2712](https://github.com/AcademySoftwareFoundation/openex
 fix for #2701. Preserve this local patch until upstream includes it; selecting
 CreateFile2 for newer build targets introduces an unnecessary Windows 8 API
 dependency in binaries intended to retain Windows 7 compatibility.
+
+OpenJPH's SSE memory-clear kernel uses _mm_setzero_ps/_mm_storeu_ps, rather
+than SSE2 integer intrinsics. Preserve this local fix for GCC i686 builds:
+the file is compiled with -msse and dispatched on SSE-only CPUs.
