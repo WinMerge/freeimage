@@ -1,0 +1,4 @@
+usr/include/FreeImage.h
+usr/lib/*/libfreeimage.so
+usr/lib/*/pkgconfig/freeimage.pc
+usr/lib/*/cmake/FreeImage/*

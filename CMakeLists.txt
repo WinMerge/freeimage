@@ -105,6 +105,8 @@ option(BUILD_OPENEXR "Build OpenEXR from source or link" ${BUILD_OPENEXR_DEFAULT
 # can still be overridden individually). Mirrors what MSYS2's
 # mingw-w64-freeimage package does by unbundling all vendored sub-deps.
 option(FREEIMAGE_USE_SYSTEM_LIBS "Link against system copies of vendored sub-dependencies instead of bundling them" OFF)
+option(FREEIMAGE_LINUX_PACKAGE_LAYOUT "Install the Linux libfreeimage.so.3 package layout" OFF)
+include(GNUInstallDirs)
 if(FREEIMAGE_USE_SYSTEM_LIBS)
     set(FREEIMAGE_SYSTEM_DEFAULT ON)
 else()
@@ -1317,13 +1319,17 @@ else()
 endif()
 
 if (DEFINED FreeImage_LIBS)
-    target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
+    if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)
+        target_link_libraries(${PROJECT_NAME} PRIVATE ${FreeImage_LIBS})
+    else()
+        target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
+    endif()
 endif()
 
 # Public header for add_subdirectory() and the installed package. Copying
 # just FreeImage.h keeps Source/'s internal headers off the consumer's
 # include path. BUILD_INTERFACE is the build tree; INSTALL_INTERFACE
-# matches install(FILES Source/FreeImage.h DESTINATION include).
+# matches install(FILES Source/FreeImage.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}).
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
 configure_file(
     "${CMAKE_CURRENT_SOURCE_DIR}/Source/FreeImage.h"
@@ -1373,6 +1379,20 @@ if (WIN32)
     target_link_libraries(${PROJECT_NAME} ws2_32)
 endif()
 
+if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR FREEIMAGE_STATIC)
+        message(FATAL_ERROR "FREEIMAGE_LINUX_PACKAGE_LAYOUT requires a Linux shared build")
+    endif()
+    set_target_properties(${PROJECT_NAME} PROPERTIES
+        OUTPUT_NAME freeimage VERSION ${PROJECT_VERSION} SOVERSION 3)
+    configure_file(cmake/freeimage.pc.in freeimage.pc @ONLY)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/freeimage.pc
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig COMPONENT Development)
+    install(FILES license-fi.txt license-gplv2.txt
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/freeimage-maintained
+        COMPONENT Runtime)
+endif()
+
 # Test suite
 if (BUILD_TESTS)
     include(CTest)
@@ -1386,17 +1406,17 @@ endif ()
 # and `--component Development` select one group.
 install(TARGETS ${PROJECT_NAME}
     EXPORT ${PROJECT_NAME}Targets
-    RUNTIME DESTINATION bin
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
         COMPONENT Runtime
-    LIBRARY DESTINATION lib
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT Runtime
         NAMELINK_COMPONENT Development
-    ARCHIVE DESTINATION lib
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
         COMPONENT Development
-    INCLUDES DESTINATION include
+    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(FILES Source/FreeImage.h
-    DESTINATION include
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT Development
 )
 
@@ -1404,7 +1424,7 @@ install(FILES Source/FreeImage.h
 install(EXPORT ${PROJECT_NAME}Targets
     FILE ${PROJECT_NAME}Targets.cmake
     NAMESPACE ${PROJECT_NAME}::
-    DESTINATION lib/cmake/${PROJECT_NAME}
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
     COMPONENT Development
 )
 
@@ -1413,16 +1433,16 @@ include(CMakePackageConfigHelpers)
 configure_package_config_file(
     ${PROJECT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
     ${PROJECT_NAME}Config.cmake
-    INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
 )
 write_basic_package_version_file(
     ${PROJECT_NAME}ConfigVersion.cmake
-    VERSION ${PACKAGE_VERSION}
+    VERSION ${PROJECT_VERSION}
     COMPATIBILITY SameMajorVersion
 )
 install(FILES
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
-    DESTINATION lib/cmake/${PROJECT_NAME}
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
     COMPONENT Development
 )

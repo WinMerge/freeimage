@@ -1,0 +1,71 @@
+name: Installable Linux packages
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deb:
+    name: Debian packages (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu24
+            image: ubuntu:24.04
+          - name: debian13
+            image: debian:trixie
+    container: ${{ matrix.image }}
+    steps:
+      - name: Install build tools and system codecs
+        run: |
+          apt-get update
+          apt-get install -y build-essential git ca-certificates debhelper cmake ninja-build pkg-config \
+            libjpeg-dev libpng-dev libtiff-dev libopenjp2-7-dev libwebp-dev libraw-dev libopenexr-dev zlib1g-dev
+      - uses: actions/checkout@v4
+      - name: Build binary packages
+        run: dpkg-buildpackage -b -us -uc -j2
+      - name: Install and test packages
+        run: |
+          apt-get install -y ../libfreeimage-maintained3_*.deb ../libfreeimage-maintained-dev_*.deb
+          packaging/tests/installed.sh
+      - name: Inspect packaged SONAME
+        run: readelf -d /usr/lib/*/libfreeimage.so.3 | grep 'SONAME.*libfreeimage.so.3'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.name }}
+          path: |
+            ../*.deb
+            ../*.buildinfo
+            ../*.changes
+  arch:
+    name: Arch Linux package
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    steps:
+      - name: Install build tools and system codecs
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm base-devel git cmake ninja pkgconf \
+            zlib libjpeg-turbo libpng libtiff openjpeg2 libwebp libraw openexr
+      - uses: actions/checkout@v4
+      - name: Build package as an unprivileged user
+        run: |
+          useradd -m builder
+          mkdir /tmp/arch-build
+          cp packaging/arch/PKGBUILD packaging/arch/linux-install.patch /tmp/arch-build/
+          chown -R builder:builder /tmp/arch-build
+          su builder -c 'cd /tmp/arch-build && makepkg --noconfirm'
+      - name: Install and test package
+        run: |
+          pacman -U --noconfirm /tmp/arch-build/*.pkg.tar.zst
+          packaging/tests/installed.sh
+          readelf -d /usr/lib/libfreeimage.so.3 | grep 'SONAME.*libfreeimage.so.3'
+          cp /tmp/arch-build/*.pkg.tar.zst .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-x86_64
+          path: '*.pkg.tar.zst'
