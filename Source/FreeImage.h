@@ -149,7 +149,7 @@ FI_STRUCT (FIMULTIBITMAP) { void *data; };
 #define SEEK_END  2
 #endif
 
-#ifndef _MSC_VER
+#if !defined(_MSC_VER) || _MSC_VER >= 1800
     // define portable types for 32-bit / 64-bit OS
     #include <inttypes.h>
     #ifndef BOOL
@@ -174,7 +174,7 @@ FI_STRUCT (FIMULTIBITMAP) { void *data; };
         #define UINT64 uint64_t
     #endif
 #else
-    // MS is not C99 ISO compliant
+    // MSVC older than VS 2013 is not C99 ISO compliant
     #ifndef BOOL
         #define BOOL long
     #endif
