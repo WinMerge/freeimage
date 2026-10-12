@@ -29,6 +29,15 @@
  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
  configure_file(
      "${CMAKE_CURRENT_SOURCE_DIR}/Source/FreeImage.h"
+@@ -1338,7 +1344,7 @@
+ # Preprocessor definitions
+ target_compile_definitions(${PROJECT_NAME} PUBLIC
+     DISABLE_PERF_MEASUREMENT
+-    OPJ_STATIC
++    $<$<NOT:$<BOOL:${USE_SYSTEM_LIBOPENJPEG}>>:OPJ_STATIC>
+     NO_LCMS
+     NO_WINDOWS
+ )
 @@ -1373,6 +1379,20 @@
      target_link_libraries(${PROJECT_NAME} ws2_32)
  endif()

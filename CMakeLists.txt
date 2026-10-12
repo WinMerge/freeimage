@@ -1344,7 +1344,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
 # Preprocessor definitions
 target_compile_definitions(${PROJECT_NAME} PUBLIC
     DISABLE_PERF_MEASUREMENT
-    OPJ_STATIC
+    $<$<NOT:$<BOOL:${USE_SYSTEM_LIBOPENJPEG}>>:OPJ_STATIC>
     NO_LCMS
     NO_WINDOWS
 )
