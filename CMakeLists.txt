@@ -1290,7 +1290,21 @@ endif()
 # Need include directories for FreeImage itself. Per-sub-lib include dirs
 # (bundled Source/Lib* vs. system) are added above, inside each BUILD_*
 # block, so a system-lib build doesn't also see the bundled headers.
-include_directories(Source)
+if(BUILD_OPENEXR AND USE_SYSTEM_OPENEXR)
+    # Source/ also contains Imath/. Do not let that shadow installed
+    # <Imath/...> headers and mix ABI namespaces with system OpenEXR.
+    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/core-headers")
+    file(GLOB FreeImage_CORE_HEADERS CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h")
+    foreach(_freeimage_header IN LISTS FreeImage_CORE_HEADERS)
+        get_filename_component(_freeimage_header_name "${_freeimage_header}" NAME)
+        configure_file("${_freeimage_header}"
+            "${CMAKE_CURRENT_BINARY_DIR}/core-headers/${_freeimage_header_name}" COPYONLY)
+    endforeach()
+    include_directories("${CMAKE_CURRENT_BINARY_DIR}/core-headers")
+else()
+    include_directories(Source)
+endif()
 include_directories(Source/Metadata)
 include_directories(Source/FreeImageToolkit)
 

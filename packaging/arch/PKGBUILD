@@ -10,7 +10,7 @@ makedepends=('cmake' 'ninja' 'pkgconf')
 conflicts=('freeimage' 'freeimage-git')
 source=("FreeImage-$pkgver.tar.gz::https://github.com/danoli3/FreeImage/archive/refs/tags/$pkgver.tar.gz"
         'linux-install.patch')
-sha256sums=('52034b31614f1f5b91a7fa94a69e83e5d5438a72aecfb496fe99d9603ea95eb8' '7149824b02ea76964d4a187fdefbf253f0098b90a5e56b5ccc58ecb4e2cfc149')
+sha256sums=('52034b31614f1f5b91a7fa94a69e83e5d5438a72aecfb496fe99d9603ea95eb8' 'dbbeb52ade5c9a775b3754491246accab402623cbef137a9f31bb3c83a1a3030')
 
 prepare() {
   cd "FreeImage-$pkgver"
