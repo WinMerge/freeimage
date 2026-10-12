@@ -2,7 +2,7 @@
 #include <stdio.h>
 int main(void) {
     FreeImage_Initialise(FALSE);
-    FIBITMAP *image = FreeImage_Allocate(2, 2, 24);
+    FIBITMAP *image = FreeImage_Allocate(2, 2, 24, 0, 0, 0);
     RGBQUAD color = {0};
     color.rgbRed = 123;
     if (!image || !FreeImage_SetPixelColor(image, 1, 1, &color)) return 1;
