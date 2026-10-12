@@ -2,6 +2,11 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
+## Unreleased
+
+- Fix the OpenJPH SSE memory-clear kernel's accidental SSE2 requirement on 32-bit GCC builds.
+- Add MinGW32 GCC CI for static and shared libraries, with OpenEXR/SIMD enabled and an explicit SSE-without-SSE2 compile check.
+
 ## 3.19.21 — Unreleased
 
 - **libpng 1.6.58 → 1.6.59.** Includes the upstream fix for CVE-2026-46675 (use-after-free following incomplete compressed metadata), restores correctly positioned hIST chunks, and avoids double frees after allocation failure.

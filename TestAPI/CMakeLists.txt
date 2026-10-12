@@ -31,6 +31,15 @@ if (BUILD_TESTS)
     )
     endif()
 
+    # Windows searches beside the executable for linked DLLs. The library
+    # lives in the parent build directory, while tests run from TestAPI.
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET MainTestSuite POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:MainTestSuite>
+            VERBATIM)
+    endif()
+
     add_test(NAME MainTestSuite WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/TestAPI COMMAND $<TARGET_FILE:MainTestSuite>)
 endif ()
 
