@@ -38,7 +38,7 @@
      NO_LCMS
      NO_WINDOWS
  )
-@@ -1373,6 +1379,20 @@
+@@ -1373,6 +1379,23 @@
      target_link_libraries(${PROJECT_NAME} ws2_32)
  endif()
  
@@ -54,12 +54,15 @@
 +    install(FILES license-fi.txt license-gplv2.txt
 +        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/freeimage-maintained
 +        COMPONENT Runtime)
++    install(FILES Source/OpenEXR/Copyrights/ilmbase/LICENSE
++        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/freeimage-maintained
++        RENAME OpenEXR-Half-LICENSE COMPONENT Runtime)
 +endif()
 +
  # Test suite
  if (BUILD_TESTS)
      include(CTest)
-@@ -1386,17 +1406,17 @@
+@@ -1386,17 +1409,17 @@
  # and `--component Development` select one group.
  install(TARGETS ${PROJECT_NAME}
      EXPORT ${PROJECT_NAME}Targets
@@ -82,7 +85,7 @@
      COMPONENT Development
  )
  
-@@ -1404,7 +1424,7 @@
+@@ -1404,7 +1427,7 @@
  install(EXPORT ${PROJECT_NAME}Targets
      FILE ${PROJECT_NAME}Targets.cmake
      NAMESPACE ${PROJECT_NAME}::
@@ -91,7 +94,7 @@
      COMPONENT Development
  )
  
-@@ -1413,16 +1433,16 @@
+@@ -1413,16 +1436,16 @@
  configure_package_config_file(
      ${PROJECT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
      ${PROJECT_NAME}Config.cmake

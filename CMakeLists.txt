@@ -1391,6 +1391,9 @@ if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)
     install(FILES license-fi.txt license-gplv2.txt
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/freeimage-maintained
         COMPONENT Runtime)
+    install(FILES Source/OpenEXR/Copyrights/ilmbase/LICENSE
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/freeimage-maintained
+        RENAME OpenEXR-Half-LICENSE COMPONENT Runtime)
 endif()
 
 # Test suite

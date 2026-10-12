@@ -11,6 +11,10 @@ Files: Source/FreeImage/* Source/Metadata/* Source/*.h
 Copyright: 2003-2026 The FreeImage Project and individual contributors
 License: FIPL-1.0 or GPL-2
 
+Files: Source/OpenEXR/Half/*
+Copyright: Contributors to the OpenEXR Project; Industrial Light & Magic
+License: BSD-3-Clause
+
 Files: debian/* packaging/*
 Copyright: 2026 FreeImage packaging contributors
 License: FIPL-1.0 or GPL-2
@@ -21,3 +25,7 @@ License: FIPL-1.0
 
 License: GPL-2
  See /usr/share/common-licenses/GPL-2 on Debian systems.
+
+License: BSD-3-Clause
+ See /usr/share/licenses/freeimage-maintained/OpenEXR-Half-LICENSE
+ in the runtime package for the complete notice and license terms.
