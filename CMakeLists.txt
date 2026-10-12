@@ -1316,6 +1316,11 @@ else()
 )
 endif()
 
+set_target_properties(${PROJECT_NAME} PROPERTIES
+    VERSION ${FREEIMAGE_VERSION}
+    SOVERSION ${FREEIMAGE_VERSION_MAJOR}
+)
+
 if (DEFINED FreeImage_LIBS)
     target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
 endif()
