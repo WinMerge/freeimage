@@ -34,13 +34,15 @@ jobs:
           packaging/tests/installed.sh
       - name: Inspect packaged SONAME
         run: readelf -d /usr/lib/*/libfreeimage.so.3 | grep 'SONAME.*libfreeimage.so.3'
+      - name: Collect package downloads
+        run: |
+          mkdir -p dist
+          cp ../*.deb ../*.buildinfo ../*.changes dist/
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.name }}
-          path: |
-            ../*.deb
-            ../*.buildinfo
-            ../*.changes
+          path: dist/*
+          if-no-files-found: error
   arch:
     name: Arch Linux package
     runs-on: ubuntu-latest
@@ -69,3 +71,4 @@ jobs:
         with:
           name: arch-x86_64
           path: '*.pkg.tar.zst'
+          if-no-files-found: error
