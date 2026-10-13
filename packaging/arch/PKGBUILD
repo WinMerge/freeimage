@@ -1,0 +1,35 @@
+pkgname=freeimage-maintained
+pkgver=3.19.21
+pkgrel=1
+pkgdesc='Maintained FreeImage fork with system image codecs'
+arch=('x86_64' 'aarch64')
+url='https://github.com/danoli3/FreeImage'
+license=('custom:FreeImage')
+depends=('gcc-libs' 'zlib' 'libjpeg-turbo' 'libpng' 'libtiff' 'openjpeg2' 'libwebp' 'libraw' 'openexr')
+makedepends=('cmake' 'ninja' 'pkgconf')
+conflicts=('freeimage' 'freeimage-git')
+source=("FreeImage-$pkgver.tar.gz::https://github.com/danoli3/FreeImage/archive/refs/tags/$pkgver.tar.gz"
+        'linux-install.patch')
+sha256sums=('52034b31614f1f5b91a7fa94a69e83e5d5438a72aecfb496fe99d9603ea95eb8' 'dbbeb52ade5c9a775b3754491246accab402623cbef137a9f31bb3c83a1a3030')
+
+prepare() {
+  cd "FreeImage-$pkgver"
+  patch -p1 < "$srcdir/linux-install.patch"
+}
+
+build() {
+  cmake -S "FreeImage-$pkgver" -B build -G Ninja \
+    -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_INSTALL_LIBDIR=lib \
+    -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17 \
+    -DFREEIMAGE_STATIC=OFF -DFREEIMAGE_LINUX_PACKAGE_LAYOUT=ON \
+    -DFREEIMAGE_USE_SYSTEM_LIBS=ON -DBUILD_JXR=OFF -DBUILD_TESTS=ON
+  cmake --build build
+}
+
+check() {
+  ctest --test-dir build --output-on-failure
+}
+
+package() {
+  DESTDIR="$pkgdir" cmake --install build
+}

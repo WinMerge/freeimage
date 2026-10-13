@@ -1,0 +1,152 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -105,6 +105,8 @@
+ # can still be overridden individually). Mirrors what MSYS2's
+ # mingw-w64-freeimage package does by unbundling all vendored sub-deps.
+ option(FREEIMAGE_USE_SYSTEM_LIBS "Link against system copies of vendored sub-dependencies instead of bundling them" OFF)
++option(FREEIMAGE_LINUX_PACKAGE_LAYOUT "Install the Linux libfreeimage.so.3 package layout" OFF)
++include(GNUInstallDirs)
+ if(FREEIMAGE_USE_SYSTEM_LIBS)
+     set(FREEIMAGE_SYSTEM_DEFAULT ON)
+ else()
+@@ -1288,7 +1290,21 @@
+ # Need include directories for FreeImage itself. Per-sub-lib include dirs
+ # (bundled Source/Lib* vs. system) are added above, inside each BUILD_*
+ # block, so a system-lib build doesn't also see the bundled headers.
+-include_directories(Source)
++if(BUILD_OPENEXR AND USE_SYSTEM_OPENEXR)
++    # Source/ also contains Imath/. Do not let that shadow installed
++    # <Imath/...> headers and mix ABI namespaces with system OpenEXR.
++    file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/core-headers")
++    file(GLOB FreeImage_CORE_HEADERS CONFIGURE_DEPENDS
++        "${CMAKE_CURRENT_SOURCE_DIR}/Source/*.h")
++    foreach(_freeimage_header IN LISTS FreeImage_CORE_HEADERS)
++        get_filename_component(_freeimage_header_name "${_freeimage_header}" NAME)
++        configure_file("${_freeimage_header}"
++            "${CMAKE_CURRENT_BINARY_DIR}/core-headers/${_freeimage_header_name}" COPYONLY)
++    endforeach()
++    include_directories("${CMAKE_CURRENT_BINARY_DIR}/core-headers")
++else()
++    include_directories(Source)
++endif()
+ include_directories(Source/Metadata)
+ include_directories(Source/FreeImageToolkit)
+ 
+@@ -1317,13 +1333,17 @@
+ endif()
+ 
+ if (DEFINED FreeImage_LIBS)
+-    target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
++    if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)
++        target_link_libraries(${PROJECT_NAME} PRIVATE ${FreeImage_LIBS})
++    else()
++        target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
++    endif()
+ endif()
+ 
+ # Public header for add_subdirectory() and the installed package. Copying
+ # just FreeImage.h keeps Source/'s internal headers off the consumer's
+ # include path. BUILD_INTERFACE is the build tree; INSTALL_INTERFACE
+-# matches install(FILES Source/FreeImage.h DESTINATION include).
++# matches install(FILES Source/FreeImage.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}).
+ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
+ configure_file(
+     "${CMAKE_CURRENT_SOURCE_DIR}/Source/FreeImage.h"
+@@ -1338,7 +1358,7 @@
+ # Preprocessor definitions
+ target_compile_definitions(${PROJECT_NAME} PUBLIC
+     DISABLE_PERF_MEASUREMENT
+-    OPJ_STATIC
++    $<$<NOT:$<BOOL:${USE_SYSTEM_LIBOPENJPEG}>>:OPJ_STATIC>
+     NO_LCMS
+     NO_WINDOWS
+ )
+@@ -1373,6 +1393,23 @@
+     target_link_libraries(${PROJECT_NAME} ws2_32)
+ endif()
+ 
++if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)
++    if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR FREEIMAGE_STATIC)
++        message(FATAL_ERROR "FREEIMAGE_LINUX_PACKAGE_LAYOUT requires a Linux shared build")
++    endif()
++    set_target_properties(${PROJECT_NAME} PROPERTIES
++        OUTPUT_NAME freeimage VERSION ${PROJECT_VERSION} SOVERSION 3)
++    configure_file(cmake/freeimage.pc.in freeimage.pc @ONLY)
++    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/freeimage.pc
++        DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig COMPONENT Development)
++    install(FILES license-fi.txt license-gplv2.txt
++        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/freeimage-maintained
++        COMPONENT Runtime)
++    install(FILES Source/OpenEXR/Copyrights/ilmbase/LICENSE
++        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/freeimage-maintained
++        RENAME OpenEXR-Half-LICENSE COMPONENT Runtime)
++endif()
++
+ # Test suite
+ if (BUILD_TESTS)
+     include(CTest)
+@@ -1386,17 +1423,17 @@
+ # and `--component Development` select one group.
+ install(TARGETS ${PROJECT_NAME}
+     EXPORT ${PROJECT_NAME}Targets
+-    RUNTIME DESTINATION bin
++    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+         COMPONENT Runtime
+-    LIBRARY DESTINATION lib
++    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+         COMPONENT Runtime
+         NAMELINK_COMPONENT Development
+-    ARCHIVE DESTINATION lib
++    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+         COMPONENT Development
+-    INCLUDES DESTINATION include
++    INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+ )
+ install(FILES Source/FreeImage.h
+-    DESTINATION include
++    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+     COMPONENT Development
+ )
+ 
+@@ -1404,7 +1441,7 @@
+ install(EXPORT ${PROJECT_NAME}Targets
+     FILE ${PROJECT_NAME}Targets.cmake
+     NAMESPACE ${PROJECT_NAME}::
+-    DESTINATION lib/cmake/${PROJECT_NAME}
++    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+     COMPONENT Development
+ )
+ 
+@@ -1413,16 +1450,16 @@
+ configure_package_config_file(
+     ${PROJECT_SOURCE_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
+     ${PROJECT_NAME}Config.cmake
+-    INSTALL_DESTINATION lib/cmake/${PROJECT_NAME}
++    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+ )
+ write_basic_package_version_file(
+     ${PROJECT_NAME}ConfigVersion.cmake
+-    VERSION ${PACKAGE_VERSION}
++    VERSION ${PROJECT_VERSION}
+     COMPATIBILITY SameMajorVersion
+ )
+ install(FILES
+     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+-    DESTINATION lib/cmake/${PROJECT_NAME}
++    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+     COMPONENT Development
+ )
+--- /dev/null
++++ b/cmake/freeimage.pc.in
+@@ -0,0 +1,10 @@
++prefix=@CMAKE_INSTALL_PREFIX@
++exec_prefix=${prefix}
++libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
++includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
++
++Name: FreeImage
++Description: Maintained FreeImage image decoding and conversion library
++Version: @PROJECT_VERSION@
++Libs: -L${libdir} -lfreeimage
++Cflags: -I${includedir}

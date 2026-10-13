@@ -1,0 +1,129 @@
+name: Installable Linux packages
+on:
+  pull_request:
+  push:
+    branches: [master]
+    tags: ["[0-9]*.[0-9]*.[0-9]*"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  deb:
+    name: Debian packages (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ubuntu24
+            image: ubuntu:24.04
+            package_suffix: ubuntu24.04
+          - name: debian13
+            image: debian:trixie
+            package_suffix: debian13
+    container: ${{ matrix.image }}
+    steps:
+      - name: Install build tools and system codecs
+        run: |
+          apt-get update
+          apt-get install -y build-essential git ca-certificates python3 debhelper cmake ninja-build pkg-config \
+            libjpeg-dev libpng-dev libtiff-dev libopenjp2-7-dev libwebp-dev libraw-dev libopenexr-dev zlib1g-dev
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Trust checked-out workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Test release input safeguards
+        run: python3 -m unittest discover -s packaging/tests -p 'test_release_inputs.py'
+      - name: Check package release identity
+        run: >-
+          python3 packaging/scripts/prepare-ci.py --output /tmp/package-inputs
+          --distro ${{ matrix.package_suffix }}
+      - name: Build binary packages
+        run: dpkg-buildpackage -b -us -uc -j2
+      - name: Install and test packages
+        run: |
+          apt-get install -y ../libfreeimage-maintained3_*.deb ../libfreeimage-maintained-dev_*.deb
+          packaging/tests/installed.sh
+      - name: Inspect packaged SONAME
+        run: readelf -d /usr/lib/*/libfreeimage.so.3 | grep 'SONAME.*libfreeimage.so.3'
+      - name: Collect package downloads
+        run: |
+          mkdir -p dist
+          cp ../*.deb ../*.buildinfo ../*.changes dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+  arch:
+    name: Arch Linux package
+    runs-on: ubuntu-latest
+    container: archlinux:base
+    steps:
+      - name: Install build tools and system codecs
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --needed --noconfirm base-devel git python cmake ninja pkgconf \
+            zlib libjpeg-turbo libpng libtiff openjpeg2 libwebp libraw openexr
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Trust checked-out workspace
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - name: Build package as an unprivileged user
+        run: |
+          useradd -m builder
+          mkdir /tmp/arch-build
+          python3 packaging/scripts/prepare-ci.py --output /tmp/arch-build
+          chown -R builder:builder /tmp/arch-build
+          su builder -c 'cd /tmp/arch-build && makepkg --noconfirm'
+      - name: Install and test package
+        run: |
+          pacman -U --noconfirm /tmp/arch-build/*.pkg.tar.zst
+          packaging/tests/installed.sh
+          readelf -d /usr/lib/libfreeimage.so.3 | grep 'SONAME.*libfreeimage.so.3'
+          cp /tmp/arch-build/*.pkg.tar.zst /tmp/arch-build/*-linux-source.tar.gz .
+          package_version=$(sed -n 's/^pkgver=//p' /tmp/arch-build/PKGBUILD)
+          cp /tmp/arch-build/PKGBUILD "FreeImage-$package_version-linux-PKGBUILD"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arch-x86_64
+          path: |
+            *.pkg.tar.zst
+            *-linux-source.tar.gz
+            *-linux-PKGBUILD
+          if-no-files-found: error
+  publish:
+    name: Attach Linux packages to tagged release
+    if: github.event_name == 'push' && github.ref_type == 'tag'
+    needs: [deb, arch]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: deb-*
+          path: linux-assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: arch-*
+          path: linux-assets
+          merge-multiple: true
+      - name: Checksum release assets
+        working-directory: linux-assets
+        run: |
+          sha256sum -- *.deb *.pkg.tar.zst *-linux-source.tar.gz *-linux-PKGBUILD > SHA256SUMS-linux.txt
+      - name: Publish or update matching GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" linux-assets/* --clobber
+          else
+            gh release create "$RELEASE_TAG" linux-assets/* --verify-tag               --title "FreeImage $RELEASE_TAG" --generate-notes
+          fi

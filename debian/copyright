@@ -1,0 +1,31 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: FreeImage (danoli3 maintained fork)
+Source: https://github.com/danoli3/FreeImage
+Comment:
+ This packaging builds against system codec libraries. Source snapshots also
+ contain third-party libraries with their own copyright/license notices;
+ refer to the accompanying notices in Source/ and scripts/vendor/NOTES.md.
+ This initial recipe is for independently distributed packages.
+
+Files: Source/FreeImage/* Source/Metadata/* Source/*.h
+Copyright: 2003-2026 The FreeImage Project and individual contributors
+License: FIPL-1.0 or GPL-2
+
+Files: Source/OpenEXR/Half/*
+Copyright: Contributors to the OpenEXR Project; Industrial Light & Magic
+License: BSD-3-Clause
+
+Files: debian/* packaging/*
+Copyright: 2026 FreeImage packaging contributors
+License: FIPL-1.0 or GPL-2
+
+License: FIPL-1.0
+ See license-fi.txt in the source and
+ /usr/share/licenses/freeimage-maintained/license-fi.txt in the binary package.
+
+License: GPL-2
+ See /usr/share/common-licenses/GPL-2 on Debian systems.
+
+License: BSD-3-Clause
+ See /usr/share/licenses/freeimage-maintained/OpenEXR-Half-LICENSE
+ in the runtime package for the complete notice and license terms.

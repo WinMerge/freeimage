@@ -1,0 +1,17 @@
+#!/usr/bin/make -f
+include /usr/share/dpkg/architecture.mk
+
+%:
+	dh $@ --buildsystem=cmake --builddirectory=build-debian
+
+override_dh_auto_configure:
+	dh_auto_configure -- -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_CXX_STANDARD=17 \
+		-DFREEIMAGE_STATIC=OFF -DFREEIMAGE_LINUX_PACKAGE_LAYOUT=ON \
+		-DFREEIMAGE_USE_SYSTEM_LIBS=ON -DBUILD_JXR=OFF -DBUILD_TESTS=ON \
+		-DCMAKE_INSTALL_LIBDIR=lib/$(DEB_HOST_MULTIARCH)
+
+override_dh_auto_test:
+	ctest --test-dir build-debian --output-on-failure
+
+override_dh_installchangelogs:
+	dh_installchangelogs CHANGELOG.md

@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(InstalledFreeImageSmoke C)
+find_package(FreeImage 3 CONFIG REQUIRED)
+add_executable(smoke smoke.c)
+target_link_libraries(smoke PRIVATE FreeImage::FreeImage)
