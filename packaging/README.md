@@ -53,3 +53,23 @@ can use local .deb files or a separately maintained signed apt repository.
 Before official replacement of the distribution FreeImage package, compare
 exported ABI/symbols and rebuild reverse dependencies. Keeping SONAME 3 here
 sets the intended library interface; it does not prove drop-in compatibility.
+
+## Tagged release automation
+
+After this workflow is merged, pushing a numeric version tag such as
+3.19.22 builds Linux packages and attaches them to the matching GitHub
+release. The tag, checkout, public header and CMake archive fallback must
+agree. All three package build/install jobs must pass before publication.
+
+Arch CI builds the exact checkout archive, not the recipe's older pinned
+release/backport. Debian and Ubuntu versions have different distribution
+suffixes, so their release assets cannot overwrite each other. Pull
+requests produce preview package versions and CI artifacts only.
+
+The publishing job creates the matching release with generated notes if
+it does not exist; otherwise it preserves its notes and updates Linux
+assets. It includes binary packages, an exact source archive, its generated
+Arch recipe, and SHA256SUMS-linux.txt. No separate Linux tag is created.
+
+Release the version PR first, tag its merge commit, and push that tag.
+This does not create an apt repository or publish to the AUR.
