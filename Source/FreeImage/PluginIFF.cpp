@@ -293,7 +293,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 				if (type == ID_PBM) {
 					// NON INTERLACED (LBM)
 
-					unsigned line = FreeImage_GetLine(dib) + 1 & ~1;
+					unsigned line = (FreeImage_GetLine(dib) + 1) & ~1;
 					
 					for (unsigned i = 0; i < FreeImage_GetHeight(dib); i++) {
 						BYTE *bits = FreeImage_GetScanLine(dib, FreeImage_GetHeight(dib) - i - 1);
@@ -310,6 +310,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 
 								if (rle_count < 128) {
 									for (int k = 0; k < rle_count + 1; k++) {
+										if (number_of_bytes_written >= line) break;
 										io->read_proc(&byte, 1, 1, handle);
 
 										bits[number_of_bytes_written++] += byte;
@@ -318,6 +319,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 									io->read_proc(&byte, 1, 1, handle);
 
 									for (int k = 0; k < 257 - rle_count; k++) {
+										if (number_of_bytes_written >= line) break;
 										bits[number_of_bytes_written++] += byte;
 									}
 								}
