@@ -41,6 +41,17 @@ if (BUILD_TESTS)
     endif()
 
     add_test(NAME MainTestSuite WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/TestAPI COMMAND $<TARGET_FILE:MainTestSuite>)
+
+    add_executable(IffPbmRleTest testIffPbmRle.cpp)
+    target_link_libraries(IffPbmRleTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET IffPbmRleTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:IffPbmRleTest>
+            VERBATIM)
+    endif()
+    add_test(NAME IffPbmRleTest COMMAND IffPbmRleTest)
+    set_tests_properties(IffPbmRleTest PROPERTIES TIMEOUT 5)
 endif ()
 
 # These tests call vendored codec APIs directly to create inputs that exercise

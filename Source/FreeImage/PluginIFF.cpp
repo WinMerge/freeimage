@@ -294,6 +294,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 					// NON INTERLACED (LBM)
 
 					unsigned line = (FreeImage_GetLine(dib) + 1) & ~1;
+					DWORD remaining_body_bytes = ch_size;
 					
 					for (unsigned i = 0; i < FreeImage_GetHeight(dib); i++) {
 						BYTE *bits = FreeImage_GetScanLine(dib, FreeImage_GetHeight(dib) - i - 1);
@@ -304,19 +305,35 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 							DWORD number_of_bytes_written = 0;
 							BYTE rle_count;
 							BYTE byte;
+							auto read_byte = [&](BYTE &value) {
+								if (remaining_body_bytes == 0 || io->read_proc(&value, 1, 1, handle) != 1)
+									return false;
+								--remaining_body_bytes;
+								return true;
+							};
 
 							while (number_of_bytes_written < line) {
-								io->read_proc(&rle_count, 1, 1, handle);
+								// Even a 128 no-op must consume a byte from this BODY.
+								if (!read_byte(rle_count)) {
+									FreeImage_Unload(dib);
+									return NULL;
+								}
 
 								if (rle_count < 128) {
 									for (int k = 0; k < rle_count + 1; k++) {
 										if (number_of_bytes_written >= line) break;
-										io->read_proc(&byte, 1, 1, handle);
+										if (!read_byte(byte)) {
+											FreeImage_Unload(dib);
+											return NULL;
+										}
 
 										bits[number_of_bytes_written++] += byte;
 									}
 								} else if (rle_count > 128) {
-									io->read_proc(&byte, 1, 1, handle);
+									if (!read_byte(byte)) {
+										FreeImage_Unload(dib);
+										return NULL;
+									}
 
 									for (int k = 0; k < 257 - rle_count; k++) {
 										if (number_of_bytes_written >= line) break;

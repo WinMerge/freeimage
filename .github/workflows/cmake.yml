@@ -387,15 +387,16 @@ jobs:
       - name: Configure bundled codecs
         run: >-
           cmake -S . -B build-simd -DBUILD_TESTS=ON
+          -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
           -DBUILD_OPENEXR=ON -DFREEIMAGE_STATIC=ON -DCMAKE_CXX_STANDARD=17
           -DCMAKE_BUILD_TYPE=Release -DFREEIMAGE_OPENJPH_SIMD=${{ matrix.simd }}
           "-DCMAKE_C_FLAGS=-fsanitize=address -g"
           "-DCMAKE_CXX_FLAGS=-fsanitize=address -g"
           -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address
-      - name: Build codec integration test
-        run: cmake --build build-simd --target VendorCodecTest -j2
+      - name: Build codec and PBM RLE regression tests
+        run: cmake --build build-simd --target VendorCodecTest IffPbmRleTest -j2
       - name: Verify runtime dispatch and codec round trips
-        run: ctest --test-dir build-simd -R VendorCodecTest --output-on-failure --verbose
+        run: ctest --test-dir build-simd -R 'VendorCodecTest|IffPbmRleTest' --output-on-failure --verbose
 
   android-api25:
     name: Android API 25 (${{ matrix.abi }})
