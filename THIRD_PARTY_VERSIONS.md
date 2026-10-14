@@ -27,8 +27,10 @@ these libraries has a newer stable upstream release.
 OpenEXR, LibDeflate, and LibTIFF4 re-synced against their upstream release
 tags on 2026-10-02 for issue #137. All vendored version entries, including
 OpenEXR's auxiliary codecs below, were rechecked against their source headers
-on 2026-10-09 for FreeImage 3.19.21. Since 3.19.20, OpenEXR moved to 3.5.2
-and libpng to 1.6.59; other vendored versions are unchanged.
+on 2026-10-15 for FreeImage 3.19.22. Vendored versions are unchanged from
+3.19.21; 3.19.22 also carries the 32-bit GCC OpenJPH SSE compatibility fix
+without changing the OpenJPH snapshot version. The latest-upstream column
+retains the previous release review; this check verifies the bundled versions.
 
 OpenEXR 3.5.2 also brings these upstream-vendored auxiliary codecs:
 

@@ -2,12 +2,20 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
-## Unreleased
+## 3.19.22 — Unreleased
 
-- Fix the OpenJPH SSE memory-clear kernel's accidental SSE2 requirement on 32-bit GCC builds.
-- Add MinGW32 GCC CI for static and shared libraries, with OpenEXR/SIMD enabled and an explicit SSE-without-SSE2 compile check.
+PBM decoder security fixes, 32-bit compatibility, and installable Linux packages.
 
-## 3.19.21 — Unreleased
+- Fix a heap buffer overflow in IFF PBM RLE decoding by bounding literal and repeat writes to the scanline. See [#156](https://github.com/danoli3/FreeImage/issues/156) and [#161](https://github.com/danoli3/FreeImage/pull/161).
+- Reject truncated PBM RLE commands and payloads, and bound decoding to the declared BODY chunk. ByteRun1 no-op packets can no longer spin indefinitely after EOF. Add ten malformed-input regressions and two byte-for-byte valid-image checks to CTest and GCC ASan CI. These robustness/DoS fixes follow the heap overflow fix; no new CVE identifier is assigned here. See [#162](https://github.com/danoli3/FreeImage/pull/162).
+- Fix OpenJPH SSE kernels using SSE2 integer intrinsics when compiling for 32-bit GCC. Add MinGW i686 static/shared CI, an SSE-without-SSE2 compile check, and copy the Windows DLL beside the test executable. See [#155](https://github.com/danoli3/FreeImage/pull/155).
+- Use portable fixed-width integer types with MSVC 2013 and newer, resolving public-header type redefinition conflicts. See [#159](https://github.com/danoli3/FreeImage/pull/159).
+- Set CMake target VERSION and SOVERSION properties for shared-library builds. See [#157](https://github.com/danoli3/FreeImage/pull/157).
+- Add installable Arch Linux, Debian 13 and Ubuntu 24.04 packages with opt-in Linux library layout, pkg-config/CMake consumer checks, and system codec dependencies. Fix shared OpenJPEG imports and prevent bundled Imath headers from shadowing system OpenEXR. See [#160](https://github.com/danoli3/FreeImage/pull/160).
+- Numeric release tags now build and attach Linux packages, an exact source archive, a generated Arch recipe and SHA256SUMS-linux.txt to the matching GitHub release after all package jobs pass. This does not publish an AUR package or establish an apt repository.
+- Bundled codec versions are unchanged from 3.19.21: OpenEXR 3.5.2, Imath 3.2.3, libdeflate 1.26, libpng 1.6.59, libtiff 4.7.2, IJG JPEG 10, OpenJPEG 2.5.4, LibRaw 0.22.2, WebP 1.6.0 and zlib 1.3.2. OpenEXR's Zstandard 1.5.7 and OpenJPH 0.32.0 snapshots are unchanged.
+
+## 3.19.21 — 8 Oct 2026
 
 - **libpng 1.6.58 → 1.6.59.** Includes the upstream fix for CVE-2026-46675 (use-after-free following incomplete compressed metadata), restores correctly positioned hIST chunks, and avoids double frees after allocation failure.
 - **OpenEXR 3.5.1 → 3.5.2.** Adds OpenJPH nonlinear lookup tables for lossy LJ2K and a compatibility fallback for older files. Upstream recommends regenerating lossy LJ2K files written by 3.5.0/3.5.1 for best results. Zstandard and OpenJPH versions remain unchanged.
