@@ -1,3 +1,11 @@
+freeimage-maintained (3.19.22-1) unstable; urgency=high
+
+  * Include IFF PBM RLE overflow and truncated-input/no-op hardening.
+  * Include 32-bit OpenJPH and MSVC type compatibility fixes.
+  * Prepare tagged Linux package builds for FreeImage 3.19.22.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Thu, 15 Oct 2026 00:00:00 +0000
+
 freeimage-maintained (3.19.21+packaging1-1) unstable; urgency=medium
 
   * Initial installable packages for the danoli3 maintained fork.

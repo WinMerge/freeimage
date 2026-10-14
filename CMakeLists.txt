@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 
-# Determine the version from the latest git tag (e.g. "3.19.21"), falling
+# Determine the version from the latest git tag (e.g. "3.19.22"), falling
 # back to a static default when building from a source archive without
 # .git history (or when git isn't installed). This has to run before
 # project() below, since its VERSION argument needs a literal
 # MAJOR.MINOR.PATCH at parse time - it can't be computed afterwards.
-set(FREEIMAGE_VERSION_FALLBACK 3.19.21)
+set(FREEIMAGE_VERSION_FALLBACK 3.19.22)
 set(FREEIMAGE_VERSION_COMMITS 0)
 set(FREEIMAGE_VERSION_HASH "unknown")
 find_package(Git QUIET)
@@ -19,7 +19,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
         RESULT_VARIABLE FREEIMAGE_GIT_DESCRIBE_RESULT
     )
     if(FREEIMAGE_GIT_DESCRIBE_RESULT EQUAL 0)
-        # e.g. "3.19.18-45-ge32af9e" -> tag 3.19.18, 45 commits past it, hash ge32af9e
+        # e.g. "3.19.22-45-ge32af9e" -> tag 3.19.22, 45 commits past it, hash ge32af9e
         string(REGEX MATCH "^([0-9]+\\.[0-9]+\\.[0-9]+)-([0-9]+)-(g[0-9a-f]+)$" _fi_ver_match "${FREEIMAGE_GIT_DESCRIBE}")
         if(_fi_ver_match)
             set(FREEIMAGE_VERSION ${CMAKE_MATCH_1})
@@ -38,8 +38,8 @@ set(FREEIMAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(FREEIMAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(FREEIMAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
-# Human-readable version string: bare "3.19.18" exactly on a tag, or
-# "3.19.18+45.ge32af9e" (build metadata suffix, SemVer-style) in between.
+# Human-readable version string: bare "3.19.22" exactly on a tag, or
+# "3.19.22+45.ge32af9e" (build metadata suffix, SemVer-style) in between.
 if(FREEIMAGE_VERSION_COMMITS EQUAL 0)
     set(FREEIMAGE_VERSION_STRING "${FREEIMAGE_VERSION}")
 else()

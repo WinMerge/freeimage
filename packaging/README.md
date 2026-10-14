@@ -11,10 +11,14 @@ opt-in; existing builds retain their library naming.
 
 ## Arch Linux
 
-Copy packaging/arch/PKGBUILD and linux-install.patch to a build directory,
-then run makepkg -si as a normal user. The release tarball and packaging
-patch have pinned SHA256 checksums. The patch adds Linux package layout to
-release 3.19.21; it does not change codec sources.
+For 3.19.22 and newer, download the matching FreeImage-<version>-linux-PKGBUILD
+and FreeImage-<version>-linux-source.tar.gz release assets to a build directory.
+Rename the generated recipe to PKGBUILD, then run makepkg -si as a normal user.
+The generated recipe pins the exact release source archive with SHA256.
+
+The checked-in packaging/arch/PKGBUILD plus linux-install.patch remains a
+reproducible older 3.19.21 recipe. It does not include the 3.19.22 PBM fixes;
+use the matching generated release assets for the current version.
 
 The package name is freeimage-maintained. It conflicts with freeimage and
 freeimage-git and does not claim to provide those packages. The PKGBUILD is
@@ -33,9 +37,10 @@ and libfreeimage-dev packages. They do not satisfy dependencies on those
 names: review apt's proposed removals when installing on an existing system.
 Use a clean environment for initial testing.
 
-The +packaging1 version identifies this packaging snapshot rather than a
-new upstream library release. Maintainer details are placeholders to replace
-before publication. The source copyright inventory needs completing before
+The historical +packaging1 entry identifies the initial packaging snapshot.
+The current Debian changelog targets FreeImage 3.19.22; tagged CI assigns
+distinct Ubuntu/Debian version suffixes automatically. Maintainer details are
+placeholders to replace before publication. The source copyright inventory needs completing before
 a Debian archive submission. No PPA or official repository upload is made.
 
 ## CI downloads and publication
@@ -56,7 +61,7 @@ sets the intended library interface; it does not prove drop-in compatibility.
 
 ## Tagged release automation
 
-After this workflow is merged, pushing a numeric version tag such as
+Pushing a numeric version tag such as
 3.19.22 builds Linux packages and attaches them to the matching GitHub
 release. The tag, checkout, public header and CMake archive fallback must
 agree. All three package build/install jobs must pass before publication.
