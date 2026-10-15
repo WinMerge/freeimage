@@ -3,13 +3,18 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "freeimage-maintained"
-version = "0.1.0"
-description = "Optional NumPy bindings for the maintained FreeImage library"
+name = "FreeImage"
+version = "3.19.22"
+description = "Optional NumPy bindings for FreeImage"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = ["numpy>=1.23"]
 license = {text = "FreeImage Public License or GPL-2.0"}
+
+[project.urls]
+Homepage = "https://github.com/danoli3/FreeImage"
+Repository = "https://github.com/danoli3/FreeImage"
+Issues = "https://github.com/danoli3/FreeImage/issues"
 
 [tool.setuptools]
 license-files = ["license-fi.txt", "license-gplv2.txt"]
