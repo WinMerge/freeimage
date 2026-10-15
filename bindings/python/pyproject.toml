@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "freeimage-maintained"
+version = "0.1.0"
+description = "Optional NumPy bindings for the maintained FreeImage library"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.23"]
+license = {text = "FreeImage Public License or GPL-2.0"}
+
+[tool.setuptools]
+license-files = ["license-fi.txt", "license-gplv2.txt"]
+
+[tool.setuptools.packages.find]
+include = ["freeimage_numpy*"]
