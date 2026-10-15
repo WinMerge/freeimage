@@ -213,7 +213,7 @@ set(FreeImage_SOURCES
     ./Source/Metadata/Exif.cpp ./Source/Metadata/FIRational.cpp
     ./Source/Metadata/FreeImageTag.cpp ./Source/Metadata/IPTC.cpp
     ./Source/Metadata/TagConversion.cpp ./Source/Metadata/TagLib.cpp
-    ./Source/Metadata/XTIFF.cpp ./Source/FreeImageToolkit/Background.cpp
+    ./Source/Metadata/XTIFF.cpp ./Source/FreeImageToolkit/Analysis.cpp ./Source/FreeImageToolkit/Background.cpp
     ./Source/FreeImageToolkit/BSplineRotate.cpp ./Source/FreeImageToolkit/Channels.cpp
     ./Source/FreeImageToolkit/ClassicRotate.cpp ./Source/FreeImageToolkit/Colors.cpp
     ./Source/FreeImageToolkit/CopyPaste.cpp ./Source/FreeImageToolkit/Display.cpp

@@ -133,3 +133,13 @@ if(BUILD_TESTS)
     endif()
     add_test(NAME DependencyInfoTest COMMAND DependencyInfoTest)
 endif()
+
+if(BUILD_TESTS)
+    add_executable(ImageAnalysisTest testAnalysis.cpp)
+    target_link_libraries(ImageAnalysisTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET ImageAnalysisTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:ImageAnalysisTest>)
+    endif()
+    add_test(NAME ImageAnalysisTest COMMAND ImageAnalysisTest)
+endif()

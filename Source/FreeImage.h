@@ -526,7 +526,9 @@ Constants used in FreeImage_ToneMapping.
 FI_ENUM(FREE_IMAGE_TMO) {
     FITMO_DRAGO03	 = 0,	//! Adaptive logarithmic mapping (F. Drago, 2003)
 	FITMO_REINHARD05 = 1,	//! Dynamic range reduction inspired by photoreceptor physiology (E. Reinhard, 2005)
-	FITMO_FATTAL02	 = 2	//! Gradient domain high dynamic range compression (R. Fattal, 2002)
+	FITMO_FATTAL02	 = 2,	//! Gradient domain high dynamic range compression (R. Fattal, 2002)
+    FITMO_CLAMP = 3,
+    FITMO_LINEAR = 4
 };
 
 /** Upsampling / downsampling filters. 
@@ -1073,6 +1075,12 @@ DLL_API FIBITMAP *DLL_CALLCONV FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE
 
 // Tone mapping operators ---------------------------------------------------
 
+// Analysis supports gray8, RGB24/RGBA32, UINT16/RGB16/RGBA16 and FLOAT/DOUBLE/RGBF/RGBAF.
+DLL_API BOOL DLL_CALLCONV FreeImage_FindMinMax(FIBITMAP *dib, double *minimum, double *maximum, void **min_pixel FI_DEFAULT(NULL), void **max_pixel FI_DEFAULT(NULL));
+DLL_API BOOL DLL_CALLCONV FreeImage_FindMinMaxValue(FIBITMAP *dib, void *minimum, void *maximum);
+DLL_API FIBITMAP * DLL_CALLCONV FreeImage_TmoClamp(FIBITMAP *src, double maximum FI_DEFAULT(0));
+DLL_API FIBITMAP * DLL_CALLCONV FreeImage_TmoLinear(FIBITMAP *src, double maximum FI_DEFAULT(0));
+DLL_API BOOL DLL_CALLCONV FreeImage_GetHistogramEx(FIBITMAP *dib, DWORD *histogram, unsigned bins, double minimum, double maximum, FREE_IMAGE_COLOR_CHANNEL channel FI_DEFAULT(FICC_RGB));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_ToneMapping(FIBITMAP *dib, FREE_IMAGE_TMO tmo, double first_param FI_DEFAULT(0), double second_param FI_DEFAULT(0));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_TmoDrago03(FIBITMAP *src, double gamma FI_DEFAULT(2.2), double exposure FI_DEFAULT(0));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_TmoReinhard05(FIBITMAP *src, double intensity FI_DEFAULT(0), double contrast FI_DEFAULT(0));
