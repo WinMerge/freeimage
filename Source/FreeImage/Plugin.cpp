@@ -42,6 +42,14 @@
 #include "Plugin.h"
 
 #include "../Metadata/FreeImageTag.h"
+#include <string>
+#include <vector>
+#ifdef _WIN32
+#include <fcntl.h>
+#else
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
 
 // =====================================================================
 
@@ -470,44 +478,97 @@ FreeImage_SaveToHandle(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, FreeImageIO *io, fi
 }
 
 
+// Inspired by FreeImageRe's staged SaveImpl (FIPL/GPLv2), adapted without
+// its C++20 filesystem dependency. Never publish an incomplete encoder output.
+namespace {
+#ifdef _WIN32
+struct NarrowSavePath {
+    typedef char Char;
+    static HANDLE Create(const char *p) { return CreateFileA(p, GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL); }
+    static BOOL Replace(const char *from, const char *to) { return MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING); }
+    static void Remove(const char *p) { DeleteFileA(p); }
+};
+struct WideSavePath {
+    typedef wchar_t Char;
+    static HANDLE Create(const wchar_t *p) { return CreateFileW(p, GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL); }
+    static BOOL Replace(const wchar_t *from, const wchar_t *to) { return MoveFileExW(from, to, MOVEFILE_REPLACE_EXISTING); }
+    static void Remove(const wchar_t *p) { DeleteFileW(p); }
+};
+template<class Path> BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const typename Path::Char *filename, int flags) {
+    if(!filename || !FreeImage_HasPixels(dib) || !FreeImage_FIFSupportsWriting(fif)) return FALSE;
+    typedef typename Path::Char Char;
+    std::basic_string<Char> temporary(filename);
+    FILE *file = NULL;
+    static volatile LONG sequence = 0;
+    for(unsigned attempt = 0; attempt < 64; ++attempt) {
+        char suffix[96];
+        sprintf(suffix, ".fitmp.%lu.%lu", (unsigned long)GetCurrentProcessId(), (unsigned long)InterlockedIncrement(&sequence));
+        temporary.assign(filename);
+        for(const char *c = suffix; *c; ++c) temporary += static_cast<Char>(*c);
+        HANDLE h = Path::Create(temporary.c_str());
+        if(h == INVALID_HANDLE_VALUE) {
+            if(GetLastError() == ERROR_FILE_EXISTS || GetLastError() == ERROR_ALREADY_EXISTS) continue;
+            return FALSE;
+        }
+        const int fd = _open_osfhandle(reinterpret_cast<intptr_t>(h), _O_BINARY | _O_RDWR);
+        if(fd == -1) { CloseHandle(h); Path::Remove(temporary.c_str()); return FALSE; }
+        file = _fdopen(fd, "w+b");
+        if(!file) { _close(fd); Path::Remove(temporary.c_str()); return FALSE; }
+        break;
+    }
+    if(!file) return FALSE;
+    BOOL success = FALSE;
+    FreeImageIO io; SetDefaultIO(&io);
+    try { success = FreeImage_SaveToHandle(fif, dib, &io, file, flags); } catch(...) { success = FALSE; }
+    if(ferror(file)) success = FALSE;
+    if(fclose(file) != 0) success = FALSE;
+    if(success) success = Path::Replace(temporary.c_str(), filename);
+    if(!success) Path::Remove(temporary.c_str());
+    return success;
+}
+#else
+BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags) {
+    if(!filename || !FreeImage_HasPixels(dib) || !FreeImage_FIFSupportsWriting(fif)) return FALSE;
+    struct stat info;
+    if(lstat(filename, &info) == 0 && !S_ISREG(info.st_mode)) return FALSE;
+    std::string temporary(filename);
+    temporary += ".fitmp.XXXXXX";
+    std::vector<char> name(temporary.begin(), temporary.end());
+    name.push_back(0);
+    const int fd = mkstemp(&name[0]);
+    if(fd < 0) return FALSE;
+    FILE *file = fdopen(fd, "w+b");
+    if(!file) { close(fd); unlink(&name[0]); return FALSE; }
+    // Preserve regular-file permissions when replacing an existing destination.
+    if(stat(filename, &info) == 0 && S_ISREG(info.st_mode)) fchmod(fd, info.st_mode & 0777);
+    FreeImageIO io; SetDefaultIO(&io);
+    BOOL success = FALSE;
+    try { success = FreeImage_SaveToHandle(fif, dib, &io, file, flags); } catch(...) { success = FALSE; }
+    if(ferror(file)) success = FALSE;
+    if(fclose(file) != 0) success = FALSE;
+    if(success && rename(&name[0], filename) != 0) success = FALSE;
+    if(!success) unlink(&name[0]);
+    return success;
+}
+#endif
+}
 BOOL DLL_CALLCONV
 FreeImage_Save(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags) {
-	FreeImageIO io;
-	SetDefaultIO(&io);
-	
-	FILE *handle = fopen(filename, "w+b");
-	
-	if (handle) {
-		BOOL success = FreeImage_SaveToHandle(fif, dib, &io, (fi_handle)handle, flags);
-
-		fclose(handle);
-
-		return success;
-	} else {
-		FreeImage_OutputMessageProc((int)fif, "FreeImage_Save: failed to open file %s", filename);
-	}
-
-	return FALSE;
+    try {
+#ifdef _WIN32
+        return SaveFile<NarrowSavePath>(fif, dib, filename, flags);
+#else
+        return SaveFile(fif, dib, filename, flags);
+#endif
+    } catch(...) { return FALSE; }
 }
-
 BOOL DLL_CALLCONV
 FreeImage_SaveU(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const wchar_t *filename, int flags) {
-	FreeImageIO io;
-	SetDefaultIO(&io);
-#ifdef _WIN32	
-	FILE *handle = _wfopen(filename, L"w+b");
-	
-	if (handle) {
-		BOOL success = FreeImage_SaveToHandle(fif, dib, &io, (fi_handle)handle, flags);
-
-		fclose(handle);
-
-		return success;
-	} else {
-		FreeImage_OutputMessageProc((int)fif, "FreeImage_SaveU: failed to open output file");
-	}
+#ifdef _WIN32
+    try { return SaveFile<WideSavePath>(fif, dib, filename, flags); } catch(...) { return FALSE; }
+#else
+    return FALSE;
 #endif
-	return FALSE;
 }
 
 // =====================================================================

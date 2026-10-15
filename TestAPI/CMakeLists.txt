@@ -80,3 +80,13 @@ if(BUILD_TESTS AND BUILD_LIBHEIF)
     set_tests_properties(HeifCodecTest PROPERTIES TIMEOUT 120
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
 endif()
+
+if(BUILD_TESTS)
+    add_executable(SaveErrorTest testSaveErrors.cpp)
+    target_link_libraries(SaveErrorTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET SaveErrorTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:SaveErrorTest>)
+    endif()
+    add_test(NAME SaveErrorTest COMMAND SaveErrorTest)
+endif()

@@ -153,3 +153,12 @@ Actual codec availability depends on the installed libheif backends. Regeneratin
 The decoder is adapted from [FreeImageRe's PluginHEIF.cpp](https://github.com/agruzdev/FreeImageRe/blob/b51d3945bfe785ad382a0969f1376aee344af8c6/Source/Plugins/PluginHEIF.cpp)
 under its FIPL/GPLv2 licensing. System libheif is licensed under LGPL-3.0-or-later;
 its codec backends have their own licenses.
+
+### Saving files safely
+
+FreeImage_Save and FreeImage_SaveU stage encoder output beside the destination.
+Encoding, stream and close errors return FALSE and leave an existing file intact.
+Replacement occurs only after successful close. This is an atomic replacement,
+not a power-loss durability guarantee. POSIX new files start with private 0600
+permissions; existing regular-file permissions are preserved. POSIX special files
+and symlink destinations are rejected; hard links are replaced, not updated in place.

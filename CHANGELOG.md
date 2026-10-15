@@ -4,6 +4,8 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
 
 ## Unreleased
 
+- Stage file saves and preserve destinations on encoder/write/close failure.
+
 - Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
   FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
   codec regression tests. Enable with `-DBUILD_LIBHEIF=ON`. (#154)
