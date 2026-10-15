@@ -2,6 +2,10 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
+## Unreleased
+
+- Fix optional HEIF/AVIF and JPEG XL configuration on native Windows SDKs without pkg-config. Prefer exported CMake packages, retain pkg-config fallback, support SDK headers/import libraries, and use the same discovery for installed CMake consumers. Add MSVC/vcpkg codec-enabled static/shared CI and setup instructions. (#174)
+
 ## 3.19.23 — Unreleased
 
 Optional modern codecs, safer file saving, image-analysis APIs and Python/NumPy bindings.

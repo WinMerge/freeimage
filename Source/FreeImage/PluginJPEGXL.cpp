@@ -13,6 +13,9 @@ static const char * DLL_CALLCONV Mime() { return "image/jxl"; }
 #include <jxl/encode.h>
 #include <jxl/color_encoding.h>
 #include <jxl/version.h>
+#if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,7,0)
+#error "FreeImage requires libjxl 0.7 or newer"
+#endif
 #include <climits>
 #include <limits>
 #include <memory>
