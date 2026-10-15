@@ -828,6 +828,16 @@ DLL_API void DLL_CALLCONV FreeImage_DeInitialise(void);
 
 // Version routines ---------------------------------------------------------
 
+// Additive diagnostics. Borrowed strings remain valid for library lifetime.
+// A null version means unknown; JPEG's compiled field reports API level.
+typedef struct FI_DEPENDENCY_INFO {
+    const char *name;
+    const char *compiled_version;
+    const char *runtime_version;
+    BOOL system_library;
+} FI_DEPENDENCY_INFO;
+DLL_API unsigned DLL_CALLCONV FreeImage_GetDependenciesCount(void);
+DLL_API BOOL DLL_CALLCONV FreeImage_GetDependencyInfo(unsigned index, FI_DEPENDENCY_INFO *info);
 DLL_API const char *DLL_CALLCONV FreeImage_GetVersion(void);
 DLL_API const char *DLL_CALLCONV FreeImage_GetCopyrightMessage(void);
 

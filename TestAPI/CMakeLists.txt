@@ -123,3 +123,13 @@ if(BUILD_TESTS AND BUILD_LIBJXL)
     add_test(NAME JpegXLTest COMMAND JpegXLTest)
     set_tests_properties(JpegXLTest PROPERTIES TIMEOUT 60)
 endif()
+
+if(BUILD_TESTS)
+    add_executable(DependencyInfoTest testDependencies.cpp)
+    target_link_libraries(DependencyInfoTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET DependencyInfoTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:DependencyInfoTest>)
+    endif()
+    add_test(NAME DependencyInfoTest COMMAND DependencyInfoTest)
+endif()

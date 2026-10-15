@@ -175,7 +175,7 @@ endforeach()
 set(FreeImage_SOURCES
     ./Source/FreeImage/BitmapAccess.cpp ./Source/FreeImage/ColorLookup.cpp
     ./Source/FreeImage/ConversionRGBA16.cpp ./Source/FreeImage/ConversionRGBAF.cpp
-    ./Source/FreeImage/FreeImage.cpp ./Source/FreeImage/FreeImageC.c
+    ./Source/FreeImage/DependencyInfo.cpp ./Source/FreeImage/FreeImage.cpp ./Source/FreeImage/FreeImageC.c
     ./Source/FreeImage/FreeImageIO.cpp ./Source/FreeImage/GetType.cpp
     ./Source/FreeImage/LFPQuantizer.cpp ./Source/FreeImage/MemoryIO.cpp
     ./Source/FreeImage/PixelAccess.cpp ./Source/FreeImage/J2KHelper.cpp

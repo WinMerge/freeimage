@@ -8,6 +8,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
 - Support FIT_DOUBLE grayscale in ConvertToRGBF, preserving HDR values and handling non-finite/range limits.
 - Add optional HEIF/AVIF writing, raw EXIF import/export, and embedded thumbnail import through system libheif.
 - Add optional system-libjxl JPEG XL still-image reading/writing, ICC, 16-bit/float data, and exact lossless round-trip tests.
+- Expose linked dependency names, compile/runtime versions and system/bundled provenance through an additive C API.
 
 - Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
   FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
