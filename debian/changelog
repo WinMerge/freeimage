@@ -1,3 +1,12 @@
+freeimage-maintained (3.19.23-1) unstable; urgency=medium
+
+  * Include safer staged file saving and double-to-RGBF conversion.
+  * Include optional HEIF/AVIF and JPEG XL codec integrations.
+  * Include dependency diagnostics, image analysis and optional Python bindings.
+  * Prepare tagged Linux package builds for FreeImage 3.19.23.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Thu, 15 Oct 2026 00:00:00 +0000
+
 freeimage-maintained (3.19.22-1) unstable; urgency=high
 
   * Include IFF PBM RLE overflow and truncated-input/no-op hardening.
