@@ -1,5 +1,11 @@
 @PACKAGE_INIT@
 
+if(@BUILD_LIBJXL@)
+    include(CMakeFindDependencyMacro)
+    find_dependency(PkgConfig)
+    pkg_check_modules(LIBJXL REQUIRED IMPORTED_TARGET libjxl>=0.7)
+endif()
+
 if(@BUILD_LIBHEIF@)
     include(CMakeFindDependencyMacro)
     find_dependency(PkgConfig)

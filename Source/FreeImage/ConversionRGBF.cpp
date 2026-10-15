@@ -23,6 +23,8 @@
 
 #include "FreeImage.h"
 #include "Utilities.h"
+#include <limits>
+#include <cmath>
 
 // ----------------------------------------------------------
 //   smart convert X to RGBF
@@ -63,6 +65,7 @@ FreeImage_ConvertToRGBF(FIBITMAP *dib) {
 			// allow conversion from 64-bit RGBA (ignore the alpha channel)
 			src = dib;
 			break;
+		case FIT_DOUBLE:
 		case FIT_FLOAT:
 			// allow conversion from 32-bit float
 			src = dib;
@@ -191,6 +194,24 @@ FreeImage_ConvertToRGBF(FIBITMAP *dib) {
 		}
 		break;
 
+        // FreeImageRe supports double grayscale here too. Preserve HDR values;
+        // explicitly handle values outside float range instead of narrowing them.
+        case FIT_DOUBLE: {
+            for(unsigned y = 0; y < height; ++y) {
+                const double *in = reinterpret_cast<const double *>(FreeImage_GetScanLine(src, y));
+                FIRGBF *out = reinterpret_cast<FIRGBF *>(FreeImage_GetScanLine(dst, y));
+                for(unsigned x = 0; x < width; ++x) {
+                    const double value = in[x];
+                    float converted;
+                    if(std::isnan(value)) converted = std::numeric_limits<float>::quiet_NaN();
+                    else if(value > std::numeric_limits<float>::max()) converted = std::numeric_limits<float>::infinity();
+                    else if(value < -std::numeric_limits<float>::max()) converted = -std::numeric_limits<float>::infinity();
+                    else converted = static_cast<float>(value);
+                    out[x].red = out[x].green = out[x].blue = converted;
+                }
+            }
+            break;
+        }
 		case FIT_FLOAT:
 		{
 			const BYTE *src_bits = (BYTE*)FreeImage_GetBits(src);

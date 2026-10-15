@@ -17,6 +17,7 @@ add_executable(MainTestSuite
 
 if (BUILD_TESTS)
     target_link_libraries(MainTestSuite FreeImage)
+    target_compile_definitions(MainTestSuite PRIVATE FREEIMAGE_TEST_LIBJXL=$<BOOL:${BUILD_LIBJXL}>)
     target_compile_definitions(MainTestSuite PRIVATE FREEIMAGE_TEST_LIBHEIF=$<BOOL:${BUILD_LIBHEIF}>)
     if (DEFINED PNG_LIBRARY)
         target_link_libraries(MainTestSuite ${PNG_LIBRARY})
@@ -79,4 +80,66 @@ if(BUILD_TESTS AND BUILD_LIBHEIF)
     add_test(NAME HeifCodecTest COMMAND HeifCodecTest)
     set_tests_properties(HeifCodecTest PROPERTIES TIMEOUT 120
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
+endif()
+
+if(BUILD_TESTS)
+    add_executable(SaveErrorTest testSaveErrors.cpp)
+    target_link_libraries(SaveErrorTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET SaveErrorTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:SaveErrorTest>)
+    endif()
+    add_test(NAME SaveErrorTest COMMAND SaveErrorTest)
+endif()
+
+if(BUILD_TESTS)
+    add_executable(DoubleRGBFTest testDoubleRGBF.cpp)
+    target_link_libraries(DoubleRGBFTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET DoubleRGBFTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:DoubleRGBFTest>)
+    endif()
+    add_test(NAME DoubleRGBFTest COMMAND DoubleRGBFTest)
+endif()
+
+if(BUILD_TESTS AND BUILD_LIBHEIF)
+    add_test(NAME HeifEncodingTest COMMAND HeifCodecTest --encode)
+    set_tests_properties(HeifEncodingTest PROPERTIES TIMEOUT 120 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
+    if(UNIX AND NOT APPLE)
+        # Ubuntu's external x265 encoder leaks its configuration object. Keep
+        # decoder tests unsuppressed, and suppress only that encoder allocator.
+        set_tests_properties(HeifEncodingTest PROPERTIES ENVIRONMENT
+            "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/heif/x265-lsan.supp")
+    endif()
+endif()
+
+if(BUILD_TESTS AND BUILD_LIBJXL)
+    add_executable(JpegXLTest testJpegXL.cpp)
+    target_link_libraries(JpegXLTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET JpegXLTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:JpegXLTest>)
+    endif()
+    add_test(NAME JpegXLTest COMMAND JpegXLTest)
+    set_tests_properties(JpegXLTest PROPERTIES TIMEOUT 60)
+endif()
+
+if(BUILD_TESTS)
+    add_executable(DependencyInfoTest testDependencies.cpp)
+    target_link_libraries(DependencyInfoTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET DependencyInfoTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:DependencyInfoTest>)
+    endif()
+    add_test(NAME DependencyInfoTest COMMAND DependencyInfoTest)
+endif()
+
+if(BUILD_TESTS)
+    add_executable(ImageAnalysisTest testAnalysis.cpp)
+    target_link_libraries(ImageAnalysisTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET ImageAnalysisTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:ImageAnalysisTest>)
+    endif()
+    add_test(NAME ImageAnalysisTest COMMAND ImageAnalysisTest)
 endif()

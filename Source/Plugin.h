@@ -144,5 +144,6 @@ void DLL_CALLCONV InitWEBP(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitJXR(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitHEIF(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitAVIF(Plugin *plugin, int format_id);
+void DLL_CALLCONV InitJPEGXL(Plugin *plugin, int format_id);
 
 #endif //!PLUGIN_H

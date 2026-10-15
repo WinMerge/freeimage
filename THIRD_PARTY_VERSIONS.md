@@ -51,3 +51,7 @@ Optional system-only codec: `BUILD_LIBHEIF=ON` requires libheif >= 1.12
 disabled by default. Backend versions and licenses depend on the installation.
 The HEIF/AVIF plugin adapts FreeImageRe's FIPL/GPLv2-licensed decoder at commit
 `b51d3945bfe785ad382a0969f1376aee344af8c6`; see its source header and README.
+
+Optional system-only JPEG XL codec: BUILD_LIBJXL=ON requires libjxl >=0.7.
+It is disabled by default; no libjxl, Brotli, Highway or CMS sources are bundled
+by this integration. Their versions follow the installed system packages.

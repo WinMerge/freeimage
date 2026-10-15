@@ -27,6 +27,10 @@
 // Show plugins
 // ----------------------------------------------------------
 void showPlugins() {
+	assert(FreeImage_GetFIFFromFormat("JXL") == FIF_JPEGXL);
+#ifdef FREEIMAGE_TEST_LIBJXL
+	assert(!!FreeImage_FIFSupportsReading(FIF_JPEGXL) == FREEIMAGE_TEST_LIBJXL);
+#endif
 	assert(FreeImage_GetFIFFromFormat("HEIF") == FIF_HEIF);
 	assert(FreeImage_GetFIFFromFormat("AVIF") == FIF_AVIF);
 #ifdef FREEIMAGE_TEST_LIBHEIF

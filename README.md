@@ -145,11 +145,36 @@ The legacy make build registers the format names but does not enable decoding.
 Use `FIF_HEIF` for HEIF/HEIC and `FIF_AVIF` for AVIF, or detect the format with
 `FreeImage_GetFileType`. The decoder loads the primary still image as 8-bit RGB
 or RGBA, preserves embedded ICC profiles, and supports `FIF_LOAD_NOPIXELS`.
-High-bit-depth sources are converted to 8-bit output. Encoding, animation,
-EXIF/XMP import, and thumbnail import are not included in this initial plugin.
+High-bit-depth sources are converted to 8-bit output. Writing supports 24-bit RGB and 32-bit RGBA when an encoder backend is installed.
+Raw EXIF is imported/exported; embedded thumbnails are imported.
+Animation and XMP import are not included.
 Actual codec availability depends on the installed libheif backends. Regenerating the test fixtures additionally requires HEVC and AV1 encoders
 (x265 and AOM); ordinary tests only require decoders.
 
 The decoder is adapted from [FreeImageRe's PluginHEIF.cpp](https://github.com/agruzdev/FreeImageRe/blob/b51d3945bfe785ad382a0969f1376aee344af8c6/Source/Plugins/PluginHEIF.cpp)
 under its FIPL/GPLv2 licensing. System libheif is licensed under LGPL-3.0-or-later;
 its codec backends have their own licenses.
+
+HEIF/AVIF saving accepts quality 1..100 (default 90) and HEIF_LOSSLESS.
+Lossless mode requests RGB/4:4:4 coding to avoid chroma subsampling loss.
+Encoder availability is reflected by FreeImage_FIFSupportsWriting.
+Exif import validates the HEIF TIFF-header offset before parsing.
+
+### Saving files safely
+
+FreeImage_Save and FreeImage_SaveU stage encoder output beside the destination.
+Encoding, stream and close errors return FALSE and leave an existing file intact.
+Replacement occurs only after successful close. This is an atomic replacement,
+not a power-loss durability guarantee. POSIX new files start with private 0600
+permissions; existing regular-file permissions are preserved. POSIX special files
+and symlink destinations are rejected; hard links are replaced, not updated in place.
+
+### Optional JPEG XL
+
+Configure with -DBUILD_LIBJXL=ON and install system libjxl >=0.7 plus pkg-config.
+The FIF_JPEGXL plugin reads/writes still images: RGB/RGBA and grayscale,
+8/16-bit integer and 32-bit float, ICC profiles, and header-only loading.
+Animations are rejected. EXIF/XMP and thumbnails are not imported initially.
+Pass JXL_LOSSLESS for exact lossless encoding; otherwise quality flags 1..100
+map to distance (100-quality)/10, with 90 as the default.
+The classic make build registers an unsupported stub; enable with CMake.
