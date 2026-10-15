@@ -5,6 +5,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
 ## Unreleased
 
 - Stage file saves and preserve destinations on encoder/write/close failure.
+- Support FIT_DOUBLE grayscale in ConvertToRGBF, preserving HDR values and handling non-finite/range limits.
 
 - Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
   FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and

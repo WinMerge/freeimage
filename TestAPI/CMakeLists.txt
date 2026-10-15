@@ -90,3 +90,13 @@ if(BUILD_TESTS)
     endif()
     add_test(NAME SaveErrorTest COMMAND SaveErrorTest)
 endif()
+
+if(BUILD_TESTS)
+    add_executable(DoubleRGBFTest testDoubleRGBF.cpp)
+    target_link_libraries(DoubleRGBFTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET DoubleRGBFTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:DoubleRGBFTest>)
+    endif()
+    add_test(NAME DoubleRGBFTest COMMAND DoubleRGBFTest)
+endif()
