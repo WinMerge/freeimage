@@ -10,6 +10,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
 - Add optional system-libjxl JPEG XL still-image reading/writing, ICC, 16-bit/float data, and exact lossless round-trip tests.
 - Expose linked dependency names, compile/runtime versions and system/bundled provenance through an additive C API.
 - Add finite min/max queries, configurable histograms, and alpha-preserving clamp/linear tone mapping.
+- Add an optional separately packaged Python/NumPy interface with owned arrays, file/memory I/O and wheel CI.
 
 - Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
   FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
