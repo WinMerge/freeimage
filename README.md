@@ -136,7 +136,7 @@ ctest --test-dir cmake-build-debug -C Debug # Optionally --rerun-failed --output
 
 ### Optional HEIF and AVIF decoding
 
-Install **libheif 1.12 or newer**, its HEVC/AV1 decoder backends, and pkg-config,
+Install **libheif 1.12 or newer** and its HEVC/AV1 decoder backends (see the Windows SDK setup below). On Unix, install pkg-config,
 then configure CMake with `-DBUILD_LIBHEIF=ON`. For example, Ubuntu 22.04 uses
 `sudo apt install libheif-dev pkg-config`; macOS uses `brew install libheif pkg-config`.
 This optional system dependency is disabled by default and is not bundled.
@@ -171,10 +171,41 @@ and symlink destinations are rejected; hard links are replaced, not updated in p
 
 ### Optional JPEG XL
 
-Configure with -DBUILD_LIBJXL=ON and install system libjxl >=0.7 plus pkg-config.
+Configure with -DBUILD_LIBJXL=ON and install system libjxl >=0.7 (pkg-config on Unix, or the Windows SDK setup below).
 The FIF_JPEGXL plugin reads/writes still images: RGB/RGBA and grayscale,
 8/16-bit integer and 32-bit float, ICC profiles, and header-only loading.
 Animations are rejected. EXIF/XMP and thumbnails are not imported initially.
 Pass JXL_LOSSLESS for exact lossless encoding; otherwise quality flags 1..100
 map to distance (100-quality)/10, with 90 as the default.
 The classic make build registers an unsupported stub; enable with CMake.
+
+### Windows HEIF/AVIF and JPEG XL SDKs
+
+The optional codec switches require installed development libraries; they do
+not download or bundle libheif/libjxl. Discovery prefers native CMake packages,
+then pkg-config, then SDK headers and import libraries. Visual Studio users
+can use vcpkg without installing pkg-config separately:
+
+```powershell
+C:/vcpkg/vcpkg.exe install "libheif[aom]:x64-windows" libjxl:x64-windows
+cmake -S . -B build -A x64 `
+  -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+  -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+cmake --build build --config Release
+```
+
+Adjust the vcpkg path to your installation. For CMake GUI, set the toolchain
+file before the first Configure (use a fresh build directory when changing
+it). AOM enables AVIF; the default HEVC feature supplies HEIF encoding, and
+libde265 supplies HEIF decoding. Match the SDK architecture to the generator.
+Make the codec DLLs and their backend dependencies available on PATH when
+running applications, or deploy them beside the executable. If the SDK builds
+codec backends as plugins, set LIBHEIF_PLUGIN_PATH to its plugins/libheif
+directory as well.
+
+An existing SDK can instead be selected with CMAKE_PREFIX_PATH. Direct SDK
+hints are FreeImage_HEIF_INCLUDE_DIR / FreeImage_JXL_INCLUDE_DIR and matching
+FreeImage_<codec>_LIBRARY_RELEASE / _LIBRARY_DEBUG cache entries. For static
+codec SDKs, use their exported CMake targets or provide any missing transitive
+libraries through FreeImage_<codec>_EXTRA_LIBRARIES in SDK mode. Installed
+FreeImage CMake consumers use the same discovery rules.

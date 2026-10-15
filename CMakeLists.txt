@@ -91,18 +91,23 @@ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
 option(BUILD_LIBJPEG "Build libjpeg from source or link" ON)
 option(BUILD_LIBOPENJPEG "Build OpenJPEG from source or link" ON)
 option(BUILD_WEBP "Build webp from source or link" ON)
+include(cmake/FreeImageCodecs.cmake)
 option(BUILD_LIBJXL "Enable JPEG XL through system libjxl" OFF)
 if(BUILD_LIBJXL)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBJXL REQUIRED IMPORTED_TARGET libjxl>=0.7)
-    list(APPEND FreeImage_LIBS PkgConfig::LIBJXL)
+    freeimage_find_codec(JXL 0.7)
+    if(NOT FreeImage_JXL_FOUND)
+        message(FATAL_ERROR "${FreeImage_JXL_ERROR}")
+    endif()
+    list(APPEND FreeImage_LIBS FreeImageCodec::JXL)
     add_compile_definitions(FREEIMAGE_LIBJXL)
 endif()
-option(BUILD_LIBHEIF "Enable HEIF/AVIF decoding using system libheif (1.12+)" OFF)
+option(BUILD_LIBHEIF "Enable HEIF/AVIF through system libheif (1.12+)" OFF)
 if(BUILD_LIBHEIF)
-    find_package(PkgConfig REQUIRED)
-    pkg_check_modules(LIBHEIF REQUIRED IMPORTED_TARGET libheif>=1.12)
-    list(APPEND FreeImage_LIBS PkgConfig::LIBHEIF)
+    freeimage_find_codec(HEIF 1.12)
+    if(NOT FreeImage_HEIF_FOUND)
+        message(FATAL_ERROR "${FreeImage_HEIF_ERROR}")
+    endif()
+    list(APPEND FreeImage_LIBS FreeImageCodec::HEIF)
     add_compile_definitions(FREEIMAGE_LIBHEIF)
 endif()
 # Camera RAW is part of the default build. -DBUILD_LIBRAWLITE=OFF leaves it out.
@@ -1478,6 +1483,7 @@ write_basic_package_version_file(
     COMPATIBILITY SameMajorVersion
 )
 install(FILES
+    ${PROJECT_SOURCE_DIR}/cmake/FreeImageCodecs.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}

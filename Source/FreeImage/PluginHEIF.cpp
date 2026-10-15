@@ -33,6 +33,9 @@ static const char * DLL_CALLCONV AvifMime() { return "image/avif"; }
 
 #ifdef FREEIMAGE_LIBHEIF
 #include <libheif/heif.h>
+#if LIBHEIF_NUMERIC_VERSION < ((1 << 24) | (12 << 16))
+#error "FreeImage requires libheif 1.12 or newer"
+#endif
 #include "../Metadata/FreeImageTag.h"
 #include <climits>
 #include <memory>
