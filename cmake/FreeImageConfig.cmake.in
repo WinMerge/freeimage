@@ -1,3 +1,9 @@
 @PACKAGE_INIT@
 
+if(@BUILD_LIBHEIF@)
+    include(CMakeFindDependencyMacro)
+    find_dependency(PkgConfig)
+    pkg_check_modules(LIBHEIF REQUIRED IMPORTED_TARGET libheif>=1.12)
+endif()
+
 include("${CMAKE_CURRENT_LIST_DIR}/FreeImageTargets.cmake")

@@ -2,6 +2,12 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
+## Unreleased
+
+- Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
+  FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
+  codec regression tests. Enable with `-DBUILD_LIBHEIF=ON`. (#154)
+
 ## 3.19.22 — Unreleased
 
 PBM decoder security fixes, 32-bit compatibility, and installable Linux packages.

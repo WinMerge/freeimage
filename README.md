@@ -133,3 +133,23 @@ ctest --test-dir cmake-build-debug -C Debug # Optionally --rerun-failed --output
 ```
 
 > This ctest command only works with CMake 3.20 or higher. For earlier versions, you must `cd` into `cmake-build-debug` and call ctest without `--test-dir cmake-build-debug`.
+
+### Optional HEIF and AVIF decoding
+
+Install **libheif 1.12 or newer**, its HEVC/AV1 decoder backends, and pkg-config,
+then configure CMake with `-DBUILD_LIBHEIF=ON`. For example, Ubuntu 22.04 uses
+`sudo apt install libheif-dev pkg-config`; macOS uses `brew install libheif pkg-config`.
+This optional system dependency is disabled by default and is not bundled.
+The legacy make build registers the format names but does not enable decoding.
+
+Use `FIF_HEIF` for HEIF/HEIC and `FIF_AVIF` for AVIF, or detect the format with
+`FreeImage_GetFileType`. The decoder loads the primary still image as 8-bit RGB
+or RGBA, preserves embedded ICC profiles, and supports `FIF_LOAD_NOPIXELS`.
+High-bit-depth sources are converted to 8-bit output. Encoding, animation,
+EXIF/XMP import, and thumbnail import are not included in this initial plugin.
+Actual codec availability depends on the installed libheif backends. Regenerating the test fixtures additionally requires HEVC and AV1 encoders
+(x265 and AOM); ordinary tests only require decoders.
+
+The decoder is adapted from [FreeImageRe's PluginHEIF.cpp](https://github.com/agruzdev/FreeImageRe/blob/b51d3945bfe785ad382a0969f1376aee344af8c6/Source/Plugins/PluginHEIF.cpp)
+under its FIPL/GPLv2 licensing. System libheif is licensed under LGPL-3.0-or-later;
+its codec backends have their own licenses.

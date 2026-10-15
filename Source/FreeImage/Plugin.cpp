@@ -278,6 +278,8 @@ FreeImage_Initialise(BOOL load_local_plugins_only) {
 #if !(defined(_MSC_VER) && (_MSC_VER <= 1310))
 			s_plugins->AddNode(InitJXR);
 #endif // unsupported by MS Visual Studio 2003 !!!
+			s_plugins->AddNode(InitHEIF);
+			s_plugins->AddNode(InitAVIF);
 			
 			// external plugin initialization
 

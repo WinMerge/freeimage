@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(HeifAvifPreview LANGUAGES CXX)
+find_package(FreeImage CONFIG REQUIRED)
+add_executable(HeifAvifPreview preview.cpp)
+target_link_libraries(HeifAvifPreview PRIVATE FreeImage::FreeImage)
