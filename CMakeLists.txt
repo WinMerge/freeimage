@@ -91,6 +91,13 @@ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
 option(BUILD_LIBJPEG "Build libjpeg from source or link" ON)
 option(BUILD_LIBOPENJPEG "Build OpenJPEG from source or link" ON)
 option(BUILD_WEBP "Build webp from source or link" ON)
+option(BUILD_LIBJXL "Enable JPEG XL through system libjxl" OFF)
+if(BUILD_LIBJXL)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBJXL REQUIRED IMPORTED_TARGET libjxl>=0.7)
+    list(APPEND FreeImage_LIBS PkgConfig::LIBJXL)
+    add_compile_definitions(FREEIMAGE_LIBJXL)
+endif()
 option(BUILD_LIBHEIF "Enable HEIF/AVIF decoding using system libheif (1.12+)" OFF)
 if(BUILD_LIBHEIF)
     find_package(PkgConfig REQUIRED)
@@ -177,7 +184,7 @@ set(FreeImage_SOURCES
     ./Source/FreeImage/PluginDDS.cpp ./Source/FreeImage/PluginEXR.cpp
     ./Source/FreeImage/PluginG3.cpp ./Source/FreeImage/PluginGIF.cpp
     ./Source/FreeImage/PluginHDR.cpp ./Source/FreeImage/PluginICO.cpp
-    ./Source/FreeImage/PluginHEIF.cpp
+    ./Source/FreeImage/PluginHEIF.cpp ./Source/FreeImage/PluginJPEGXL.cpp
     ./Source/FreeImage/PluginIFF.cpp ./Source/FreeImage/PluginJ2K.cpp
     ./Source/FreeImage/PluginJNG.cpp ./Source/FreeImage/PluginJP2.cpp
     ./Source/FreeImage/PluginJPEG.cpp ./Source/FreeImage/PluginJXR.cpp

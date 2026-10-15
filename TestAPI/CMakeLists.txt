@@ -17,6 +17,7 @@ add_executable(MainTestSuite
 
 if (BUILD_TESTS)
     target_link_libraries(MainTestSuite FreeImage)
+    target_compile_definitions(MainTestSuite PRIVATE FREEIMAGE_TEST_LIBJXL=$<BOOL:${BUILD_LIBJXL}>)
     target_compile_definitions(MainTestSuite PRIVATE FREEIMAGE_TEST_LIBHEIF=$<BOOL:${BUILD_LIBHEIF}>)
     if (DEFINED PNG_LIBRARY)
         target_link_libraries(MainTestSuite ${PNG_LIBRARY})
@@ -110,4 +111,15 @@ if(BUILD_TESTS AND BUILD_LIBHEIF)
         set_tests_properties(HeifEncodingTest PROPERTIES ENVIRONMENT
             "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/heif/x265-lsan.supp")
     endif()
+endif()
+
+if(BUILD_TESTS AND BUILD_LIBJXL)
+    add_executable(JpegXLTest testJpegXL.cpp)
+    target_link_libraries(JpegXLTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET JpegXLTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:JpegXLTest>)
+    endif()
+    add_test(NAME JpegXLTest COMMAND JpegXLTest)
+    set_tests_properties(JpegXLTest PROPERTIES TIMEOUT 60)
 endif()

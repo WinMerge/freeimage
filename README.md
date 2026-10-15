@@ -168,3 +168,13 @@ Replacement occurs only after successful close. This is an atomic replacement,
 not a power-loss durability guarantee. POSIX new files start with private 0600
 permissions; existing regular-file permissions are preserved. POSIX special files
 and symlink destinations are rejected; hard links are replaced, not updated in place.
+
+### Optional JPEG XL
+
+Configure with -DBUILD_LIBJXL=ON and install system libjxl >=0.7 plus pkg-config.
+The FIF_JPEGXL plugin reads/writes still images: RGB/RGBA and grayscale,
+8/16-bit integer and 32-bit float, ICC profiles, and header-only loading.
+Animations are rejected. EXIF/XMP and thumbnails are not imported initially.
+Pass JXL_LOSSLESS for exact lossless encoding; otherwise quality flags 1..100
+map to distance (100-quality)/10, with 90 as the default.
+The classic make build registers an unsupported stub; enable with CMake.

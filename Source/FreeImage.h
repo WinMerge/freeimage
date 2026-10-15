@@ -451,7 +451,8 @@ FI_ENUM(FREE_IMAGE_FORMAT) {
 	FIF_WEBP	= 35,
 	FIF_JXR		= 36,
 	FIF_HEIF	= 37,
-	FIF_AVIF	= 38
+	FIF_AVIF	= 38,
+	FIF_JPEGXL	= 39
 };
 
 /** Image type used in FreeImage.
@@ -700,6 +701,7 @@ typedef void (DLL_CALLCONV *FI_InitProc)(Plugin *plugin, int format_id);
 
 // HEIF/AVIF saving: quality 1..100 (0 defaults to 90); optional lossless.
 #define HEIF_LOSSLESS 0x100
+#define JXL_LOSSLESS 0x100
 #define FIF_LOAD_NOPIXELS 0x8000	//! loading: load the image header only (not supported by all plugins, default to full loading)
 
 #define BMP_DEFAULT         0

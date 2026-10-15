@@ -288,6 +288,7 @@ FreeImage_Initialise(BOOL load_local_plugins_only) {
 #endif // unsupported by MS Visual Studio 2003 !!!
 			s_plugins->AddNode(InitHEIF);
 			s_plugins->AddNode(InitAVIF);
+            s_plugins->AddNode(InitJPEGXL);
 			
 			// external plugin initialization
 
