@@ -38,7 +38,7 @@ names: review apt's proposed removals when installing on an existing system.
 Use a clean environment for initial testing.
 
 The historical +packaging1 entry identifies the initial packaging snapshot.
-The current Debian changelog targets FreeImage 3.19.22; tagged CI assigns
+The current Debian changelog targets FreeImage 3.19.23; tagged CI assigns
 distinct Ubuntu/Debian version suffixes automatically. Maintainer details are
 placeholders to replace before publication. The source copyright inventory needs completing before
 a Debian archive submission. No PPA or official repository upload is made.
@@ -62,7 +62,7 @@ sets the intended library interface; it does not prove drop-in compatibility.
 ## Tagged release automation
 
 Pushing a numeric version tag such as
-3.19.22 builds Linux packages and attaches them to the matching GitHub
+3.19.23 builds Linux packages and attaches them to the matching GitHub
 release. The tag, checkout, public header and CMake archive fallback must
 agree. All three package build/install jobs must pass before publication.
 

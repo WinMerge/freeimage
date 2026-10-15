@@ -2,21 +2,21 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
-## Unreleased
+## 3.19.23 — Unreleased
 
-- Stage file saves and preserve destinations on encoder/write/close failure.
-- Support FIT_DOUBLE grayscale in ConvertToRGBF, preserving HDR values and handling non-finite/range limits.
-- Add optional HEIF/AVIF writing, raw EXIF import/export, and embedded thumbnail import through system libheif.
-- Add optional system-libjxl JPEG XL still-image reading/writing, ICC, 16-bit/float data, and exact lossless round-trip tests.
-- Expose linked dependency names, compile/runtime versions and system/bundled provenance through an additive C API.
-- Add finite min/max queries, configurable histograms, and alpha-preserving clamp/linear tone mapping.
-- Add an optional separately packaged Python/NumPy interface with owned arrays, file/memory I/O and wheel CI.
+Optional modern codecs, safer file saving, image-analysis APIs and Python/NumPy bindings.
 
-- Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
-  FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
-  codec regression tests. Enable with `-DBUILD_LIBHEIF=ON`. (#154)
+- **HEIF/HEIC and AVIF reading and writing** through optional system libheif >=1.12. Enable with `-DBUILD_LIBHEIF=ON` (default OFF). Load primary still images as 8-bit RGB/RGBA, including alpha, ICC profiles, raw/parsed EXIF, embedded thumbnails and header-only loading. Writing supports 24-bit RGB/32-bit RGBA when an encoder backend is installed, quality selection, lossless RGB/4:4:4 and raw EXIF/ICC preservation. See [#164](https://github.com/danoli3/FreeImage/pull/164) and [#167](https://github.com/danoli3/FreeImage/pull/167).
+- **JPEG XL still-image support** through optional system libjxl >=0.7. Enable with `-DBUILD_LIBJXL=ON` (default OFF). Read/write 8/16-bit integer and 32-bit float images with alpha, ICC profiles, header-only loading and exact lossless encoding. Animation is rejected; EXIF/XMP and thumbnail import are not included initially. See [#168](https://github.com/danoli3/FreeImage/pull/168).
+- **Safer file saving:** stage output in an exclusively created sibling temporary file and replace the destination only after encoding and close succeed. Failures leave existing destinations intact. This changes replacement semantics: POSIX symlink/special-file destinations are rejected, new files use private 0600 permissions, existing regular-file permissions are preserved, and hard links are replaced rather than modified in place. See [#165](https://github.com/danoli3/FreeImage/pull/165).
+- Support `FIT_DOUBLE` grayscale in `FreeImage_ConvertToRGBF`, preserving negative/HDR values and explicitly handling NaN and values outside the float range. See [#166](https://github.com/danoli3/FreeImage/pull/166).
+- Add `FreeImage_GetDependenciesCount` and `FreeImage_GetDependencyInfo` to report linked libraries, compile/runtime versions where available, and system/bundled provenance. `FreeImage_GetVersion` keeps its existing meaning. See [#169](https://github.com/danoli3/FreeImage/pull/169).
+- Add finite min/max queries, configurable histograms, and alpha-preserving clamp/linear tone mapping. New `FITMO_CLAMP` and `FITMO_LINEAR` values extend the existing tone-mapping dispatcher. Existing histogram APIs and enum values are preserved. See [#170](https://github.com/danoli3/FreeImage/pull/170).
+- Add the optional **FreeImage 3.19.23 Python/NumPy package**, built separately against a shared FreeImage library. File and memory I/O return owned, top-down arrays; tests cover RGB/RGBA, grayscale/HDR types, noncontiguous arrays, Unicode paths and error handling. The wheel includes both FreeImage license texts and GitHub project links. See [#171](https://github.com/danoli3/FreeImage/pull/171).
+- Add codec round-trip, malformed metadata/truncation, save-failure and numerical regression tests, plus optional-codec ASan and Linux/macOS/Windows Python CI. Codec work is adapted from FreeImageRe with source attribution.
+- Bundled dependency versions are unchanged from 3.19.22. HEIF/AVIF and JPEG XL remain optional system dependencies; backend availability controls their capabilities. No animation support or HEIF/AVIF high-bit-depth output is added here.
 
-## 3.19.22 — Unreleased
+## 3.19.22 — 14 Oct 2026
 
 PBM decoder security fixes, 32-bit compatibility, and installable Linux packages.
 
