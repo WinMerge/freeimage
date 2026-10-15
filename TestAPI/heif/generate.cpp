@@ -42,6 +42,13 @@ static void Test(heif_compression_format codec, const char *filename, bool alpha
     Check(heif_image_set_raw_color_profile(image, "prof", profile, sizeof(profile)));
     heif_image_handle *encoded = NULL;
     Check(heif_context_encode_image(context, image, encoder, NULL, &encoded));
+    if(!std::strcmp(filename,"metadata.heic")) {
+        const BYTE tiff[]={'I','I',42,0,8,0,0,0,1,0,0x12,1,3,0,1,0,0,0,1,0,0,0,0,0,0,0};
+        Check(heif_context_add_exif_metadata(context,encoded,tiff,sizeof(tiff)));
+        heif_image_handle *thumbnail=NULL;
+        Check(heif_context_encode_thumbnail(context,image,encoded,encoder,NULL,16,&thumbnail));
+        Require(thumbnail!=NULL,"thumbnail fixture"); heif_image_handle_release(thumbnail);
+    }
     std::vector<BYTE> bytes;
     heif_writer writer = {}; writer.writer_api_version = 1; writer.write = Write;
     Check(heif_context_write(context, &writer, &bytes));
@@ -52,6 +59,7 @@ static void Test(heif_compression_format codec, const char *filename, bool alpha
     Require(bool(output), "write fixture");
 }
 int main() {
+    Test(heif_compression_HEVC, "metadata.heic", false);
     Test(heif_compression_HEVC, "rgb.heic", false);
     Test(heif_compression_HEVC, "rgba.heic", true);
     Test(heif_compression_AV1, "rgb.avif", false);

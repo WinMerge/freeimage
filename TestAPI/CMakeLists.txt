@@ -100,3 +100,14 @@ if(BUILD_TESTS)
     endif()
     add_test(NAME DoubleRGBFTest COMMAND DoubleRGBFTest)
 endif()
+
+if(BUILD_TESTS AND BUILD_LIBHEIF)
+    add_test(NAME HeifEncodingTest COMMAND HeifCodecTest --encode)
+    set_tests_properties(HeifEncodingTest PROPERTIES TIMEOUT 120 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
+    if(UNIX AND NOT APPLE)
+        # Ubuntu's external x265 encoder leaks its configuration object. Keep
+        # decoder tests unsuppressed, and suppress only that encoder allocator.
+        set_tests_properties(HeifEncodingTest PROPERTIES ENVIRONMENT
+            "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/heif/x265-lsan.supp")
+    endif()
+endif()

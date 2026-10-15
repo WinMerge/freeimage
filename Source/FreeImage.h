@@ -698,6 +698,8 @@ typedef void (DLL_CALLCONV *FI_InitProc)(Plugin *plugin, int format_id);
 
 // Load / Save flag constants -----------------------------------------------
 
+// HEIF/AVIF saving: quality 1..100 (0 defaults to 90); optional lossless.
+#define HEIF_LOSSLESS 0x100
 #define FIF_LOAD_NOPIXELS 0x8000	//! loading: load the image header only (not supported by all plugins, default to full loading)
 
 #define BMP_DEFAULT         0
