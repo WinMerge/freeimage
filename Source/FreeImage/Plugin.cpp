@@ -501,10 +501,13 @@ template<class Path> BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const t
     FILE *file = NULL;
     static volatile LONG sequence = 0;
     for(unsigned attempt = 0; attempt < 64; ++attempt) {
-        char suffix[96];
-        sprintf(suffix, ".fitmp.%lu.%lu", (unsigned long)GetCurrentProcessId(), (unsigned long)InterlockedIncrement(&sequence));
+        const std::string suffix = ".fitmp." + std::to_string(GetCurrentProcessId()) + "." + std::to_string(InterlockedIncrement(&sequence));
         temporary.assign(filename);
-        for(const char *c = suffix; *c; ++c) temporary += static_cast<Char>(*c);
+        const size_t separator = temporary.find_last_of(std::basic_string<Char>(1, static_cast<Char>('/')) + static_cast<Char>('\\'));
+        const size_t prefix = separator != std::basic_string<Char>::npos ? separator + 1 :
+            temporary.size() > 1 && temporary[1] == static_cast<Char>(':') ? 2 : 0;
+        temporary.resize(prefix);
+        for(const char *c = suffix.c_str(); *c; ++c) temporary += static_cast<Char>(*c);
         HANDLE h = Path::Create(temporary.c_str());
         if(h == INVALID_HANDLE_VALUE) {
             if(GetLastError() == ERROR_FILE_EXISTS || GetLastError() == ERROR_ALREADY_EXISTS) continue;
@@ -532,7 +535,9 @@ BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int fl
     struct stat info;
     if(lstat(filename, &info) == 0 && !S_ISREG(info.st_mode)) return FALSE;
     std::string temporary(filename);
-    temporary += ".fitmp.XXXXXX";
+    const size_t separator = temporary.find_last_of('/');
+    temporary.resize(separator == std::string::npos ? 0 : separator + 1);
+    temporary += ".freeimage.XXXXXX";
     std::vector<char> name(temporary.begin(), temporary.end());
     name.push_back(0);
     const int fd = mkstemp(&name[0]);

@@ -33,6 +33,11 @@ int main() {
     loaded = FreeImage_LoadU(FIF_PNG, wide); Check(loaded != NULL);
     FreeImage_Unload(loaded); _wremove(wide);
 #endif
+#ifndef _WIN32
+    const std::string longname = std::string(251,'a') + ".png";
+    Check(FreeImage_Save(FIF_PNG,dib,longname.c_str())); std::remove(longname.c_str());
+    Check(!FreeImage_Save(FIF_PNG,dib,"/dev/null"));
+#endif
     FreeImage_Unload(dib); FreeImage_DeInitialise();
     std::puts("Failed saves preserve destinations; successful replacement loads correctly");
 }
