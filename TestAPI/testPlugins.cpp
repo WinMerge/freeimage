@@ -27,6 +27,10 @@
 // Show plugins
 // ----------------------------------------------------------
 void showPlugins() {
+	assert(FreeImage_GetFIFFromFormat("HEIF") == FIF_HEIF);
+	assert(FreeImage_GetFIFFromFormat("AVIF") == FIF_AVIF);
+	assert(!!FreeImage_FIFSupportsReading(FIF_HEIF) == FREEIMAGE_TEST_LIBHEIF);
+	assert(!!FreeImage_FIFSupportsReading(FIF_AVIF) == FREEIMAGE_TEST_LIBHEIF);
 	// print version & copyright infos
 
 	printf("FreeImage version: %s\n\n%s\n\n", FreeImage_GetVersion(), FreeImage_GetCopyrightMessage());

@@ -91,6 +91,13 @@ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
 option(BUILD_LIBJPEG "Build libjpeg from source or link" ON)
 option(BUILD_LIBOPENJPEG "Build OpenJPEG from source or link" ON)
 option(BUILD_WEBP "Build webp from source or link" ON)
+option(BUILD_LIBHEIF "Enable HEIF/AVIF decoding using system libheif (1.12+)" OFF)
+if(BUILD_LIBHEIF)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(LIBHEIF REQUIRED IMPORTED_TARGET libheif>=1.12)
+    list(APPEND FreeImage_LIBS PkgConfig::LIBHEIF)
+    add_compile_definitions(FREEIMAGE_LIBHEIF)
+endif()
 # Camera RAW is part of the default build. -DBUILD_LIBRAWLITE=OFF leaves it out.
 option(BUILD_LIBRAWLITE "Build librawlite from source or link" ON)
 # Default ON, but only when C++17+ is actually in effect (OpenEXR needs it).
@@ -170,6 +177,7 @@ set(FreeImage_SOURCES
     ./Source/FreeImage/PluginDDS.cpp ./Source/FreeImage/PluginEXR.cpp
     ./Source/FreeImage/PluginG3.cpp ./Source/FreeImage/PluginGIF.cpp
     ./Source/FreeImage/PluginHDR.cpp ./Source/FreeImage/PluginICO.cpp
+    ./Source/FreeImage/PluginHEIF.cpp
     ./Source/FreeImage/PluginIFF.cpp ./Source/FreeImage/PluginJ2K.cpp
     ./Source/FreeImage/PluginJNG.cpp ./Source/FreeImage/PluginJP2.cpp
     ./Source/FreeImage/PluginJPEG.cpp ./Source/FreeImage/PluginJXR.cpp

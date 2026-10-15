@@ -45,3 +45,9 @@ configuration choices, and local patches to preserve in the next update.
 
 OpenEXR 3.5.2 and libpng 1.6.59 re-synced on 2026-10-08 for issue #148.
 OpenEXR's auxiliary codec snapshots are unchanged from 3.5.1.
+
+Optional system-only codec: `BUILD_LIBHEIF=ON` requires libheif >= 1.12
+(LGPL-3.0-or-later) plus HEVC/AV1 decoder backends. It is not vendored and is
+disabled by default. Backend versions and licenses depend on the installation.
+The HEIF/AVIF plugin adapts FreeImageRe's FIPL/GPLv2-licensed decoder at commit
+`b51d3945bfe785ad382a0969f1376aee344af8c6`; see its source header and README.
