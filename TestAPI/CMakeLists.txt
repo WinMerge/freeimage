@@ -71,7 +71,7 @@ if(BUILD_TESTS AND BUILD_LIBHEIF)
     add_executable(HeifCodecTest testHeif.cpp)
     target_link_libraries(HeifCodecTest PRIVATE FreeImage)
     add_executable(GenerateHeifFixtures EXCLUDE_FROM_ALL heif/generate.cpp)
-    target_link_libraries(GenerateHeifFixtures PRIVATE PkgConfig::LIBHEIF)
+    target_link_libraries(GenerateHeifFixtures PRIVATE FreeImageCodec::HEIF)
     if(WIN32 AND NOT FREEIMAGE_STATIC)
         add_custom_command(TARGET HeifCodecTest POST_BUILD
             COMMAND ${CMAKE_COMMAND} -E copy_if_different

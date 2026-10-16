@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.16)
+project(CodecConsumer LANGUAGES CXX)
+find_package(FreeImage CONFIG REQUIRED)
+add_executable(CodecConsumer main.cpp)
+target_link_libraries(CodecConsumer PRIVATE FreeImage::FreeImage)
