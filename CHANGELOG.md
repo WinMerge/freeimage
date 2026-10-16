@@ -4,6 +4,8 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
 
 ## Unreleased
 
+- Bundle pinned libheif/libjxl source archives and their HEVC/AV1, compression, SIMD and color-management dependencies for offline CMake builds. Keep codecs optional; `USE_SYSTEM_LIBHEIF` / `USE_SYSTEM_LIBJXL` retain SDK selection and follow the existing system-library master switch. Ship private archives for installed CMake consumers, dependency license notices and bundled/system diagnostics. Add static/shared native, 32-bit and Android API 25 CI. (#177)
+
 - Fix optional HEIF/AVIF and JPEG XL configuration on native Windows SDKs without pkg-config. Prefer exported CMake packages, retain pkg-config fallback, support SDK headers/import libraries, and use the same discovery for installed CMake consumers. Add MSVC/vcpkg codec-enabled static/shared CI and setup instructions. (#174)
 - Add `FreeImage_OpenMultiBitmapU` for Windows Unicode multipage paths, including disk cache and spool files, without requiring C++17.
 

@@ -121,12 +121,22 @@ struct Dependencies {
 #endif
 #endif
 #ifdef FREEIMAGE_LIBHEIF
+        #ifdef FREEIMAGE_SYSTEM_LIBHEIF
         Add("libheif",LIBHEIF_VERSION,heif_get_version(),TRUE);
+#else
+        Add("libheif",LIBHEIF_VERSION,heif_get_version(),FALSE);
+#endif
 #endif
 #ifdef FREEIMAGE_LIBJXL
         const unsigned version=JxlDecoderVersion();
         jxl=std::to_string(version/1000000)+"."+std::to_string((version/1000)%1000)+"."+std::to_string(version%1000);
-        Add("libjxl",FI_STRING(JPEGXL_MAJOR_VERSION) "." FI_STRING(JPEGXL_MINOR_VERSION) "." FI_STRING(JPEGXL_PATCH_VERSION),jxl.c_str(),TRUE);
+        Add("libjxl",FI_STRING(JPEGXL_MAJOR_VERSION) "." FI_STRING(JPEGXL_MINOR_VERSION) "." FI_STRING(JPEGXL_PATCH_VERSION),jxl.c_str(),
+#ifdef FREEIMAGE_SYSTEM_LIBJXL
+            TRUE
+#else
+            FALSE
+#endif
+        );
 #endif
     }
     void Add(const char *name,const char *compiled,const char *runtime,BOOL system) {

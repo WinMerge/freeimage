@@ -36,12 +36,12 @@ jobs:
       - name: Configure each codec without pkg-config
         run: |
           foreach ($codec in @('HEIF', 'JXL')) {
-            cmake -S . -B "configure-$codec" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" "-DBUILD_LIB$codec=ON" -DCMAKE_CXX_STANDARD=11 -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+            cmake -S . -B "configure-$codec" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" "-DBUILD_LIB$codec=ON" "-DUSE_SYSTEM_LIB$codec=ON" -DCMAKE_CXX_STANDARD=11 -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
             if ($LASTEXITCODE) { exit $LASTEXITCODE }
           }
       - name: Build and test both codecs
         run: |
-          cmake -S . -B build -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=${{ matrix.static }} -DCMAKE_CXX_STANDARD=11 -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+          cmake -S . -B build -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON -DUSE_SYSTEM_LIBHEIF=ON -DUSE_SYSTEM_LIBJXL=ON -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=${{ matrix.static }} -DCMAKE_CXX_STANDARD=11 -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cmake --build build --config Release --parallel 4
           if ($LASTEXITCODE) { exit $LASTEXITCODE }

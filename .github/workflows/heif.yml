@@ -21,7 +21,7 @@ jobs:
       - name: Configure GCC AddressSanitizer build
         run: >-
           cmake -S . -B build -G Ninja
-          -DBUILD_LIBHEIF=${{ matrix.enabled }} -DBUILD_TESTS=ON
+          -DBUILD_LIBHEIF=${{ matrix.enabled }} -DUSE_SYSTEM_LIBHEIF=ON -DBUILD_TESTS=ON
           -DFREEIMAGE_STATIC=${{ matrix.static }} -DCMAKE_CXX_STANDARD=11
           -DCMAKE_BUILD_TYPE=Debug
           -DCMAKE_C_FLAGS="-fsanitize=address -g"

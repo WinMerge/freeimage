@@ -738,6 +738,12 @@ FreeImage_FIFSupportsWriting(FREE_IMAGE_FORMAT fif) {
 	if (s_plugins != NULL) {
 		PluginNode *node = s_plugins->FindNodeFromFIF(fif);
 
+#ifdef FREEIMAGE_LIBHEIF
+        // HEIF backends must be queried after shared-library initialization,
+        // rather than while registering the plugin in a load-time constructor.
+        if(node && node->m_plugin->save_proc && (fif == FIF_HEIF || fif == FIF_AVIF))
+            return FreeImage_FIFSupportsExportBPP(fif, 24);
+#endif
 		return (node != NULL) ? node->m_plugin->save_proc != NULL : FALSE ;
 	}
 

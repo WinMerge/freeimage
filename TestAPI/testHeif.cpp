@@ -67,11 +67,21 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
         Require(FreeImage_GetMetadata(FIMD_EXIF_MAIN,roundtrip,"Orientation",&raw), "parsed EXIF");
         FreeImage_Unload(roundtrip); FreeImage_CloseMemory(encoded);
         encoded = FreeImage_OpenMemory();
+#ifdef FREEIMAGE_TEST_BUNDLED_HEIF
+        if(format == FIF_HEIF) {
+            // Kvazaar cannot accept the RGB/4:4:4 path required for exact
+            // RGB losslessness. Reject the flag instead of silently subsampling.
+            Require(!FreeImage_SaveToMemory(format,dib,encoded,HEIF_LOSSLESS), "unsupported HEVC RGB lossless rejected");
+            FreeImage_CloseMemory(encoded);
+        } else
+#endif
+        {
         Require(FreeImage_SaveToMemory(format,dib,encoded,HEIF_LOSSLESS), "lossless encode");
         FreeImage_SeekMemory(encoded,0,SEEK_SET); roundtrip=FreeImage_LoadFromMemory(format,encoded);
         Require(roundtrip!=NULL,"lossless decode");
         for(unsigned y=0;y<24;++y) Require(!std::memcmp(FreeImage_GetScanLine(dib,y),FreeImage_GetScanLine(roundtrip,y),FreeImage_GetLine(dib)),"exact lossless pixels");
         FreeImage_Unload(roundtrip); FreeImage_CloseMemory(encoded);
+        }
     }
     FreeImage_Unload(dib);
     FreeImage_SeekMemory(memory, 0, SEEK_SET);
