@@ -143,3 +143,14 @@ if(BUILD_TESTS)
     endif()
     add_test(NAME ImageAnalysisTest COMMAND ImageAnalysisTest)
 endif()
+
+if(BUILD_TESTS AND BUILD_LIBTIFF)
+    add_executable(UnicodeMultiPageTest testUnicodeMultiPage.cpp)
+    target_link_libraries(UnicodeMultiPageTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET UnicodeMultiPageTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:UnicodeMultiPageTest>)
+    endif()
+    add_test(NAME UnicodeMultiPageTest COMMAND UnicodeMultiPageTest)
+endif()

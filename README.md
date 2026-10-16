@@ -178,3 +178,11 @@ Animations are rejected. EXIF/XMP and thumbnails are not imported initially.
 Pass JXL_LOSSLESS for exact lossless encoding; otherwise quality flags 1..100
 map to distance (100-quality)/10, with 90 as the default.
 The classic make build registers an unsupported stub; enable with CMake.
+
+### Unicode multipage filenames (Windows)
+
+Use `FreeImage_OpenMultiBitmapU` with a `wchar_t` UTF-16 path to create, read,
+edit and close multipage TIFF/GIF/ICO files on Windows. Disk caches and spool
+files also use Unicode paths. Arguments and ownership match
+`FreeImage_OpenMultiBitmap`. Like `FreeImage_LoadU`/`FreeImage_SaveU`, this
+entry point returns NULL on non-Windows platforms; use native `char` paths there.

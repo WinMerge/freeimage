@@ -2,6 +2,10 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
+## Unreleased
+
+- Add `FreeImage_OpenMultiBitmapU` for Windows Unicode multipage paths, including disk cache and spool files, without requiring C++17.
+
 ## 3.19.23 — Unreleased
 
 Optional modern codecs, safer file saving, image-analysis APIs and Python/NumPy bindings.
