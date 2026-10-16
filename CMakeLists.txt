@@ -91,25 +91,6 @@ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
 option(BUILD_LIBJPEG "Build libjpeg from source or link" ON)
 option(BUILD_LIBOPENJPEG "Build OpenJPEG from source or link" ON)
 option(BUILD_WEBP "Build webp from source or link" ON)
-include(cmake/FreeImageCodecs.cmake)
-option(BUILD_LIBJXL "Enable JPEG XL through system libjxl" OFF)
-if(BUILD_LIBJXL)
-    freeimage_find_codec(JXL 0.7)
-    if(NOT FreeImage_JXL_FOUND)
-        message(FATAL_ERROR "${FreeImage_JXL_ERROR}")
-    endif()
-    list(APPEND FreeImage_LIBS FreeImageCodec::JXL)
-    add_compile_definitions(FREEIMAGE_LIBJXL)
-endif()
-option(BUILD_LIBHEIF "Enable HEIF/AVIF through system libheif (1.12+)" OFF)
-if(BUILD_LIBHEIF)
-    freeimage_find_codec(HEIF 1.12)
-    if(NOT FreeImage_HEIF_FOUND)
-        message(FATAL_ERROR "${FreeImage_HEIF_ERROR}")
-    endif()
-    list(APPEND FreeImage_LIBS FreeImageCodec::HEIF)
-    add_compile_definitions(FREEIMAGE_LIBHEIF)
-endif()
 # Camera RAW is part of the default build. -DBUILD_LIBRAWLITE=OFF leaves it out.
 option(BUILD_LIBRAWLITE "Build librawlite from source or link" ON)
 # Default ON, but only when C++17+ is actually in effect (OpenEXR needs it).
@@ -145,6 +126,38 @@ option(USE_SYSTEM_WEBP "Link against system libwebp instead of the bundled copy"
 option(USE_SYSTEM_LIBRAWLITE "Link against system libraw instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
 option(USE_SYSTEM_OPENEXR "Link against system OpenEXR/Imath instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
 option(USE_SYSTEM_JXR "Link against system jxrlib instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
+
+# Modern codecs remain optional; enabled codecs use bundled source archives
+# unless their system-library switch (or the master switch) selects an SDK.
+option(BUILD_LIBHEIF "Enable HEIF/AVIF support" OFF)
+option(BUILD_LIBJXL "Enable JPEG XL support" OFF)
+option(USE_SYSTEM_LIBHEIF "Use an installed libheif SDK" ${FREEIMAGE_SYSTEM_DEFAULT})
+option(USE_SYSTEM_LIBJXL "Use an installed libjxl SDK" ${FREEIMAGE_SYSTEM_DEFAULT})
+include(cmake/FreeImageCodecs.cmake)
+foreach(codec HEIF JXL)
+    if(BUILD_LIB${codec})
+        if(USE_SYSTEM_LIB${codec})
+            if(codec STREQUAL "HEIF")
+                freeimage_find_codec(${codec} 1.12)
+            else()
+                freeimage_find_codec(${codec} 0.7)
+            endif()
+            if(NOT FreeImage_${codec}_FOUND)
+                message(FATAL_ERROR "${FreeImage_${codec}_ERROR}")
+            endif()
+            add_compile_definitions(FREEIMAGE_SYSTEM_LIB${codec})
+        else()
+            include(cmake/FreeImageBundledCodecs.cmake)
+            freeimage_build_bundled_codec(${codec})
+        endif()
+        list(APPEND FreeImage_LIBS FreeImageCodec::${codec})
+        add_compile_definitions(FREEIMAGE_LIB${codec})
+    endif()
+endforeach()
+if((BUILD_LIBHEIF AND NOT USE_SYSTEM_LIBHEIF) OR (BUILD_LIBJXL AND NOT USE_SYSTEM_LIBJXL))
+    install(DIRECTORY Source/ThirdParty/licenses/
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/FreeImage/modern-codecs COMPONENT Runtime)
+endif()
 
 # find_package(PNG)/find_package(ZLIB)'s actual include-dir hint variables
 # (PNG_PNG_INCLUDE_DIR, ZLIB_INCLUDE_DIR) don't match the names older
@@ -1358,11 +1371,10 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 if (DEFINED FreeImage_LIBS)
-    if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)
-        target_link_libraries(${PROJECT_NAME} PRIVATE ${FreeImage_LIBS})
-    else()
-        target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
-    endif()
+    # Codec headers are private implementation details. Static builds export
+    # link-only dependencies; shared consumers must not link a second copy of
+    # the bundled static codecs (and their global registration state).
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${FreeImage_LIBS})
 endif()
 
 # Public header for add_subdirectory() and the installed package. Copying
@@ -1415,7 +1427,7 @@ if (MSVC AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 if (WIN32)
     # Add ws2_32.lib for Windows builds
-    target_link_libraries(${PROJECT_NAME} ws2_32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
 endif()
 
 if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)

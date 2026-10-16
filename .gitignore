@@ -131,3 +131,7 @@ cmake-build/
 build*/
 cmake-build-*/
 Testing/
+
+# Pinned source bundles for optional offline CMake codec builds.
+!Source/ThirdParty/*.tar.gz
+!Source/ThirdParty/*.zip

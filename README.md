@@ -136,7 +136,7 @@ ctest --test-dir cmake-build-debug -C Debug # Optionally --rerun-failed --output
 
 ### Optional HEIF and AVIF decoding
 
-Install **libheif 1.12 or newer** and its HEVC/AV1 decoder backends (see the Windows SDK setup below). On Unix, install pkg-config,
+For an external SDK, select `-DUSE_SYSTEM_LIBHEIF=ON` and install **libheif 1.12 or newer** and its HEVC/AV1 decoder backends. On Unix, install pkg-config,
 then configure CMake with `-DBUILD_LIBHEIF=ON`. For example, Ubuntu 22.04 uses
 `sudo apt install libheif-dev pkg-config`; macOS uses `brew install libheif pkg-config`.
 This optional system dependency is disabled by default and is not bundled.
@@ -171,7 +171,7 @@ and symlink destinations are rejected; hard links are replaced, not updated in p
 
 ### Optional JPEG XL
 
-Configure with -DBUILD_LIBJXL=ON and install system libjxl >=0.7 (pkg-config on Unix, or the Windows SDK setup below).
+Configure with `-DBUILD_LIBJXL=ON` to build bundled JPEG XL sources. For an external SDK, also set `-DUSE_SYSTEM_LIBJXL=ON` and install libjxl >=0.7 (pkg-config on Unix, or the Windows SDK setup below).
 The FIF_JPEGXL plugin reads/writes still images: RGB/RGBA and grayscale,
 8/16-bit integer and 32-bit float, ICC profiles, and header-only loading.
 Animations are rejected. EXIF/XMP and thumbnails are not imported initially.
@@ -181,8 +181,8 @@ The classic make build registers an unsupported stub; enable with CMake.
 
 ### Windows HEIF/AVIF and JPEG XL SDKs
 
-The optional codec switches require installed development libraries; they do
-not download or bundle libheif/libjxl. Discovery prefers native CMake packages,
+With `USE_SYSTEM_LIBHEIF=ON` / `USE_SYSTEM_LIBJXL=ON`, the optional codec
+switches use installed development libraries. Discovery prefers native CMake packages,
 then pkg-config, then SDK headers and import libraries. Visual Studio users
 can use vcpkg without installing pkg-config separately:
 
@@ -190,7 +190,8 @@ can use vcpkg without installing pkg-config separately:
 C:/vcpkg/vcpkg.exe install "libheif[aom]:x64-windows" libjxl:x64-windows
 cmake -S . -B build -A x64 `
   -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
-  -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+  -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON `
+  -DUSE_SYSTEM_LIBHEIF=ON -DUSE_SYSTEM_LIBJXL=ON
 cmake --build build --config Release
 ```
 
@@ -217,3 +218,34 @@ edit and close multipage TIFF/GIF/ICO files on Windows. Disk caches and spool
 files also use Unicode paths. Arguments and ownership match
 `FreeImage_OpenMultiBitmap`. Like `FreeImage_LoadU`/`FreeImage_SaveU`, this
 entry point returns NULL on non-Windows platforms; use native `char` paths there.
+
+### Build HEIF/AVIF and JPEG XL from bundled sources
+
+```sh
+cmake -S . -B build -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+cmake --build build --config Release --parallel 4
+```
+
+Bundled builds require CMake 3.20 or newer. Both format switches remain OFF by default. When enabled, CMake builds the
+checked-in, SHA-256-verified source archives and their required backends;
+no network, package manager, external SDK or pkg-config is needed. Sources
+are unpacked inside the build directory. HEIF includes libde265/Kvazaar for
+HEVC and libaom for AV1; JPEG XL includes Highway, Brotli and Little CMS.
+The compiler must support C++20 for bundled libheif and C++17 for bundled
+libjxl; these requirements do not change FreeImage's own language standard.
+The classic Makefiles still provide unsupported codec stubs.
+
+`USE_SYSTEM_LIBHEIF=ON` and `USE_SYSTEM_LIBJXL=ON` retain external SDK support.
+`FREEIMAGE_USE_SYSTEM_LIBS=ON` defaults both switches to ON, like the existing
+codec options. Set individual switches explicitly when reusing a build cache.
+Bundled dependencies are static, including in shared FreeImage builds.
+Installed CMake packages include the private archives needed by static
+consumers. See [source versions, licenses and build details](Source/ThirdParty/README.md),
+including the LGPL terms for libheif/libde265. Bundled AOM/libde265 use portable
+code; JPEG XL retains Highway runtime SIMD. Optional codec build times and
+source/archive size are larger than before.
+
+Bundled Kvazaar supports lossy HEIF output; exact RGB lossless HEIF needs
+a system libheif encoder supporting RGB/4:4:4 (for example x265).
+`HEIF_LOSSLESS` returns FALSE with the bundled HEIF encoder. Lossless AVIF
+and JPEG XL remain supported by the bundled backends.

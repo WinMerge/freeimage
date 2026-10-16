@@ -70,6 +70,9 @@ endif()
 if(BUILD_TESTS AND BUILD_LIBHEIF)
     add_executable(HeifCodecTest testHeif.cpp)
     target_link_libraries(HeifCodecTest PRIVATE FreeImage)
+    if(NOT USE_SYSTEM_LIBHEIF)
+        target_compile_definitions(HeifCodecTest PRIVATE FREEIMAGE_TEST_BUNDLED_HEIF)
+    endif()
     add_executable(GenerateHeifFixtures EXCLUDE_FROM_ALL heif/generate.cpp)
     target_link_libraries(GenerateHeifFixtures PRIVATE FreeImageCodec::HEIF)
     if(WIN32 AND NOT FREEIMAGE_STATIC)
@@ -105,7 +108,7 @@ endif()
 if(BUILD_TESTS AND BUILD_LIBHEIF)
     add_test(NAME HeifEncodingTest COMMAND HeifCodecTest --encode)
     set_tests_properties(HeifEncodingTest PROPERTIES TIMEOUT 120 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
-    if(UNIX AND NOT APPLE)
+    if(USE_SYSTEM_LIBHEIF AND UNIX AND NOT APPLE)
         # Ubuntu's external x265 encoder leaks its configuration object. Keep
         # decoder tests unsuppressed, and suppress only that encoder allocator.
         set_tests_properties(HeifEncodingTest PROPERTIES ENVIRONMENT

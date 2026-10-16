@@ -207,7 +207,7 @@ static heif_error WriteEncoded(heif_context *, const void *bytes, size_t size, v
 template<heif_compression_format Codec> static BOOL DLL_CALLCONV SupportsDepth(int bpp) {
     return (bpp == 24 || bpp == 32) && heif_have_encoder_for_format(Codec);
 }
-static BOOL DLL_CALLCONV SupportsType(FREE_IMAGE_TYPE type) { return type == FIT_BITMAP; }
+template<heif_compression_format Codec> static BOOL DLL_CALLCONV SupportsType(FREE_IMAGE_TYPE type) { return type == FIT_BITMAP && heif_have_encoder_for_format(Codec); }
 template<heif_compression_format Codec, FREE_IMAGE_FORMAT Format>
 static BOOL DLL_CALLCONV Save(FreeImageIO *io, FIBITMAP *dib, fi_handle output, int, int flags, void *) {
     try {
@@ -286,10 +286,11 @@ static void Init(Plugin *plugin, bool avif) {
 #ifdef FREEIMAGE_LIBHEIF
     plugin->validate_proc = avif ? ValidateAVIF : ValidateHEIF;
     plugin->load_proc = avif ? Load<FIF_AVIF> : Load<FIF_HEIF>;
-    if(heif_have_encoder_for_format(avif ? heif_compression_AV1 : heif_compression_HEVC))
-        plugin->save_proc = avif ? Save<heif_compression_AV1, FIF_AVIF> : Save<heif_compression_HEVC, FIF_HEIF>;
+    // Registration can run from FreeImage's shared-library initializer before
+    // the bundled libheif C++ globals. Query encoders only from runtime calls.
+    plugin->save_proc = avif ? Save<heif_compression_AV1, FIF_AVIF> : Save<heif_compression_HEVC, FIF_HEIF>;
     plugin->supports_export_bpp_proc = avif ? SupportsDepth<heif_compression_AV1> : SupportsDepth<heif_compression_HEVC>;
-    plugin->supports_export_type_proc = SupportsType;
+    plugin->supports_export_type_proc = avif ? SupportsType<heif_compression_AV1> : SupportsType<heif_compression_HEVC>;
     plugin->supports_no_pixels_proc = SupportsNoPixels;
     plugin->supports_icc_profiles_proc = SupportsICC;
 #endif

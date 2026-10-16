@@ -27,11 +27,12 @@ these libraries has a newer stable upstream release.
 OpenEXR, LibDeflate, and LibTIFF4 re-synced against their upstream release
 tags on 2026-10-02 for issue #137. All vendored version entries, including
 OpenEXR's auxiliary codecs below, were rechecked against their source headers
-on 2026-10-16 for FreeImage 3.19.24. Vendored versions are unchanged from
-3.19.23. The HEIF/AVIF and JPEG XL integrations use optional system
-libraries; they do not add bundled codec snapshots. The latest-upstream
-column retains the previous release review; this check verifies the bundled
-versions rather than asserting a fresh upstream-release audit.
+on 2026-10-16 for FreeImage 3.19.24. The existing vendored versions above
+are unchanged from 3.19.23. HEIF/AVIF and JPEG XL originally used optional
+system libraries; the optional bundled snapshots below were added for #177.
+The latest-upstream column retains the previous release review; this check
+verifies the bundled versions rather than asserting a fresh upstream-release
+audit.
 
 OpenEXR 3.5.2 also brings these upstream-vendored auxiliary codecs:
 
@@ -47,12 +48,23 @@ configuration choices, and local patches to preserve in the next update.
 OpenEXR 3.5.2 and libpng 1.6.59 re-synced on 2026-10-08 for issue #148.
 OpenEXR's auxiliary codec snapshots are unchanged from 3.5.1.
 
-Optional system-only codec: `BUILD_LIBHEIF=ON` requires libheif >= 1.12
-(LGPL-3.0-or-later) plus HEVC/AV1 decoder backends. It is not vendored and is
-disabled by default. Backend versions and licenses depend on the installation.
-The HEIF/AVIF plugin adapts FreeImageRe's FIPL/GPLv2-licensed decoder at commit
-`b51d3945bfe785ad382a0969f1376aee344af8c6`; see its source header and README.
+Optional modern codecs (enabled with BUILD_LIBHEIF / BUILD_LIBJXL) now build
+pinned source archives by default. USE_SYSTEM_LIBHEIF / USE_SYSTEM_LIBJXL
+retain installed-SDK discovery. These archives and license copies are under
+`Source/ThirdParty/`; SHA-256 digests and provenance are in `sources.json`.
 
-Optional system-only JPEG XL codec: BUILD_LIBJXL=ON requires libjxl >=0.7.
-It is disabled by default; no libjxl, Brotli, Highway or CMS sources are bundled
-by this integration. Their versions follow the installed system packages.
+| Library | Bundled | Purpose |
+| --- | --- | --- |
+| libheif | 1.23.5 | HEIF/AVIF container |
+| libde265 | 1.1.3 | HEVC decoding |
+| Kvazaar | 2.3.2 | HEVC encoding |
+| libaom | 3.15.1 | AV1 decoding/encoding |
+| libjxl | 0.12.0 | JPEG XL |
+| Highway | 1.4.0 | JPEG XL SIMD |
+| Brotli | 1.2.0 | JPEG XL compression |
+| Little CMS | 2.19.1 | JPEG XL color management |
+
+FreeImage's HEIF/AVIF plugin adapts FreeImageRe's FIPL/GPLv2-licensed decoder
+at `b51d3945bfe785ad382a0969f1376aee344af8c6`; source archive bundling does
+not change the separately licensed codec/backends. See
+[licenses and update process](Source/ThirdParty/README.md).
