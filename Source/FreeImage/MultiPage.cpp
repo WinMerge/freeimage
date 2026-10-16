@@ -122,7 +122,7 @@ struct MULTIBITMAPHEADER {
 	BOOL changed;
 	int page_count;
 	BlockList m_blocks;
-	std::string m_filename;
+	MultiBitmapPath m_filename;
 	BOOL read_only;
 	FREE_IMAGE_FORMAT cache_fif;
 	int load_flags;
@@ -137,20 +137,6 @@ struct MULTIBITMAPHEADER {
 // =====================================================================
 // Helper functions
 // =====================================================================
-
-inline void
-ReplaceExtension(std::string& dst_filename, const std::string& src_filename, const std::string& dst_extension) {
-	size_t lastDot = src_filename.find_last_of('.');
-	if (lastDot == std::string::npos) {
-		dst_filename = src_filename;
-		dst_filename += ".";
-		dst_filename += dst_extension;
-	}
-	else {
-		dst_filename = src_filename.substr(0, lastDot + 1);
-		dst_filename += dst_extension;
-	}
-}
 
 } //< ns
 
@@ -254,12 +240,13 @@ FreeImage_InternalGetPageCount(FIMULTIBITMAP *bitmap) {
 // Multipage functions
 // =====================================================================
 
-FIMULTIBITMAP * DLL_CALLCONV
-FreeImage_OpenMultiBitmap(FREE_IMAGE_FORMAT fif, const char *filename, BOOL create_new, BOOL read_only, BOOL keep_cache_in_memory, int flags) {
+static FIMULTIBITMAP *
+OpenMultiBitmapPath(FREE_IMAGE_FORMAT fif, const MultiBitmapPath& filename, BOOL create_new, BOOL read_only, BOOL keep_cache_in_memory, int flags) {
 
 	FILE *handle = NULL;
 	try {
 		// sanity check on the parameters
+		if (filename.empty()) return NULL;
 
 		if (create_new) {
 			read_only = FALSE;
@@ -274,7 +261,7 @@ FreeImage_OpenMultiBitmap(FREE_IMAGE_FORMAT fif, const char *filename, BOOL crea
 
 			if (node) {
 				if (!create_new) {
-					handle = fopen(filename, "rb");
+					handle = filename.open(false);
 					if (handle == NULL) {
 						return NULL;
 					}
@@ -308,8 +295,7 @@ FreeImage_OpenMultiBitmap(FREE_IMAGE_FORMAT fif, const char *filename, BOOL crea
 				// set up the cache
 
 				if (!read_only) {
-					std::string cache_name;
-					ReplaceExtension(cache_name, filename, "ficache");
+					MultiBitmapPath cache_name = filename.withExtension("ficache");
 					
 					if (!header->m_cachefile.open(cache_name, keep_cache_in_memory)) {
 						// an error occured ...
@@ -332,6 +318,28 @@ FreeImage_OpenMultiBitmap(FREE_IMAGE_FORMAT fif, const char *filename, BOOL crea
 		fclose(handle);
 	}
 	return NULL;
+}
+
+FIMULTIBITMAP * DLL_CALLCONV
+FreeImage_OpenMultiBitmap(FREE_IMAGE_FORMAT fif, const char *filename, BOOL create_new, BOOL read_only, BOOL keep_cache_in_memory, int flags) {
+    try {
+        return OpenMultiBitmapPath(fif, MultiBitmapPath(filename), create_new, read_only, keep_cache_in_memory, flags);
+    } catch (std::bad_alloc &) {
+        return NULL;
+    }
+}
+
+FIMULTIBITMAP * DLL_CALLCONV
+FreeImage_OpenMultiBitmapU(FREE_IMAGE_FORMAT fif, const wchar_t *filename, BOOL create_new, BOOL read_only, BOOL keep_cache_in_memory, int flags) {
+#ifdef _WIN32
+    try {
+        return OpenMultiBitmapPath(fif, MultiBitmapPath(filename), create_new, read_only, keep_cache_in_memory, flags);
+    } catch (std::bad_alloc &) {
+        return NULL;
+    }
+#else
+    return NULL;
+#endif
 }
 
 FIMULTIBITMAP * DLL_CALLCONV
@@ -502,17 +510,15 @@ FreeImage_CloseMultiBitmap(FIMULTIBITMAP *bitmap, int flags) {
 				try {
 					// open a temp file
 
-					std::string spool_name;
-
-					ReplaceExtension(spool_name, header->m_filename, "fispool");
+					MultiBitmapPath spool_name = header->m_filename.withExtension("fispool");
 
 					// open the spool file and the source file
         
-					FILE *f = fopen(spool_name.c_str(), "w+b");
+					FILE *f = spool_name.open(true);
 				
 					// saves changes
 					if (f == NULL) {
-						FreeImage_OutputMessageProc(header->fif, "Failed to open %s, %s", spool_name.c_str(), strerror(errno));
+						FreeImage_OutputMessageProc(header->fif, "Failed to open multipage spool file: %s", strerror(errno));
 						success = FALSE;
 					} else {
 						success = FreeImage_SaveMultiBitmapToHandle(header->fif, bitmap, &header->io, (fi_handle)f, flags);
@@ -521,7 +527,7 @@ FreeImage_CloseMultiBitmap(FIMULTIBITMAP *bitmap, int flags) {
 
 						if (fclose(f) != 0) {
 							success = FALSE;
-							FreeImage_OutputMessageProc(header->fif, "Failed to close %s, %s", spool_name.c_str(), strerror(errno));
+							FreeImage_OutputMessageProc(header->fif, "Failed to close multipage spool file: %s", strerror(errno));
 						}
 					}
 					if (header->handle) {
@@ -531,13 +537,13 @@ FreeImage_CloseMultiBitmap(FIMULTIBITMAP *bitmap, int flags) {
 					// applies changes to the destination file
 
 					if (success) {
-						remove(header->m_filename.c_str());
-						success = (rename(spool_name.c_str(), header->m_filename.c_str()) == 0) ? TRUE:FALSE;
+						header->m_filename.remove();
+						success = (spool_name.renameTo(header->m_filename) == 0) ? TRUE:FALSE;
 						if(!success) {
-							FreeImage_OutputMessageProc(header->fif, "Failed to rename %s to %s", spool_name.c_str(), header->m_filename.c_str());
+							FreeImage_OutputMessageProc(header->fif, "Failed to rename multipage spool file: %s", strerror(errno));
 						}
 					} else {
-						remove(spool_name.c_str());
+						spool_name.remove();
 					}
 				} catch (std::bad_alloc &) {
 					success = FALSE;

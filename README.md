@@ -209,3 +209,11 @@ FreeImage_<codec>_LIBRARY_RELEASE / _LIBRARY_DEBUG cache entries. For static
 codec SDKs, use their exported CMake targets or provide any missing transitive
 libraries through FreeImage_<codec>_EXTRA_LIBRARIES in SDK mode. Installed
 FreeImage CMake consumers use the same discovery rules.
+
+### Unicode multipage filenames (Windows)
+
+Use `FreeImage_OpenMultiBitmapU` with a `wchar_t` UTF-16 path to create, read,
+edit and close multipage TIFF/GIF/ICO files on Windows. Disk caches and spool
+files also use Unicode paths. Arguments and ownership match
+`FreeImage_OpenMultiBitmap`. Like `FreeImage_LoadU`/`FreeImage_SaveU`, this
+entry point returns NULL on non-Windows platforms; use native `char` paths there.

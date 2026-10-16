@@ -47,7 +47,7 @@ CacheFile::~CacheFile() {
 }
 
 BOOL
-CacheFile::open(const std::string& filename, BOOL keep_in_memory) {
+CacheFile::open(const MultiBitmapPath& filename, BOOL keep_in_memory) {
 
   assert(!m_file);
 
@@ -55,7 +55,7 @@ CacheFile::open(const std::string& filename, BOOL keep_in_memory) {
   m_keep_in_memory = keep_in_memory;
 
 	if ((!m_filename.empty()) && (!m_keep_in_memory)) {
-		m_file = fopen(m_filename.c_str(), "w+b"); 
+		m_file = m_filename.open(true);
 		return (m_file != NULL);
 	}
 
@@ -85,7 +85,7 @@ CacheFile::close() {
 		m_file = NULL;
 		
 		// delete the file
-		remove(m_filename.c_str());
+		m_filename.remove();
 	}
 }
 
