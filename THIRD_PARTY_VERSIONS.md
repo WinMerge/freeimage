@@ -27,8 +27,8 @@ these libraries has a newer stable upstream release.
 OpenEXR, LibDeflate, and LibTIFF4 re-synced against their upstream release
 tags on 2026-10-02 for issue #137. All vendored version entries, including
 OpenEXR's auxiliary codecs below, were rechecked against their source headers
-on 2026-10-15 for FreeImage 3.19.23. Vendored versions are unchanged from
-3.19.22. The new HEIF/AVIF and JPEG XL integrations use optional system
+on 2026-10-16 for FreeImage 3.19.24. Vendored versions are unchanged from
+3.19.23. The HEIF/AVIF and JPEG XL integrations use optional system
 libraries; they do not add bundled codec snapshots. The latest-upstream
 column retains the previous release review; this check verifies the bundled
 versions rather than asserting a fresh upstream-release audit.
