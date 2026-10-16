@@ -1,7 +1,9 @@
 # Optional HEIF/AVIF and JPEG XL source bundles
 
 These are pristine upstream source archives, checked into this repository so
-normal and source-release builds work offline with CMake 3.20 or newer. CMake verifies SHA-256 before
+normal and source-release builds work offline with CMake 3.20 or newer. Archives remain pristine. A local CMake patch guards libjxl's optional
+tcmalloc pkg-config probe when pkg-config is disabled; see
+`cmake/patches/libjxl-no-pkg-config.cmake`. CMake verifies SHA-256 before
 extracting into the build directory. No git submodules, SDK installation,
 pkg-config, or configure-time downloads are needed for the bundled path.
 `sources.json` records exact versions, source URLs and SHA-256 digests.

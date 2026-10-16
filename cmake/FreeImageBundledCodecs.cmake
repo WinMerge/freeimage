@@ -41,11 +41,17 @@ function(freeimage_bundled_project name archive hash)
     if(POLICY CMP0135)
         cmake_policy(SET CMP0135 NEW)
     endif()
+    set(patch_args)
+    if(name STREQUAL "jxl")
+        set(patch_args PATCH_COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=<SOURCE_DIR>
+            -P "${PROJECT_SOURCE_DIR}/cmake/patches/libjxl-no-pkg-config.cmake")
+    endif()
     ExternalProject_Add(freeimage_${name}
         URL "${PROJECT_SOURCE_DIR}/Source/ThirdParty/${archive}"
         URL_HASH "SHA256=${hash}"
         PREFIX "${PROJECT_BINARY_DIR}/codec-build/${name}"
-        INSTALL_DIR "${_codec_prefix}"
+        INSTALL_DIR "${PROJECT_BINARY_DIR}/codec-install"
+        ${patch_args}
         CMAKE_ARGS ${common} ${CODEC_ARGS}
         LIST_SEPARATOR |
         BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --config $<CONFIG> --parallel 2

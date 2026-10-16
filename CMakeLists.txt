@@ -1427,7 +1427,7 @@ if (MSVC AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 endif()
 if (WIN32)
     # Add ws2_32.lib for Windows builds
-    target_link_libraries(${PROJECT_NAME} ws2_32)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
 endif()
 
 if(FREEIMAGE_LINUX_PACKAGE_LAYOUT)
