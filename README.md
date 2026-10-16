@@ -7,7 +7,7 @@ FreeImage is easy to use, fast, multithreading safe, and cross-platform (works w
 
 Security and bug fixes on top of upstream FreeImage, plus a CMake build that compiles FreeImage and every bundled library from one `CMakeLists.txt`. This repository is the source tree. GitHub releases are tags, not prebuilt DLLs. Build a static library or a DLL with the commands in [Building this fork](#building-this-fork).
 
-This tree is FreeImage **3.19.23**. `FreeImage_GetVersion()` prints `FREEIMAGE_MAJOR_VERSION`, `FREEIMAGE_MINOR_VERSION`, and `FREEIMAGE_RELEASE_SERIAL` from `Source/FreeImage.h`. CMake takes the version from the latest numeric git tag (`git describe`) and falls back to 3.19.23 when the archive has no `.git` history.
+This tree is FreeImage **3.19.24**. `FreeImage_GetVersion()` prints `FREEIMAGE_MAJOR_VERSION`, `FREEIMAGE_MINOR_VERSION`, and `FREEIMAGE_RELEASE_SERIAL` from `Source/FreeImage.h`. CMake takes the version from the latest numeric git tag (`git describe`) and falls back to 3.19.24 when the archive has no `.git` history.
 
 The ANSI C API is usable from C, C++, VB, C#, Delphi, Java, and from scripting languages such as Perl, Python, PHP, TCL, Lua, and Ruby.
 
