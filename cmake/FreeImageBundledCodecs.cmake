@@ -97,7 +97,7 @@ function(freeimage_build_bundled_codec codec)
         freeimage_bundled_project(heif libheif-1.23.5.tar.gz
             fd9036064c4432f0550d15072ddf34956a248279ee9aeaff0fba3fa0f77d8f1a
             DEPENDS freeimage_aom freeimage_de265 freeimage_kvazaar
-            ARGS -DCMAKE_CXX_STANDARD=20 -DENABLE_PLUGIN_LOADING=OFF -DWITH_EXAMPLES=OFF
+            ARGS -DCMAKE_CXX_STANDARD=20 -DBUILD_DOCUMENTATION=OFF -DENABLE_PLUGIN_LOADING=OFF -DWITH_EXAMPLES=OFF
                  -DWITH_GDK_PIXBUF=OFF -DWITH_FUZZERS=OFF -DENABLE_EXPERIMENTAL_FEATURES=OFF
                  -DWITH_HEADER_COMPRESSION=OFF -DWITH_UNCOMPRESSED_CODEC=OFF
                  -DWITH_X265=OFF -DWITH_X264=OFF -DWITH_OpenH264_DECODER=OFF
@@ -148,7 +148,8 @@ function(freeimage_build_bundled_codec codec)
                  -DJPEGXL_ENABLE_VIEWERS=OFF -DJPEGXL_ENABLE_TCMALLOC=OFF
                  -DJPEGXL_WARNINGS_AS_ERRORS=OFF -DJPEGXL_BUNDLE_LIBPNG=OFF
                  -DJPEGXL_FORCE_SYSTEM_HWY=ON -DJPEGXL_FORCE_SYSTEM_BROTLI=ON -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
-                 -DHWY_DIR:PATH=${lib}/cmake/hwy
+                 -DHWY_INCLUDE_DIR:PATH=${_codec_prefix}/include
+                 -DHWY_LIBRARY:FILEPATH=${lib}/${pre}hwy${ext}
                  -DBROTLI_INCLUDE_DIR:PATH=${_codec_prefix}/include
                  -DBROTLICOMMON_LIBRARY:FILEPATH=${lib}/${pre}brotlicommon${ext}
                  -DBROTLIENC_LIBRARY:FILEPATH=${lib}/${pre}brotlienc${ext}
