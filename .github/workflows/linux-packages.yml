@@ -51,6 +51,10 @@ jobs:
         run: |
           mkdir -p dist
           cp ../*.deb ../*.buildinfo ../*.changes dist/
+          # Ubuntu's debhelper names debug-symbol packages .ddeb; Debian uses .deb.
+          for ddeb in ../*.ddeb; do
+            if [ -e "$ddeb" ]; then cp "$ddeb" dist/; fi
+          done
       - uses: actions/upload-artifact@v4
         with:
           name: deb-${{ matrix.name }}
@@ -114,8 +118,15 @@ jobs:
           merge-multiple: true
       - name: Checksum release assets
         working-directory: linux-assets
+        shell: bash
         run: |
-          sha256sum -- *.deb *.pkg.tar.zst *-linux-source.tar.gz *-linux-PKGBUILD > SHA256SUMS-linux.txt
+          shopt -s nullglob
+          # GitHub replaces "~" with "." in uploaded asset names. Rename first so
+          # the checksum file lists the names users actually download.
+          for asset in *~*; do
+            mv -- "$asset" "${asset//\~/.}"
+          done
+          sha256sum -- *.deb *.ddeb *.pkg.tar.zst *-linux-source.tar.gz *-linux-PKGBUILD > SHA256SUMS-linux.txt
       - name: Publish or update matching GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
