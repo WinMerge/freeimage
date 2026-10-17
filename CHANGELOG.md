@@ -2,7 +2,13 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
-## 3.19.24 — Unreleased
+## 3.19.25 — Unreleased
+
+- Bundle pinned, SHA-256-verified HEIF/AVIF and JPEG XL codec sources and dependencies for offline CMake builds, while retaining optional system-library selection, cross-compilation and static/shared builds. Add license documentation and cross-platform CI. (#179)
+- Add `FreeImage_GetChannelsNumber` to report channel counts for bitmap and typed image formats, including two-channel complex images. (#180)
+- Clip GIF playback frames and disposal clears to the logical screen, preventing out-of-bounds writes from malformed frame rectangles. Add crafted regression tests. (#183)
+
+## 3.19.24 — 16 Oct 2026
 
 - Bundle pinned libheif/libjxl source archives and their HEVC/AV1, compression, SIMD and color-management dependencies for offline CMake builds. Keep codecs optional; `USE_SYSTEM_LIBHEIF` / `USE_SYSTEM_LIBJXL` retain SDK selection and follow the existing system-library master switch. Ship private archives for installed CMake consumers, dependency license notices and bundled/system diagnostics. Add static/shared native, 32-bit and Android API 25 CI. (#177)
 

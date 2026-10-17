@@ -1,3 +1,12 @@
+freeimage-maintained (3.19.25-1) unstable; urgency=high
+
+  * Bundle offline HEIF/AVIF and JPEG XL codecs with pinned dependencies.
+  * Add the image channel-count query API.
+  * Clip GIF playback frames to prevent out-of-bounds writes.
+  * Prepare tagged Linux package builds for FreeImage 3.19.25.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Sat, 17 Oct 2026 15:21:05 +1300
+
 freeimage-maintained (3.19.24-1) unstable; urgency=medium
 
   * Add Windows Unicode multipage paths, including disk caches and spool files.
