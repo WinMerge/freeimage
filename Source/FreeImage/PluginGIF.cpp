@@ -718,6 +718,9 @@ GifPlaybackReadPageInfo(FreeImageIO *io, fi_handle handle, GIFinfo *info, int pa
 static void
 GifPlaybackCompositeFrame(FIBITMAP *canvas, FIBITMAP *pagedib, const PageInfo &pinfo, int logicalheight, int *delay_time) {
 	RGBQUAD *pal = FreeImage_GetPalette(pagedib);
+	const int logicalwidth = static_cast<int>(FreeImage_GetWidth(canvas));
+	const int visible_width = pinfo.left < logicalwidth ? logicalwidth - pinfo.left : 0;
+	const int frame_width = pinfo.width < visible_width ? pinfo.width : visible_width;
 	bool have_transparent = false;
 	int transparent_color = 0;
 	if( FreeImage_IsTransparent(pagedib) ) {
@@ -732,13 +735,17 @@ GifPlaybackCompositeFrame(FIBITMAP *canvas, FIBITMAP *pagedib, const PageInfo &p
 		}
 	}
 	for( int y = 0; y < pinfo.height; y++ ) {
-		const int scanidx = logicalheight - (y + pinfo.top) - 1;
-		if ( scanidx < 0 ) {
+		const int canvas_y = y + pinfo.top;
+		if ( canvas_y >= logicalheight ) {
 			break;  // If data is corrupt, don't calculate in invalid scanline
 		}
+		if( frame_width == 0 ) {
+			continue;
+		}
+		const int scanidx = logicalheight - canvas_y - 1;
 		RGBQUAD *scanline = (RGBQUAD *)FreeImage_GetScanLine(canvas, scanidx) + pinfo.left;
 		BYTE *pageline = FreeImage_GetScanLine(pagedib, pinfo.height - y - 1);
-		for( int x = 0; x < pinfo.width; x++ ) {
+		for( int x = 0; x < frame_width; x++ ) {
 			if( !have_transparent || *pageline != transparent_color ) {
 				*scanline = pal[*pageline];
 				scanline->rgbReserved = 255;
@@ -758,13 +765,20 @@ GifPlaybackCompositeFrame(FIBITMAP *canvas, FIBITMAP *pagedib, const PageInfo &p
 // fills a frame's rect on the playback canvas with a flat color (GIF_DISPOSAL_BACKGROUND)
 static void
 GifPlaybackFillRect(FIBITMAP *canvas, const PageInfo &pinfo, int logicalheight, const RGBQUAD &color) {
+	const int logicalwidth = static_cast<int>(FreeImage_GetWidth(canvas));
+	const int visible_width = pinfo.left < logicalwidth ? logicalwidth - pinfo.left : 0;
+	const int frame_width = pinfo.width < visible_width ? pinfo.width : visible_width;
 	for( int y = 0; y < pinfo.height; y++ ) {
-		const int scanidx = logicalheight - (y + pinfo.top) - 1;
-		if ( scanidx < 0 ) {
+		const int canvas_y = y + pinfo.top;
+		if ( canvas_y >= logicalheight ) {
 			break;
 		}
+		if( frame_width == 0 ) {
+			continue;
+		}
+		const int scanidx = logicalheight - canvas_y - 1;
 		RGBQUAD *scanline = (RGBQUAD *)FreeImage_GetScanLine(canvas, scanidx) + pinfo.left;
-		for( int x = 0; x < pinfo.width; x++ ) {
+		for( int x = 0; x < frame_width; x++ ) {
 			*scanline++ = color;
 		}
 	}

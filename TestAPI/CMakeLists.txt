@@ -54,6 +54,28 @@ if (BUILD_TESTS)
     endif()
     add_test(NAME IffPbmRleTest COMMAND IffPbmRleTest)
     set_tests_properties(IffPbmRleTest PROPERTIES TIMEOUT 5)
+
+    add_executable(GifPlaybackBoundsTest testGifPlaybackBounds.cpp)
+    target_link_libraries(GifPlaybackBoundsTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET GifPlaybackBoundsTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:GifPlaybackBoundsTest>
+            VERBATIM)
+    endif()
+    add_test(NAME GifPlaybackBoundsTest COMMAND GifPlaybackBoundsTest)
+    set_tests_properties(GifPlaybackBoundsTest PROPERTIES TIMEOUT 10)
+
+    add_executable(RasWordLoopTest testRasWordLoop.cpp)
+    target_link_libraries(RasWordLoopTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET RasWordLoopTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:RasWordLoopTest>
+            VERBATIM)
+    endif()
+    add_test(NAME RasWordLoopTest COMMAND RasWordLoopTest)
+    set_tests_properties(RasWordLoopTest PROPERTIES TIMEOUT 10)
 endif ()
 
 # These tests call vendored codec APIs directly to create inputs that exercise
