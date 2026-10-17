@@ -1193,6 +1193,43 @@ FreeImage_GetInfo(FIBITMAP *dib) {
 	return (BITMAPINFO *)FreeImage_GetInfoHeader(dib);
 }
 
+unsigned DLL_CALLCONV
+FreeImage_GetChannelsNumber(FIBITMAP *dib) {
+	if(dib == NULL) {
+		return 0;
+	}
+
+	switch(FreeImage_GetImageType(dib)) {
+		case FIT_BITMAP:
+			switch(FreeImage_GetBPP(dib)) {
+				case 32:
+				case 64:
+				case 128:
+					return 4;
+				case 24:
+				case 48:
+				case 96:
+					return 3;
+				default:
+					return 1;
+			}
+
+		case FIT_RGB16:
+		case FIT_RGBF:
+			return 3;
+
+		case FIT_RGBA16:
+		case FIT_RGBAF:
+			return 4;
+
+		case FIT_COMPLEX:
+			return 2;
+
+		default:
+			return 1;
+	}
+}
+
 // ----------------------------------------------------------
 //  Metadata routines
 // ----------------------------------------------------------
