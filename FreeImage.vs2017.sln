@@ -3,8 +3,6 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.26430.16
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FreeImage", "FreeImage.vcxproj", "{B39ED2B3-D53A-4077-B957-930979A3577D}"
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FreeImageLib", "Source\FreeImageLib\FreeImageLib.vcxproj", "{9E219DF2-315D-478E-8A07-8960C377CE1E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FreeImagePlus", "Wrapper\FreeImagePlus\FreeImagePlus.vcxproj", "{94F36908-A4E2-4533-939D-64FF6EADA5A1}"
@@ -27,6 +25,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibWebP", "Source\LibWebP\L
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibJXR", "Source\LibJXR\LibJXR.vcxproj", "{244455E0-5F25-4451-9540-F317883E52A8}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "LibDeflate", "Source\LibDeflate\LibDeflate.vcxproj", "{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM = Debug|ARM
@@ -39,22 +39,6 @@ Global
 		Release|x86 = Release|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|ARM.ActiveCfg = Debug|ARM
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|ARM.Build.0 = Debug|ARM
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|ARM64.ActiveCfg = Debug|ARM64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|ARM64.Build.0 = Debug|ARM64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|x64.ActiveCfg = Debug|x64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|x64.Build.0 = Debug|x64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|x86.ActiveCfg = Debug|Win32
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Debug|x86.Build.0 = Debug|Win32
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|ARM.ActiveCfg = Release|ARM
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|ARM.Build.0 = Release|ARM
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|ARM64.ActiveCfg = Release|ARM64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|ARM64.Build.0 = Release|ARM64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|x64.ActiveCfg = Release|x64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|x64.Build.0 = Release|x64
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|x86.ActiveCfg = Release|Win32
-		{B39ED2B3-D53A-4077-B957-930979A3577D}.Release|x86.Build.0 = Release|Win32
 		{9E219DF2-315D-478E-8A07-8960C377CE1E}.Debug|ARM.ActiveCfg = Debug|ARM
 		{9E219DF2-315D-478E-8A07-8960C377CE1E}.Debug|ARM.Build.0 = Debug|ARM
 		{9E219DF2-315D-478E-8A07-8960C377CE1E}.Debug|ARM64.ActiveCfg = Debug|ARM64
@@ -231,6 +215,22 @@ Global
 		{244455E0-5F25-4451-9540-F317883E52A8}.Release|x64.Build.0 = Release|x64
 		{244455E0-5F25-4451-9540-F317883E52A8}.Release|x86.ActiveCfg = Release|Win32
 		{244455E0-5F25-4451-9540-F317883E52A8}.Release|x86.Build.0 = Release|Win32
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|ARM.ActiveCfg = Debug|ARM
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|ARM.Build.0 = Debug|ARM
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|ARM64.Build.0 = Debug|ARM64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|x64.ActiveCfg = Debug|x64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|x64.Build.0 = Debug|x64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|x86.ActiveCfg = Debug|Win32
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Debug|x86.Build.0 = Debug|Win32
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|ARM.ActiveCfg = Release|ARM
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|ARM.Build.0 = Release|ARM
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|ARM64.ActiveCfg = Release|ARM64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|ARM64.Build.0 = Release|ARM64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|x64.ActiveCfg = Release|x64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|x64.Build.0 = Release|x64
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|x86.ActiveCfg = Release|Win32
+		{5F82F6E8-BE52-41B1-AE55-FCD29C5DAC21}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

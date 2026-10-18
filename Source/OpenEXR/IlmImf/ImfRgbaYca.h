@@ -1,43 +1,10 @@
+//
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
+//
+
 #ifndef INCLUDED_IMF_RGBA_YCA_H
 #define INCLUDED_IMF_RGBA_YCA_H
-
-//////////////////////////////////////////////////////////////////////////////
-//
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucasfilm
-// Entertainment Company Ltd.  Portions contributed and copyright held by
-// others as indicated.  All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-//
-//     * Redistributions of source code must retain the above
-//       copyright notice, this list of conditions and the following
-//       disclaimer.
-//
-//     * Redistributions in binary form must reproduce the above
-//       copyright notice, this list of conditions and the following
-//       disclaimer in the documentation and/or other materials provided with
-//       the distribution.
-//
-//     * Neither the name of Industrial Light & Magic nor the names of
-//       any other contributors to this software may be used to endorse or
-//       promote products derived from this software without specific prior
-//       written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
-// IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
-// THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-//////////////////////////////////////////////////////////////////////////////
 
 //-----------------------------------------------------------------------------
 //
@@ -80,27 +47,27 @@
 //		YCA  YCA  YCA  YCA  ... YCA  YCA
 //		YCA  YCA  YCA  YCA  ... YCA  YCA
 //
-//	Next, decimateChomaHoriz() eliminates the chroma values from
+//	Next, decimateChromaHoriz() eliminates the chroma values from
 //	the odd-numbered pixels in every scan line:
 //
-//		YCA  YA   YCA  YA   ... YCA  YA  
-//		YCA  YA   YCA  YA   ... YCA  YA  
-//		YCA  YA   YCA  YA   ... YCA  YA  
-//		YCA  YA   YCA  YA   ... YCA  YA  
+//		YCA  YA   YCA  YA   ... YCA  YA
+//		YCA  YA   YCA  YA   ... YCA  YA
+//		YCA  YA   YCA  YA   ... YCA  YA
+//		YCA  YA   YCA  YA   ... YCA  YA
 //		...
-//		YCA  YA   YCA  YA   ... YCA  YA  
-//		YCA  YA   YCA  YA   ... YCA  YA  
+//		YCA  YA   YCA  YA   ... YCA  YA
+//		YCA  YA   YCA  YA   ... YCA  YA
 //
 //	decimateChromaVert() eliminates all chroma values from the
 //	odd-numbered scan lines:
 //
-//		YCA  YA   YCA  YA   ... YCA  YA  
-//		YA   YA   YA   YA   ... YA   YA  
-//		YCA  YA   YCA  YA   ... YCA  YA  
-//		YA   YA   YA   YA   ... YA   YA  
+//		YCA  YA   YCA  YA   ... YCA  YA
+//		YA   YA   YA   YA   ... YA   YA
+//		YCA  YA   YCA  YA   ... YCA  YA
+//		YA   YA   YA   YA   ... YA   YA
 //		...
-//		YCA  YA   YCA  YA   ... YCA  YA  
-//		YA   YA   YA   YA   ... YA   YA  
+//		YCA  YA   YCA  YA   ... YCA  YA
+//		YA   YA   YA   YA   ... YA   YA
 //
 //	Finally, roundYCA() reduces the precision of the luminance
 //	and chroma values so that the pixel data shrink more when
@@ -114,31 +81,31 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "ImfRgba.h"
-#include "ImfChromaticities.h"
+#include "ImfExport.h"
 #include "ImfNamespace.h"
+
+#include "ImfChromaticities.h"
+#include "ImfRgba.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
-namespace RgbaYca {
-
+namespace RgbaYca
+{
 
 //
 // Width of the chroma subsampling and reconstruction filters
 //
 
-static const int N = 27;
+static const int N  = 27;
 static const int N2 = N / 2;
-
 
 //
 // Convert a set of primary chromaticities into a set of weighting
 // factors for computing a pixels's luminance, Y, from R, G and B
 //
- 
-IMF_EXPORT
-IMATH_NAMESPACE::V3f computeYw (const Chromaticities &cr);
 
+IMF_EXPORT
+IMATH_NAMESPACE::V3f computeYw (const Chromaticities& cr);
 
 //
 // Convert an array of n RGBA pixels, rgbaIn, to YCA (luminance/chroma/alpha):
@@ -152,11 +119,12 @@ IMATH_NAMESPACE::V3f computeYw (const Chromaticities &cr);
 //
 
 IMF_EXPORT
-void RGBAtoYCA (const IMATH_NAMESPACE::V3f &yw,
-		int n,
-	        bool aIsValid,
-		const Rgba rgbaIn[/*n*/],
-		Rgba ycaOut[/*n*/]);
+void RGBAtoYCA (
+    const IMATH_NAMESPACE::V3f& yw,
+    int                         n,
+    bool                        aIsValid,
+    const Rgba                  rgbaIn[/*n*/],
+    Rgba                        ycaOut[/*n*/]);
 
 //
 // Perform horizontal low-pass filtering and subsampling of
@@ -169,9 +137,8 @@ void RGBAtoYCA (const IMATH_NAMESPACE::V3f &yw,
 //
 
 IMF_EXPORT
-void decimateChromaHoriz (int n,
-			  const Rgba ycaIn[/*n+N-1*/],
-			  Rgba ycaOut[/*n*/]);
+void
+decimateChromaHoriz (int n, const Rgba ycaIn[/*n+N-1*/], Rgba ycaOut[/*n*/]);
 
 //
 // Perform vertical chroma channel low-pass filtering and subsampling.
@@ -180,23 +147,22 @@ void decimateChromaHoriz (int n,
 //
 
 IMF_EXPORT
-void decimateChromaVert (int n,
-			 const Rgba * const ycaIn[N],
-			 Rgba ycaOut[/*n*/]);
+void decimateChromaVert (int n, const Rgba* const ycaIn[N], Rgba ycaOut[/*n*/]);
 
 //
 // Round the luminance and chroma channels of an array of YCA
 // pixels that has already been filtered and subsampled.
-// The signifcands of the pixels' luminance and chroma values
+// The significands of the pixels' luminance and chroma values
 // are rounded to roundY and roundC bits respectively.
 //
 
 IMF_EXPORT
-void roundYCA (int n,
-	       unsigned int roundY,
-	       unsigned int roundC,
-	       const Rgba ycaIn[/*n*/],
-	       Rgba ycaOut[/*n*/]);
+void roundYCA (
+    int          n,
+    unsigned int roundY,
+    unsigned int roundC,
+    const Rgba   ycaIn[/*n*/],
+    Rgba         ycaOut[/*n*/]);
 
 //
 // For a scan line that has valid chroma data only for every other pixel,
@@ -204,20 +170,18 @@ void roundYCA (int n,
 //
 
 IMF_EXPORT
-void reconstructChromaHoriz (int n,
-			     const Rgba ycaIn[/*n+N-1*/],
-			     Rgba ycaOut[/*n*/]);
+void
+reconstructChromaHoriz (int n, const Rgba ycaIn[/*n+N-1*/], Rgba ycaOut[/*n*/]);
 
 //
 // For a scan line that has only luminance and no valid chroma data,
-// reconstruct chroma from the surronding N scan lines.
+// reconstruct chroma from the surrounding N scan lines.
 //
 
 IMF_EXPORT
-void reconstructChromaVert (int n,
-			    const Rgba * const ycaIn[N],
-			    Rgba ycaOut[/*n*/]);
-			 
+void
+reconstructChromaVert (int n, const Rgba* const ycaIn[N], Rgba ycaOut[/*n*/]);
+
 //
 // Convert an array of n YCA (luminance/chroma/alpha) pixels to RGBA.
 // This function is the inverse of RGBAtoYCA().
@@ -225,11 +189,12 @@ void reconstructChromaVert (int n,
 //
 
 IMF_EXPORT
-void YCAtoRGBA (const IMATH_NAMESPACE::V3f &yw,
-		int n,
-		const Rgba ycaIn[/*n*/],
-		Rgba rgbaOut[/*n*/]);
-			 
+void YCAtoRGBA (
+    const IMATH_NAMESPACE::V3f& yw,
+    int                         n,
+    const Rgba                  ycaIn[/*n*/],
+    Rgba                        rgbaOut[/*n*/]);
+
 //
 // Eliminate super-saturated pixels:
 //
@@ -248,10 +213,11 @@ void YCAtoRGBA (const IMATH_NAMESPACE::V3f &yw,
 //
 
 IMF_EXPORT
-void fixSaturation (const IMATH_NAMESPACE::V3f &yw,
-		    int n,
-		    const Rgba * const rgbaIn[3],
-		    Rgba rgbaOut[/*n*/]);
+void fixSaturation (
+    const IMATH_NAMESPACE::V3f& yw,
+    int                         n,
+    const Rgba* const           rgbaIn[3],
+    Rgba                        rgbaOut[/*n*/]);
 
 } // namespace RgbaYca
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT

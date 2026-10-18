@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw is free software; you can redistribute it and/or modify
  it under the terms of the one of two licenses as you choose:
@@ -78,7 +78,7 @@ libraw_processed_image_t *LibRaw::dcraw_make_mem_thumb(int *errcode)
   {
     ushort exif[5];
     int mk_exif = 0;
-    if (strcmp(T.thumb + 6, "Exif"))
+    if (memcmp(T.thumb + 6, "Exif\0",5))
       mk_exif = 1;
 
     int dsize = T.tlength + mk_exif * (sizeof(exif) + sizeof(tiff_hdr));
@@ -115,6 +115,24 @@ libraw_processed_image_t *LibRaw::dcraw_make_mem_thumb(int *errcode)
     {
       memmove(ret->data + 2, T.thumb + 2, T.tlength - 2);
     }
+    if (errcode)
+      *errcode = 0;
+    return ret;
+  }
+  else if (T.tformat == LIBRAW_THUMBNAIL_H265 || T.tformat == LIBRAW_THUMBNAIL_JPEGXL)
+  {
+    int dsize = T.tlength;
+    libraw_processed_image_t *ret = (libraw_processed_image_t *)::malloc(sizeof(libraw_processed_image_t) + dsize);
+    if (!ret)
+    {
+      if (errcode)
+        *errcode = ENOMEM;
+      return NULL;
+    }
+    memset(ret, 0, sizeof(libraw_processed_image_t));
+    ret->type = T.tformat == LIBRAW_THUMBNAIL_H265 ? LIBRAW_IMAGE_H265 : LIBRAW_IMAGE_JPEGXL;
+    ret->data_size = dsize;
+    memmove(ret->data, T.thumb, dsize);
     if (errcode)
       *errcode = 0;
     return ret;
@@ -177,7 +195,7 @@ int LibRaw::copy_mem_image(void *scan0, int stride, int bgr)
   if (libraw_internal_data.output_data.histogram)
   {
     int perc, val, total, t_white = 0x2000, c;
-    perc = S.width * S.height * O.auto_bright_thr;
+    perc = int(S.width * S.height * O.auto_bright_thr);
     if (IO.fuji_width)
       perc /= 2;
     if (!((O.highlight & ~2) || O.no_auto_bright))
@@ -190,7 +208,7 @@ int LibRaw::copy_mem_image(void *scan0, int stride, int bgr)
         if (t_white < val)
           t_white = val;
       }
-    gamma_curve(O.gamm[0], O.gamm[1], 2, (t_white << 3) / O.bright);
+    gamma_curve(O.gamm[0], O.gamm[1], 2, int((t_white << 3) / O.bright));
   }
 
   int s_iheight = S.iheight;
@@ -213,7 +231,7 @@ int LibRaw::copy_mem_image(void *scan0, int stride, int bgr)
 
   for (row = 0; row < S.height; row++, soff += rstep)
   {
-    uchar *bufp = ((uchar *)scan0) + row * stride;
+    uchar *bufp = ((uchar *)scan0) + size_t(row) * size_t(stride);
     ppm2 = (ushort *)(ppm = bufp);
     // keep trivial decisions in the outer loop for speed
     if (bgr)
@@ -262,7 +280,7 @@ libraw_processed_image_t *LibRaw::dcraw_make_mem_image(int *errcode)
   int width, height, colors, bps;
   get_mem_image_format(&width, &height, &colors, &bps);
   int stride = width * (bps / 8) * colors;
-  unsigned ds = height * stride;
+  INT64 ds = INT64(height) * INT64(stride);
   libraw_processed_image_t *ret = (libraw_processed_image_t *)::malloc(
       sizeof(libraw_processed_image_t) + ds);
   if (!ret)

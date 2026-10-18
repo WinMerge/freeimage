@@ -53,9 +53,6 @@
     <ClCompile Include="pi.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="raw.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="t1.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -66,6 +63,18 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="tgt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="opj_malloc.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ht_dec.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="sparse_array.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="thread.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -134,9 +143,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="pi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="raw.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="t1.h">

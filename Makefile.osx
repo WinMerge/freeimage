@@ -15,10 +15,10 @@ CC_X86_64 = $(shell xcrun -find clang)
 CPP_I386 = $(shell xcrun -find clang++)
 CPP_X86_64 = $(shell xcrun -find clang++)
 MACOSX_DEPLOY = -mmacosx-version-min=$(MACOSX_DEPLOYMENT_TARGET)
-COMPILERFLAGS = -Os -fexceptions -fvisibility=hidden -DNO_LCMS -D__ANSI__
+COMPILERFLAGS = -Os -fexceptions -fvisibility=hidden -DNO_LCMS -D__ANSI__ -DHAVE_UNISTD_H
 COMPILERFLAGS_I386 = -arch i386
 COMPILERFLAGS_X86_64 = -arch x86_64
-COMPILERPPFLAGS = -Wno-ctor-dtor-privacy -D__ANSI__ -std=c++11 -stdlib=libc++ -Wc++11-narrowing
+COMPILERPPFLAGS = -Wno-ctor-dtor-privacy -D__ANSI__ -std=c++17 -stdlib=libc++ -Wc++11-narrowing
 INCLUDE +=
 INCLUDE_I386 = -isysroot $(MACOSX_SYSROOT)
 INCLUDE_X86_64 = -isysroot $(MACOSX_SYSROOT)
@@ -30,6 +30,12 @@ LIBRARIES_I386 = $(MACOSX_DEPLOY) -Wl,-syslibroot $(MACOSX_SYSROOT)
 LIBRARIES_X86_64 = $(MACOSX_DEPLOY) -Wl,-syslibroot $(MACOSX_SYSROOT)
 LIBTOOL = libtool
 LIPO = lipo
+
+# This legacy makefile targets x86_64 explicitly. Apply each ISA option only
+# to its kernel objects; CMake also supports ARM64 and universal builds.
+OPENJPH_SIMD_CXX = $(CPP_X86_64)
+OPENJPH_SIMD_CXXFLAGS = $(CPPFLAGS_X86_64)
+include scripts/vendor/openjph-simd.mk
 
 TARGET = freeimage
 STATICLIB = lib$(TARGET).a

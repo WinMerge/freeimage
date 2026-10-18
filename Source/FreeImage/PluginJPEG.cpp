@@ -7,11 +7,13 @@
 // - Jan L. Nauta (jln@magentammt.com)
 // - Markus Loibl (markus.loibl@epost.de)
 // - Karl-Heinz Bussian (khbussian@moss.de)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Jascha Wetzel (jascha@mainia.de)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -35,9 +37,15 @@ extern "C" {
 #undef FAR
 #include <setjmp.h>
 
+#ifdef FREEIMAGE_SYSTEM_LIBJPEG
+#include <stdio.h>
+#include <jpeglib.h>
+#include <jerror.h>
+#else
 #include "../LibJPEG/jinclude.h"
 #include "../LibJPEG/jpeglib.h"
 #include "../LibJPEG/jerror.h"
+#endif
 }
 
 #include "FreeImage.h"
@@ -500,7 +508,7 @@ marker_is_icc(jpeg_saved_marker_ptr marker) {
   return FALSE.  You might want to issue an error message instead.
 */
 static BOOL 
-jpeg_read_icc_profile(j_decompress_ptr cinfo, JOCTET **icc_data_ptr, unsigned *icc_data_len) {
+fi_jpeg_read_icc_profile(j_decompress_ptr cinfo, JOCTET **icc_data_ptr, unsigned *icc_data_len) {
 	jpeg_saved_marker_ptr marker;
 	int num_markers = 0;
 	int seq_no;
@@ -742,7 +750,7 @@ read_markers(j_decompress_ptr cinfo, FIBITMAP *dib) {
 	BYTE *icc_profile = NULL;
 	unsigned icc_length = 0;
 
-	if( jpeg_read_icc_profile(cinfo, &icc_profile, &icc_length) ) {
+	if( fi_jpeg_read_icc_profile(cinfo, &icc_profile, &icc_length) ) {
 		// copy ICC profile data
 		FreeImage_CreateICCProfile(dib, icc_profile, icc_length);
 		// clean up
@@ -770,7 +778,7 @@ jpeg_write_comment(j_compress_ptr cinfo, FIBITMAP *dib) {
 
 		if(NULL != tag_value) {
 			for(long i = 0; i < (long)strlen(tag_value); i+= MAX_BYTES_IN_MARKER) {
-				jpeg_write_marker(cinfo, JPEG_COM, (BYTE*)tag_value + i, MIN((long)strlen(tag_value + i), MAX_BYTES_IN_MARKER));
+				jpeg_write_marker(cinfo, JPEG_COM, (BYTE*)tag_value + i, (unsigned)MIN((long)strlen(tag_value + i), MAX_BYTES_IN_MARKER));
 			}
 			return TRUE;
 		}
@@ -796,7 +804,7 @@ jpeg_write_icc_profile(j_compress_ptr cinfo, FIBITMAP *dib) {
 		memcpy(profile, icc_signature, 12);
 
 		for(long i = 0; i < (long)iccProfile->size; i += MAX_DATA_BYTES_IN_MARKER) {
-			unsigned length = MIN((long)(iccProfile->size - i), MAX_DATA_BYTES_IN_MARKER);
+			unsigned length = (unsigned)MIN((long)(iccProfile->size - i), MAX_DATA_BYTES_IN_MARKER);
 			// sequence number
 			profile[12] = (BYTE) ((i / MAX_DATA_BYTES_IN_MARKER) + 1);
 			// number of markers
@@ -832,7 +840,7 @@ jpeg_write_iptc_profile(j_compress_ptr cinfo, FIBITMAP *dib) {
 
 			// write the profile
 			for(long i = 0; i < (long)profile_size; i += 65517L) {
-				unsigned length = MIN((long)profile_size - i, 65517L);
+				unsigned length = (unsigned)MIN((long)profile_size - i, 65517L);
 				unsigned roundup = length & 0x01;	// needed for Photoshop
 				BYTE *iptc_profile = (BYTE*)malloc(length + roundup + tag_length);
 				if(iptc_profile == NULL) break;
@@ -887,7 +895,7 @@ jpeg_write_xmp_profile(j_compress_ptr cinfo, FIBITMAP *dib) {
 			memcpy(profile, xmp_signature, xmp_header_size);
 
 			for(DWORD i = 0; i < tag_length; i += 65504L) {
-				unsigned length = MIN((long)(tag_length - i), 65504L);
+				unsigned length = (unsigned)MIN((long)(tag_length - i), 65504L);
 				
 				memcpy(profile + xmp_header_size, tag_value + i, length);
 				jpeg_write_marker(cinfo, EXIF_MARKER, profile, (length + xmp_header_size));
@@ -930,7 +938,7 @@ jpeg_write_exif_profile_raw(j_compress_ptr cinfo, FIBITMAP *dib) {
 			if(profile == NULL) return FALSE;
 
 			for(DWORD i = 0; i < tag_length; i += 65504L) {
-				unsigned length = MIN((long)(tag_length - i), 65504L);
+				unsigned length = (unsigned)MIN((long)(tag_length - i), 65504L);
 				
 				memcpy(profile, tag_value + i, length);
 				jpeg_write_marker(cinfo, EXIF_MARKER, profile, length);
@@ -956,7 +964,7 @@ jpeg_write_jfxx(j_compress_ptr cinfo, FIBITMAP *dib) {
 		return TRUE;
 	}
 	// check for a compatible output format
-	if((FreeImage_GetImageType(thumbnail) != FIT_BITMAP) || (FreeImage_GetBPP(thumbnail) != 8) && (FreeImage_GetBPP(thumbnail) != 24)) {
+	if((FreeImage_GetImageType(thumbnail) != FIT_BITMAP) || ((FreeImage_GetBPP(thumbnail) != 8) && (FreeImage_GetBPP(thumbnail) != 24))) {
 		FreeImage_OutputMessageProc(s_format_id, FI_MSG_WARNING_INVALID_THUMBNAIL);
 		return FALSE;
 	}

@@ -1,3 +1,37 @@
+Current build
+-------------
+Build a static library with CMake and the Xcode generator. `CMAKE_SYSTEM_NAME=iOS` selects the iOS toolchain. Leave tests off: the test runner is a desktop executable. JPEG-XR is not part of this build. C++17 keeps OpenEXR enabled.
+
+Device (arm64):
+
+    cmake -S . -B build-ios -G Xcode \
+      -DCMAKE_SYSTEM_NAME=iOS \
+      -DCMAKE_OSX_SYSROOT=iphoneos \
+      -DCMAKE_OSX_ARCHITECTURES=arm64 \
+      -DCMAKE_CXX_STANDARD=17 \
+      -DFREEIMAGE_STATIC=ON \
+      -DBUILD_TESTS=OFF
+    cmake --build build-ios --config Release
+
+The archive is `build-ios/Release-iphoneos/libFreeImage.a`. The public header is `build-ios/include/FreeImage.h`.
+
+Simulator:
+
+    cmake -S . -B build-iossim -G Xcode \
+      -DCMAKE_SYSTEM_NAME=iOS \
+      -DCMAKE_OSX_SYSROOT=iphonesimulator \
+      -DCMAKE_OSX_ARCHITECTURES=arm64 \
+      -DCMAKE_CXX_STANDARD=17 \
+      -DFREEIMAGE_STATIC=ON \
+      -DBUILD_TESTS=OFF
+    cmake --build build-iossim --config Release
+
+That archive is `build-iossim/Release-iphonesimulator/libFreeImage.a`.
+
+`CMAKE_OSX_DEPLOYMENT_TARGET` sets the minimum iOS version (for example `-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0`). Omit it to use the SDK default.
+
+`Makefile.iphone` and `Makefile.ios` below are the legacy paths from the iOS SDK 6.1 era. For a desktop or Windows build, see README.md.
+
 Makefile for iPhone
 
 found on the web, see 

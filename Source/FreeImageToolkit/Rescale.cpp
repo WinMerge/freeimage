@@ -2,10 +2,12 @@
 // Upsampling / downsampling routine
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Carsten Klein (cklein05@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -173,10 +175,14 @@ FreeImage_MakeThumbnail(FIBITMAP *dib, int max_pixel_size, BOOL convert) {
 				bitmap = FreeImage_ToneMapping(thumbnail, FITMO_DRAGO03);
 				break;
 			case FIT_RGBAF:
+			{
 				// no way to keep the transparency yet ...
 				FIBITMAP *rgbf = FreeImage_ConvertToRGBF(thumbnail);
 				bitmap = FreeImage_ToneMapping(rgbf, FITMO_DRAGO03);
 				FreeImage_Unload(rgbf);
+				break;
+			}
+			default:
 				break;
 		}
 		if(bitmap != NULL) {

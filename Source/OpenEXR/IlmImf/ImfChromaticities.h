@@ -1,37 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2003, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
 
 #ifndef INCLUDED_IMF_CHROMATICITIES_H
 #define INCLUDED_IMF_CHROMATICITIES_H
@@ -39,50 +9,57 @@
 //-----------------------------------------------------------------------------
 //
 //	CIE (x,y) chromaticities, and conversions between
-//	RGB tiples and CIE XYZ tristimulus values.
+//	RGB triples and CIE XYZ tristimulus values.
 //
 //-----------------------------------------------------------------------------
 
-#include "ImathVec.h"
-#include "ImathMatrix.h"
-#include "ImfNamespace.h"
 #include "ImfExport.h"
+#include "ImfNamespace.h"
 
+#include <ImathMatrix.h>
+#include <ImathVec.h>
+
+#include <string>
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
-   
-struct IMF_EXPORT Chromaticities
+struct IMF_EXPORT_TYPE Chromaticities
 {
     //-----------------------------------------------
     // The CIE x and y coordinates of the RGB triples
     // (1,0,0), (0,1,0), (0,0,1) and (1,1,1).
     //-----------------------------------------------
 
-    IMATH_NAMESPACE::V2f	red;
-    IMATH_NAMESPACE::V2f	green;
-    IMATH_NAMESPACE::V2f	blue;
-    IMATH_NAMESPACE::V2f	white;
+    IMATH_NAMESPACE::V2f red;
+    IMATH_NAMESPACE::V2f green;
+    IMATH_NAMESPACE::V2f blue;
+    IMATH_NAMESPACE::V2f white;
 
     //--------------------------------------------
     // Default constructor produces chromaticities
     // according to Rec. ITU-R BT.709-3
     //--------------------------------------------
 
-    Chromaticities (const IMATH_NAMESPACE::V2f &red   = IMATH_NAMESPACE::V2f (0.6400f, 0.3300f),
-		    const IMATH_NAMESPACE::V2f &green = IMATH_NAMESPACE::V2f (0.3000f, 0.6000f),
-		    const IMATH_NAMESPACE::V2f &blue  = IMATH_NAMESPACE::V2f (0.1500f, 0.0600f),
-		    const IMATH_NAMESPACE::V2f &white = IMATH_NAMESPACE::V2f (0.3127f, 0.3290f));
-    
-    
+    IMF_EXPORT
+    Chromaticities (
+        const IMATH_NAMESPACE::V2f& red =
+            IMATH_NAMESPACE::V2f (0.6400f, 0.3300f),
+        const IMATH_NAMESPACE::V2f& green =
+            IMATH_NAMESPACE::V2f (0.3000f, 0.6000f),
+        const IMATH_NAMESPACE::V2f& blue =
+            IMATH_NAMESPACE::V2f (0.1500f, 0.0600f),
+        const IMATH_NAMESPACE::V2f& white =
+            IMATH_NAMESPACE::V2f (0.3127f, 0.3290f));
+
     //---------
     // Equality
     //---------
-    
-    bool		operator == (const Chromaticities &v) const;    
-    bool		operator != (const Chromaticities &v) const;
-};
 
+    IMF_EXPORT
+    bool operator== (const Chromaticities& v) const;
+    IMF_EXPORT
+    bool operator!= (const Chromaticities& v) const;
+};
 
 //
 // Conversions between RGB and CIE XYZ
@@ -93,38 +70,76 @@ struct IMF_EXPORT Chromaticities
 // 	triple (1,1,1), or "white", RGBtoXYZ(c,Y) computes a matrix, M, so
 // 	that multiplying an RGB value, v, with M produces an equivalent
 // 	XYZ value, w.  (w == v * M)
-// 
+//
 // 	If we define that
-// 
+//
 // 	   (Xr, Yr, Zr) == (1, 0, 0) * M
 // 	   (Xg, Yg, Zg) == (0, 1, 0) * M
 // 	   (Xb, Yb, Zb) == (0, 0, 1) * M
 // 	   (Xw, Yw, Zw) == (1, 1, 1) * M,
-// 
+//
 // 	then the following statements are true:
-// 
+//
 // 	   Xr / (Xr + Yr + Zr) == c.red.x
 // 	   Yr / (Xr + Yr + Zr) == c.red.y
-// 
-// 	   Xg / (Xg + Yg + Zg) == c.red.x
-// 	   Yg / (Xg + Yg + Zg) == c.red.y
-// 
-// 	   Xb / (Xb + Yb + Zb) == c.red.x
-// 	   Yb / (Xb + Yb + Zb) == c.red.y
-// 
-// 	   Xw / (Xw + Yw + Zw) == c.red.x
-// 	   Yw / (Xw + Yw + Zw) == c.red.y
-// 
+//
+// 	   Xg / (Xg + Yg + Zg) == c.green.x
+// 	   Yg / (Xg + Yg + Zg) == c.green.y
+//
+// 	   Xb / (Xb + Yb + Zb) == c.blue.x
+// 	   Yb / (Xb + Yb + Zb) == c.blue.y
+//
+// 	   Xw / (Xw + Yw + Zw) == c.white.x
+// 	   Yw / (Xw + Yw + Zw) == c.white.y
+//
 // 	   Yw == Y.
-// 
+//
 // XYZ to RGB:
-// 
-// 	YYZtoRGB(c,Y) returns RGBtoXYZ(c,Y).inverse().
-// 
+//
+// 	XYZtoRGB(c,Y) returns RGBtoXYZ(c,Y).inverse().
+//
 
-IMF_EXPORT IMATH_NAMESPACE::M44f    RGBtoXYZ (const Chromaticities chroma, float Y);
-IMF_EXPORT IMATH_NAMESPACE::M44f    XYZtoRGB (const Chromaticities chroma, float Y);
+IMF_EXPORT IMATH_NAMESPACE::M44f
+           RGBtoXYZ (const Chromaticities& chroma, float Y);
+IMF_EXPORT IMATH_NAMESPACE::M44f
+           XYZtoRGB (const Chromaticities& chroma, float Y);
 
+//
+// Conversions between the chromaticities attribute and the colorInteropID
+// attribute
+//
+// The Color Interop Forum recommendation for OpenEXR files defines a
+// mapping between chromaticities and the subset of color interop IDs that
+// denote linear, scene-referred RGB color spaces. Only these six IDs have
+// a defined mapping:
+//
+//     lin_rec709_scene     lin_ap0_scene       lin_ap1_scene
+//     lin_p3d65_scene      lin_rec2020_scene   lin_adobergb_scene
+//
+// See <https://github.com/AcademySoftwareFoundation/ColorInterop/blob/main/
+// Recommendations/04_OpenEXRFiles/OpenEXRFiles.md>.
+//
+// Both functions return false and leave their output argument unmodified
+// for any other value, including "unknown" and "data". An unsupported
+// value is an ordinary outcome rather than an error, so neither function
+// throws.
+//
+// Note that the recommendation is that the chromaticities attribute not be
+// set when setting the colorInteropID, other than for ST 2065-4
+// compliance. colorInteropIDToChromaticities is intended for feeding
+// legacy consumers that understand only chromaticities.
+//
+// chromaticitiesToColorInteropID matches a set of chromaticities against
+// the table within +/- tolerance in x and y, comparing all four
+// coordinates. The default tolerance is the value the recommendation
+// suggests. 
+//
+
+IMF_EXPORT bool
+colorInteropIDToChromaticities (const std::string& id, Chromaticities& chroma);
+
+IMF_EXPORT bool chromaticitiesToColorInteropID (
+    const Chromaticities& chroma, std::string& id, float tolerance = 0.001f);
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 

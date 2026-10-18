@@ -3,9 +3,11 @@
 //
 // Design and implementation by
 // - Floris van den Berg (flvdberg@wxs.nl)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -301,6 +303,17 @@ LoadStandardIcon(FreeImageIO *io, fi_handle handle, int flags, BOOL header_only)
 	int width  = bmih.biWidth;
 	int height = bmih.biHeight / 2; // height == xor + and mask
 	unsigned bit_count = bmih.biBitCount;
+
+	// ICO BITMAPINFOHEADER must use a real Windows bpp. Illegal values
+	// make CalculateLine/pitch disagree with the allocated DIB (CVE-2020-24292).
+	if (bit_count != 1 && bit_count != 2 && bit_count != 4 && bit_count != 8 &&
+		bit_count != 16 && bit_count != 24 && bit_count != 32) {
+		return NULL;
+	}
+	if ((width <= 0) || (height <= 0)) {
+		return NULL;
+	}
+
 	unsigned line   = CalculateLine(width, bit_count);
 	unsigned pitch  = CalculatePitch(line);
 

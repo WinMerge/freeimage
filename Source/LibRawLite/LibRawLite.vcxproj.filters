@@ -48,6 +48,9 @@
     <Filter Include="Source Files\src\write">
       <UniqueIdentifier>{5e8f7b09-d354-4e71-a8ae-4617275a0f9e}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\src\decompressors">
+      <UniqueIdentifier>{92d3f40a-85fb-4bd3-a0d0-f915e8a67487}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\decoders\canon_600.cpp">
@@ -265,6 +268,18 @@
     </ClCompile>
     <ClCompile Include="src\libraw_datastream.cpp">
       <Filter>Source Files\src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\decoders\pana8.cpp">
+      <Filter>Source Files\src\decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="src\decoders\sonycc.cpp">
+      <Filter>Source Files\src\decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="src\decoders\olympus14.cpp">
+      <Filter>Source Files\src\decoders</Filter>
+    </ClCompile>
+    <ClCompile Include="src\decompressors\losslessjpeg.cpp">
+      <Filter>Source Files\src\decompressors</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -3,7 +3,7 @@
 // Exif metadata model
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
 // - Garrick Meeker (garrickmeeker@users.sourceforge.net)
 //
@@ -13,6 +13,8 @@
 // - ImageMagick : http://www.imagemagick.org/
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -1063,12 +1065,12 @@ RotateExif(FIBITMAP **dib) {
 		if((tag != NULL) && (FreeImage_GetTagID(tag) == TAG_ORIENTATION)) {
 			const WORD orientation = *((WORD *)FreeImage_GetTagValue(tag));
 			switch (orientation) {
-				case 1:		// "top, left side" => 0°
+				case 1:		// "top, left side" => 0Â°
 					break;
 				case 2:		// "top, right side" => flip left-right
 					FreeImage_FlipHorizontal(*dib);
 					break;
-				case 3:		// "bottom, right side" => -180°
+				case 3:		// "bottom, right side" => -180Â°
 					rotated = FreeImage_Rotate(*dib, 180);
 					FreeImage_Unload(*dib);
 					*dib = rotated;
@@ -1076,24 +1078,24 @@ RotateExif(FIBITMAP **dib) {
 				case 4:		// "bottom, left side" => flip up-down
 					FreeImage_FlipVertical(*dib);
 					break;
-				case 5:		// "left side, top" => +90° + flip up-down
+				case 5:		// "left side, top" => +90Â° + flip up-down
 					rotated = FreeImage_Rotate(*dib, 90);
 					FreeImage_Unload(*dib);
 					*dib = rotated;
 					FreeImage_FlipVertical(*dib);
 					break;
-				case 6:		// "right side, top" => -90°
+				case 6:		// "right side, top" => -90Â°
 					rotated = FreeImage_Rotate(*dib, -90);
 					FreeImage_Unload(*dib);
 					*dib = rotated;
 					break;
-				case 7:		// "right side, bottom" => -90° + flip up-down
+				case 7:		// "right side, bottom" => -90Â° + flip up-down
 					rotated = FreeImage_Rotate(*dib, -90);
 					FreeImage_Unload(*dib);
 					*dib = rotated;
 					FreeImage_FlipVertical(*dib);
 					break;
-				case 8:		// "left side, bottom" => +90°
+				case 8:		// "left side, bottom" => +90Â°
 					rotated = FreeImage_Rotate(*dib, 90);
 					FreeImage_Unload(*dib);
 					*dib = rotated;
@@ -1225,7 +1227,7 @@ tiff_write_ifd(FIBITMAP *dib, FREE_IMAGE_MDMODEL md_model, FIMEMORY *hmem) {
 			unsigned ifd_size = 2 + 12 * metadata_count;
 			FreeImage_WriteMemory(&empty_byte, 1, ifd_size, hmem);
 			// record the offset used to write values > 4-bytes
-			ifd_offset = FreeImage_TellMemory(hmem);
+			ifd_offset = (DWORD)FreeImage_TellMemory(hmem);
 			// rewind
 			FreeImage_SeekMemory(hmem, start_of_file, SEEK_SET);
 		}
@@ -1269,7 +1271,7 @@ tiff_write_ifd(FIBITMAP *dib, FREE_IMAGE_MDMODEL md_model, FIMEMORY *hmem) {
 					FreeImage_WriteMemory(&empty_byte, 1, 1, hmem);
 				}
 				// next offset to use
-				ifd_offset = FreeImage_TellMemory(hmem);
+				ifd_offset = (DWORD)FreeImage_TellMemory(hmem);
 				// rewind
 				FreeImage_SeekMemory(hmem, current_position, SEEK_SET);
 			}

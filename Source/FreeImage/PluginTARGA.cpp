@@ -12,6 +12,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
 // THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
@@ -1523,7 +1525,7 @@ Save(FreeImageIO *io, FIBITMAP *dib, fi_handle handle, int page, int flags, void
 		
 		assert(sizeof(ex) == 495);
 		ex.extension_size = sizeof(ex);
-		ex.postage_stamp_offset = extension_offset + ex.extension_size + 0 /*< no Scan Line Table*/;
+		ex.postage_stamp_offset = (DWORD)(extension_offset + ex.extension_size + 0 /*< no Scan Line Table*/);
 		ex.attributes_type = FreeImage_GetBPP(dib) == 32 ? 3 /*< useful Alpha channel data*/ : 0 /*< no Alpha data*/;
 		
 #ifdef FREEIMAGE_BIGENDIAN
@@ -1566,7 +1568,7 @@ Save(FreeImageIO *io, FIBITMAP *dib, fi_handle handle, int page, int flags, void
 	// write the footer
 	
 	TGAFOOTER footer;
-	footer.extension_offset = extension_offset;
+	footer.extension_offset = (DWORD)extension_offset;
 	footer.developer_offset = 0;
 	strcpy(footer.signature, "TRUEVISION-XFILE.");
 	

@@ -1,6 +1,6 @@
 /* -*- C++ -*-
  * File: libraw_datastream.cpp
- * Copyright 2008-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2008-2025 LibRaw LLC (info@libraw.org)
  *
  * LibRaw C++ interface (implementation)
 
@@ -27,11 +27,6 @@
 #include "libraw/libraw_types.h"
 #include "libraw/libraw_datastream.h"
 #include <sys/stat.h>
-#ifdef USE_JASPER
-#include <jasper/jasper.h> /* Decode RED camera movies */
-#else
-#define NO_JASPER
-#endif
 #ifdef USE_JPEG
 #include <jpeglib.h>
 #include <jerror.h>
@@ -156,20 +151,12 @@ int LibRaw_abstract_datastream::jpeg_src(void *jpegdata)
 #ifndef LIBRAW_NO_IOSTREAMS_DATASTREAM
 // == LibRaw_file_datastream ==
 
-LibRaw_file_datastream::~LibRaw_file_datastream()
-{
-  if (jas_file)
-    fclose(jas_file);
-}
-
 LibRaw_file_datastream::LibRaw_file_datastream(const char *fname)
     : filename(fname), _fsize(0)
 #ifdef LIBRAW_WIN32_UNICODEPATHS
       ,
       wfilename()
 #endif
-      ,
-      jas_file(NULL)
 {
   if (filename.size() > 0)
   {
@@ -200,7 +187,7 @@ LibRaw_file_datastream::LibRaw_file_datastream(const char *fname)
 }
 #ifdef LIBRAW_WIN32_UNICODEPATHS
 LibRaw_file_datastream::LibRaw_file_datastream(const wchar_t *fname)
-    : filename(), wfilename(fname), jas_file(NULL), _fsize(0)
+    : filename(), wfilename(fname), _fsize(0)
 {
   if (wfilename.size() > 0)
   {
@@ -330,26 +317,6 @@ const char *LibRaw_file_datastream::fname()
 
 #undef LR_STREAM_CHK
 
-#ifdef LIBRAW_OLD_VIDEO_SUPPORT
-void *LibRaw_file_datastream::make_jas_stream()
-{
-#ifdef NO_JASPER
-  return NULL;
-#else
-#ifdef LIBRAW_WIN32_UNICODEPATHS
-  if (wfname())
-  {
-    jas_file = _wfopen(wfname(), L"rb");
-    return jas_stream_fdopen(fileno(jas_file), "rb");
-  }
-  else
-#endif
-  {
-    return jas_stream_fopen(fname(), "rb");
-  }
-#endif
-}
-#endif
 #endif
 
 // == LibRaw_buffer_datastream
@@ -450,12 +417,15 @@ char *LibRaw_buffer_datastream::gets(char *s, int sz)
 int LibRaw_buffer_datastream::scanf_one(const char *fmt, void *val)
 {
   int scanf_res;
-  if (streampos > streamsize)
+  if (streampos > streamsize-24) // we assume at least 24 bytes in buffer, same assumption as in bigfile buffered datastream
     return 0;
+  char scanf_buffer[25];
+  memcpy(scanf_buffer, buf + streampos, 24);
+  scanf_buffer[24] = 0;
 #ifndef WIN32SECURECALLS
-  scanf_res = sscanf((char *)(buf + streampos), fmt, val);
+  scanf_res = sscanf(scanf_buffer, fmt, val);
 #else
-  scanf_res = sscanf_s((char *)(buf + streampos), fmt, val);
+  scanf_res = sscanf_s(scanf_buffer, fmt, val);
 #endif
   if (scanf_res > 0)
   {
@@ -478,16 +448,6 @@ int LibRaw_buffer_datastream::eof()
 }
 int LibRaw_buffer_datastream::valid() { return buf ? 1 : 0; }
 
-#ifdef LIBRAW_OLD_VIDEO_SUPPORT
-void *LibRaw_buffer_datastream::make_jas_stream()
-{
-#ifdef NO_JASPER
-  return NULL;
-#else
-  return jas_stream_memopen((char *)buf + streampos, streamsize - streampos);
-#endif
-}
-#endif
 
 int LibRaw_buffer_datastream::jpeg_src(void *jpegdata)
 {
@@ -599,6 +559,8 @@ int LibRaw_bigfile_datastream::seek(INT64 o, int whence)
 #else
   return fseek(f, (long)o, whence);
 #endif
+#elif (defined(__ANDROID__) && __ANDROID_API__ < 24)
+  return fseek(f, o, whence);
 #else
   return fseeko(f, o, whence);
 #endif
@@ -613,6 +575,8 @@ INT64 LibRaw_bigfile_datastream::tell()
 #else
   return ftell(f);
 #endif
+#elif (defined(__ANDROID__) && __ANDROID_API__ < 24)
+  return ftell(f);
 #else
   return ftello(f);
 #endif
@@ -641,17 +605,6 @@ const char *LibRaw_bigfile_datastream::fname()
 {
   return filename.size() > 0 ? filename.c_str() : NULL;
 }
-
-#ifdef LIBRAW_OLD_VIDEO_SUPPORT
-void *LibRaw_bigfile_datastream::make_jas_stream()
-{
-#ifdef NO_JASPER
-  return NULL;
-#else
-  return jas_stream_fdopen(fileno(f), "rb");
-#endif
-}
-#endif
 
 // == LibRaw_windows_datastream
 #ifdef LIBRAW_WIN32_CALLS
@@ -820,16 +773,6 @@ const char *LibRaw_bigfile_buffered_datastream::fname()
     return filename.size() > 0 ? filename.c_str() : NULL;
 }
 
-#ifdef LIBRAW_OLD_VIDEO_SUPPORT
-void *LibRaw_bigfile_buffered_datastream::make_jas_stream()
-{
-#ifdef NO_JASPER
-    return NULL;
-#else
-    return NULL;
-#endif
-}
-#endif
 
 INT64 LibRaw_bigfile_buffered_datastream::readAt(void *ptr, size_t size, INT64 off)
 {
@@ -840,9 +783,11 @@ INT64 LibRaw_bigfile_buffered_datastream::readAt(void *ptr, size_t size, INT64 o
     memset(&olap, 0, sizeof(olap));
     olap.Offset = off & 0xffffffff;
     olap.OffsetHigh = off >> 32;
-    if (ReadFile(fhandle, ptr, nNumberOfBytesToRead, &NumberOfBytesRead, &olap))
-        return NumberOfBytesRead;
-    else
+	if (ReadFile(fhandle, ptr, nNumberOfBytesToRead, &NumberOfBytesRead, &olap))
+		return NumberOfBytesRead;
+	else if (NumberOfBytesRead > 0)
+		return NumberOfBytesRead;
+	else
         return 0;
 }
 
@@ -965,14 +910,14 @@ char *LibRaw_bigfile_buffered_datastream::gets(char *s, int sz)
     if (contains >= sz)
     {
         unsigned char *buf = iobuffers[bufindex].data() + (_fpos - iobuffers[bufindex]._bstart);
-        int streampos = 0;
-        int streamsize = contains;
+        INT64 streampos = 0;
+        INT64 streamsize = contains;
         unsigned char *str = (unsigned char *)s;
         unsigned char *psrc, *pdest;
         psrc = buf + streampos;
         pdest = str;
 
-        while ((size_t(psrc - buf) < streamsize) && ((pdest - str) < sz-1)) // sz-1: to append \0
+        while ((INT64(psrc - buf) < streamsize) && ((pdest - str) < INT64(sz)-1)) // sz-1: to append \0
         {
             *pdest = *psrc;
             if (*psrc == '\n')
@@ -980,7 +925,7 @@ char *LibRaw_bigfile_buffered_datastream::gets(char *s, int sz)
             psrc++;
             pdest++;
         }
-        if (size_t(psrc - buf) < streamsize)
+        if (INT64(psrc - buf) < streamsize)
             psrc++;
         if ((pdest - str) < sz - 1)
             *(++pdest) = 0;
@@ -1016,8 +961,8 @@ int LibRaw_bigfile_buffered_datastream::scanf_one(const char *fmt, void *val)
     if (contains >= 24)
     {
         unsigned char *bstart = iobuffers[bufindex].data() + (_fpos - iobuffers[bufindex]._bstart);
-        int streampos = 0;
-        int streamsize = contains;
+        INT64 streampos = 0;
+        INT64 streamsize = contains;
         int
 #ifndef WIN32SECURECALLS
             scanf_res = sscanf((char *)(bstart), fmt, val);

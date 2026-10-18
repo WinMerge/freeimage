@@ -1,7 +1,7 @@
 #ifndef OPJ_CONFIG_PRIVATE_H
 #define OPJ_CONFIG_PRIVATE_H
 
-#define OPJ_PACKAGE_VERSION "2.0.0"
+#define OPJ_PACKAGE_VERSION "2.5.4"
 
 /**
 Some versions of gcc may have BYTE_ORDER or __BYTE_ORDER defined

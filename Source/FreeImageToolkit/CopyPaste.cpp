@@ -3,12 +3,14 @@
 //
 // - Floris van den Berg (flvdberg@wxs.nl)
 // - Alexander Dymerets (sashad@te.net.ua)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Manfred Tausch (manfred.tausch@t-online.de)
 // - Riley McNiff (rmcniff@marexgroup.com)
 // - Carsten Klein (cklein05@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES

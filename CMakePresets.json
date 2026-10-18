@@ -1,0 +1,56 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "vs2022",
+            "displayName": "Visual Studio 2022",
+            "description": "Generates a Visual Studio 2022 solution under build-vs2022/",
+            "generator": "Visual Studio 17 2022",
+            "binaryDir": "${sourceDir}/build-vs2022",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "BUILD_TESTS": "ON"
+            }
+        },
+        {
+            "name": "vs2026",
+            "displayName": "Visual Studio 2026",
+            "description": "Generates a Visual Studio 2026 solution under build-vs2026/. Needs CMake 4.2+ and a Visual Studio 2026 install.",
+            "generator": "Visual Studio 18 2026",
+            "binaryDir": "${sourceDir}/build-vs2026",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "BUILD_TESTS": "ON"
+            }
+        },
+        {
+            "name": "ninja-msvc",
+            "displayName": "Ninja (MSVC)",
+            "description": "Builds with cl.exe via Ninja under build-ninja-msvc/ - run from a Developer Command Prompt/PowerShell (or after vcvarsall.bat) so cl.exe is on PATH.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build-ninja-msvc",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "BUILD_TESTS": "ON",
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        }
+    ]
+}

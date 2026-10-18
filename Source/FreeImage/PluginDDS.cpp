@@ -2,11 +2,13 @@
 // DDS Loader
 //
 // Design and implementation by
-// - Volker Gärtner (volkerg@gmx.at)
+// - Volker GÃ¤rtner (volkerg@gmx.at)
 // - Sherman Wilcox
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -356,14 +358,6 @@ SwapHeader(DDSHEADER *header) {
 	for(int i=0; i<11; i++) {
 		SwapLong(&header->surfaceDesc.dwReserved1[i]);
 	}
-	SwapLong(&header->surfaceDesc.ddspf.dwSize);
-	SwapLong(&header->surfaceDesc.ddspf.dwFlags);
-	SwapLong(&header->surfaceDesc.ddspf.dwFourCC);
-	SwapLong(&header->surfaceDesc.ddspf.dwRGBBitCount);
-	SwapLong(&header->surfaceDesc.ddspf.dwRBitMask);
-	SwapLong(&header->surfaceDesc.ddspf.dwGBitMask);
-	SwapLong(&header->surfaceDesc.ddspf.dwBBitMask);
-	SwapLong(&header->surfaceDesc.ddspf.dwRGBAlphaBitMask);
 	SwapLong(&header->surfaceDesc.ddsCaps.dwCaps1);
 	SwapLong(&header->surfaceDesc.ddsCaps.dwCaps2);
 	SwapLong(&header->surfaceDesc.ddsCaps.dwReserved[0]);
@@ -698,8 +692,8 @@ LoadDXT_Helper(FreeImageIO *io, fi_handle handle, FIBITMAP *dib, int width, int 
 		return;
 	}
 
-	const int widthTrimmed = (width & ~3);
-	const int heightTrimmed = (height & ~3);
+	const int widthTrimmed = (int) width & ~3;
+	const int heightTrimmed = (int) height & ~3;
 	const int widthRest = (int) width & 3;
 	const int heightRest = (int) height & 3;
 	const int inputLine = (width + 3) / 4;
@@ -754,7 +748,10 @@ LoadDXT_Helper(FreeImageIO *io, fi_handle handle, FIBITMAP *dib, int width, int 
 */
 static FIBITMAP *
 LoadDXT(int decoder_type, const DDSURFACEDESC2 *desc, FreeImageIO *io, fi_handle handle) {
-	// get image size, rounded to 32-bit
+	// get image size - LoadDXT_Helper() handles non-multiple-of-4 dimensions
+	// itself (widthRest/heightRest), so don't truncate them away here: doing
+	// so silently cropped up to 3 pixels off the width/height of any DXT
+	// image whose declared dimensions weren't already a multiple of 4.
 	int width = (int)desc->dwWidth;
 	int height = (int)desc->dwHeight;
 

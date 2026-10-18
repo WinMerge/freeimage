@@ -3,12 +3,14 @@
 //
 // Design and implementation by
 // - Floris van den Berg (flvdberg@wxs.nl)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // Contributors:
 // - see changes log named 'Whatsnew.txt', see header of each .h and .cpp file
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -30,7 +32,7 @@
 
 #define FREEIMAGE_MAJOR_VERSION   3
 #define FREEIMAGE_MINOR_VERSION   19
-#define FREEIMAGE_RELEASE_SERIAL  0
+#define FREEIMAGE_RELEASE_SERIAL  25
 
 // Compiler options ---------------------------------------------------------
 
@@ -147,7 +149,7 @@ FI_STRUCT (FIMULTIBITMAP) { void *data; };
 #define SEEK_END  2
 #endif
 
-#ifndef _MSC_VER
+#if !defined(_MSC_VER) || _MSC_VER >= 1800
     // define portable types for 32-bit / 64-bit OS
     #include <inttypes.h>
     #ifndef BOOL
@@ -172,7 +174,7 @@ FI_STRUCT (FIMULTIBITMAP) { void *data; };
         #define UINT64 uint64_t
     #endif
 #else
-    // MS is not C99 ISO compliant
+    // MSVC older than VS 2013 is not C99 ISO compliant
     #ifndef BOOL
         #define BOOL long
     #endif
@@ -447,7 +449,10 @@ FI_ENUM(FREE_IMAGE_FORMAT) {
 	FIF_PICT	= 33,
 	FIF_RAW		= 34,
 	FIF_WEBP	= 35,
-	FIF_JXR		= 36
+	FIF_JXR		= 36,
+	FIF_HEIF	= 37,
+	FIF_AVIF	= 38,
+	FIF_JPEGXL	= 39
 };
 
 /** Image type used in FreeImage.
@@ -521,7 +526,9 @@ Constants used in FreeImage_ToneMapping.
 FI_ENUM(FREE_IMAGE_TMO) {
     FITMO_DRAGO03	 = 0,	//! Adaptive logarithmic mapping (F. Drago, 2003)
 	FITMO_REINHARD05 = 1,	//! Dynamic range reduction inspired by photoreceptor physiology (E. Reinhard, 2005)
-	FITMO_FATTAL02	 = 2	//! Gradient domain high dynamic range compression (R. Fattal, 2002)
+	FITMO_FATTAL02	 = 2,	//! Gradient domain high dynamic range compression (R. Fattal, 2002)
+    FITMO_CLAMP = 3,
+    FITMO_LINEAR = 4
 };
 
 /** Upsampling / downsampling filters. 
@@ -694,6 +701,9 @@ typedef void (DLL_CALLCONV *FI_InitProc)(Plugin *plugin, int format_id);
 
 // Load / Save flag constants -----------------------------------------------
 
+// HEIF/AVIF saving: quality 1..100 (0 defaults to 90); optional lossless.
+#define HEIF_LOSSLESS 0x100
+#define JXL_LOSSLESS 0x100
 #define FIF_LOAD_NOPIXELS 0x8000	//! loading: load the image header only (not supported by all plugins, default to full loading)
 
 #define BMP_DEFAULT         0
@@ -820,6 +830,16 @@ DLL_API void DLL_CALLCONV FreeImage_DeInitialise(void);
 
 // Version routines ---------------------------------------------------------
 
+// Additive diagnostics. Borrowed strings remain valid for library lifetime.
+// A null version means unknown; JPEG's compiled field reports API level.
+typedef struct FI_DEPENDENCY_INFO {
+    const char *name;
+    const char *compiled_version;
+    const char *runtime_version;
+    BOOL system_library;
+} FI_DEPENDENCY_INFO;
+DLL_API unsigned DLL_CALLCONV FreeImage_GetDependenciesCount(void);
+DLL_API BOOL DLL_CALLCONV FreeImage_GetDependencyInfo(unsigned index, FI_DEPENDENCY_INFO *info);
 DLL_API const char *DLL_CALLCONV FreeImage_GetVersion(void);
 DLL_API const char *DLL_CALLCONV FreeImage_GetCopyrightMessage(void);
 
@@ -892,6 +912,8 @@ DLL_API BOOL DLL_CALLCONV FreeImage_FIFSupportsNoPixels(FREE_IMAGE_FORMAT fif);
 // Multipaging interface ----------------------------------------------------
 
 DLL_API FIMULTIBITMAP * DLL_CALLCONV FreeImage_OpenMultiBitmap(FREE_IMAGE_FORMAT fif, const char *filename, BOOL create_new, BOOL read_only, BOOL keep_cache_in_memory FI_DEFAULT(FALSE), int flags FI_DEFAULT(0));
+// Windows Unicode path variant; returns NULL on other platforms.
+DLL_API FIMULTIBITMAP * DLL_CALLCONV FreeImage_OpenMultiBitmapU(FREE_IMAGE_FORMAT fif, const wchar_t *filename, BOOL create_new, BOOL read_only, BOOL keep_cache_in_memory FI_DEFAULT(FALSE), int flags FI_DEFAULT(0));
 DLL_API FIMULTIBITMAP * DLL_CALLCONV FreeImage_OpenMultiBitmapFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handle, int flags FI_DEFAULT(0));
 DLL_API BOOL DLL_CALLCONV FreeImage_SaveMultiBitmapToHandle(FREE_IMAGE_FORMAT fif, FIMULTIBITMAP *bitmap, FreeImageIO *io, fi_handle handle, int flags FI_DEFAULT(0));
 DLL_API BOOL DLL_CALLCONV FreeImage_CloseMultiBitmap(FIMULTIBITMAP *bitmap, int flags FI_DEFAULT(0));
@@ -948,6 +970,7 @@ DLL_API unsigned DLL_CALLCONV FreeImage_GetPitch(FIBITMAP *dib);
 DLL_API unsigned DLL_CALLCONV FreeImage_GetDIBSize(FIBITMAP *dib);
 DLL_API unsigned DLL_CALLCONV FreeImage_GetMemorySize(FIBITMAP *dib);
 DLL_API RGBQUAD *DLL_CALLCONV FreeImage_GetPalette(FIBITMAP *dib);
+DLL_API unsigned DLL_CALLCONV FreeImage_GetChannelsNumber(FIBITMAP *dib);
 
 DLL_API unsigned DLL_CALLCONV FreeImage_GetDotsPerMeterX(FIBITMAP *dib);
 DLL_API unsigned DLL_CALLCONV FreeImage_GetDotsPerMeterY(FIBITMAP *dib);
@@ -1055,6 +1078,12 @@ DLL_API FIBITMAP *DLL_CALLCONV FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE
 
 // Tone mapping operators ---------------------------------------------------
 
+// Analysis supports gray8, RGB24/RGBA32, UINT16/RGB16/RGBA16 and FLOAT/DOUBLE/RGBF/RGBAF.
+DLL_API BOOL DLL_CALLCONV FreeImage_FindMinMax(FIBITMAP *dib, double *minimum, double *maximum, void **min_pixel FI_DEFAULT(NULL), void **max_pixel FI_DEFAULT(NULL));
+DLL_API BOOL DLL_CALLCONV FreeImage_FindMinMaxValue(FIBITMAP *dib, void *minimum, void *maximum);
+DLL_API FIBITMAP * DLL_CALLCONV FreeImage_TmoClamp(FIBITMAP *src, double maximum FI_DEFAULT(0));
+DLL_API FIBITMAP * DLL_CALLCONV FreeImage_TmoLinear(FIBITMAP *src, double maximum FI_DEFAULT(0));
+DLL_API BOOL DLL_CALLCONV FreeImage_GetHistogramEx(FIBITMAP *dib, DWORD *histogram, unsigned bins, double minimum, double maximum, FREE_IMAGE_COLOR_CHANNEL channel FI_DEFAULT(FICC_RGB));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_ToneMapping(FIBITMAP *dib, FREE_IMAGE_TMO tmo, double first_param FI_DEFAULT(0), double second_param FI_DEFAULT(0));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_TmoDrago03(FIBITMAP *src, double gamma FI_DEFAULT(2.2), double exposure FI_DEFAULT(0));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_TmoReinhard05(FIBITMAP *src, double intensity FI_DEFAULT(0), double contrast FI_DEFAULT(0));

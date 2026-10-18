@@ -1,331 +1,535 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2005-2012, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
 
 //-----------------------------------------------------------------------------
 //
-//	class Task, class ThreadPool, class TaskGroup
+//  class Task, class ThreadPool, class TaskGroup
 //
 //-----------------------------------------------------------------------------
 
-#include "IlmThread.h"
-#include "IlmThreadMutex.h"
-#include "IlmThreadSemaphore.h"
 #include "IlmThreadPool.h"
 #include "Iex.h"
-#include <list>
+#include "IlmThread.h"
+#include "IlmThreadSemaphore.h"
 
-using namespace std;
+#include <atomic>
+#include <limits>
+#include <memory>
+#include <mutex>
+#include <thread>
+#include <vector>
+
+#if (defined(_WIN32) || defined(_WIN64))
+#    include <windows.h>
+#else
+#    include <unistd.h>
+#endif
+
+#if ILMTHREAD_THREADING_ENABLED
+#    define ENABLE_THREADING
+#    if ILMTHREAD_USE_TBB
+#        include <oneapi/tbb/task_arena.h>
+using namespace oneapi;
+#    endif
+#endif
+
+#if defined(__cpp_lib_atomic_shared_ptr) &&                                \
+    (__cpp_lib_atomic_shared_ptr >= 201711L)
+#    define ILMTHREAD_HAVE_ATOMIC_SHARED_PTR
+#endif
 
 ILMTHREAD_INTERNAL_NAMESPACE_SOURCE_ENTER
-namespace {
 
-class WorkerThread: public Thread
+namespace
 {
-  public:
 
-    WorkerThread (ThreadPool::Data* data);
+static inline void
+handleProcessTask (Task* task)
+{
+    if (task)
+    {
+        TaskGroup* taskGroup = task->group ();
 
-    virtual void	run ();
-    
-  private:
+        task->execute ();
 
-    ThreadPool::Data *	_data;
+        // kill the task prior to notifying the group
+        // such that any internal reference-based
+        // semantics will be handled prior to
+        // the task group destructor letting it out
+        // of the scope of those references
+        delete task;
+
+        if (taskGroup) taskGroup->finishOneTask ();
+    }
+}
+
+#ifdef ENABLE_THREADING
+struct DefaultThreadPoolData
+{
+    Semaphore          _taskSemaphore; // threads wait on this for ready tasks
+    mutable std::mutex _taskMutex;     // mutual exclusion for the tasks list
+    std::vector<Task*> _tasks;         // the list of tasks to execute
+
+    mutable std::mutex       _threadMutex; // mutual exclusion for threads list
+    std::vector<std::thread> _threads;     // the list of all threads
+
+    std::atomic<int>  _threadCount;
+    std::atomic<bool> _stopping;
+
+    inline bool stopped () const
+    {
+        return _stopping.load (std::memory_order_relaxed);
+    }
+
+    inline void stop () { _stopping = true; }
+
+    inline void resetAtomics ()
+    {
+        _threadCount = 0;
+        _stopping    = false;
+    }
 };
+#endif
 
-} //namespace
+} // namespace
 
+#ifdef ENABLE_THREADING
 
 struct TaskGroup::Data
 {
-     Data ();
+    Data ();
     ~Data ();
-    
-    void	addTask () ;
-    void	removeTask ();
-    
-    Semaphore	isEmpty;        // used to signal that the taskgroup is empty
-    int         numPending;     // number of pending tasks to still execute
-    Mutex       dtorMutex;      // used to work around the glibc bug:
-                                // http://sources.redhat.com/bugzilla/show_bug.cgi?id=12674
-};
+    Data (const Data&)            = delete;
+    Data& operator= (const Data&) = delete;
+    Data (Data&&)                 = delete;
+    Data& operator= (Data&&)      = delete;
 
+    void waitForEmpty ();
+
+    void addTask ();
+    void removeTask ();
+
+    std::atomic<int> numPending;
+    std::atomic<int> inFlight;
+    Semaphore        isEmpty; // used to signal that the taskgroup is empty
+};
 
 struct ThreadPool::Data
 {
-     Data ();
-    ~Data();
-    
-    void	finish ();
-    bool	stopped () const;
-    void	stop ();
+    using ProviderPtr = std::shared_ptr<ThreadPoolProvider>;
 
-    Semaphore taskSemaphore;        // threads wait on this for ready tasks
-    Mutex taskMutex;                // mutual exclusion for the tasks list
-    list<Task*> tasks;              // the list of tasks to execute
-    size_t numTasks;                // fast access to list size
-                                    //   (list::size() can be O(n))
+    Data ();
+    Data (ThreadPoolProvider *p);
+    ~Data ();
+    Data (const Data&)            = delete;
+    Data& operator= (const Data&) = delete;
 
-    Semaphore threadSemaphore;      // signaled when a thread starts executing
-    Mutex threadMutex;              // mutual exclusion for threads list
-    list<WorkerThread*> threads;    // the list of all threads
-    size_t numThreads;              // fast access to list size
-    
-    bool stopping;                  // flag indicating whether to stop threads
-    Mutex stopMutex;                // mutual exclusion for stopping flag
+#    ifdef ILMTHREAD_HAVE_ATOMIC_SHARED_PTR
+    Data (Data&& other) noexcept
+    {
+        ProviderPtr p =
+            other._provider.exchange (ProviderPtr{}, std::memory_order_acq_rel);
+        _provider.store (p, std::memory_order_release);
+    }
+#    else
+    Data (Data&&) = default;
+#    endif
+
+    Data& operator= (Data&&) = delete;
+
+    ProviderPtr getProvider () const
+    {
+#    ifdef ILMTHREAD_HAVE_ATOMIC_SHARED_PTR
+        return _provider.load (std::memory_order_acquire);
+#    else
+        return std::atomic_load (&_provider);
+#    endif
+    }
+
+    void setProvider (ProviderPtr provider)
+    {
+#    ifdef ILMTHREAD_HAVE_ATOMIC_SHARED_PTR
+        ProviderPtr curp =
+            _provider.exchange (provider, std::memory_order_acq_rel);
+#    else
+        ProviderPtr curp = std::atomic_exchange (&_provider, provider);
+#    endif
+        if (curp && curp != provider) curp->finish ();
+    }
+
+#    ifdef ILMTHREAD_HAVE_ATOMIC_SHARED_PTR
+    std::atomic<ProviderPtr> _provider;
+#    else
+    ProviderPtr _provider;
+#    endif
 };
 
-
-
-//
-// class WorkerThread
-//
-
-WorkerThread::WorkerThread (ThreadPool::Data* data):
-    _data (data)
+namespace
 {
-    start();
+
+#if ILMTHREAD_USE_TBB
+class TBBThreadPoolProvider : public ThreadPoolProvider
+{
+public:
+    TBBThreadPoolProvider (int count) { setNumThreads (count); }
+    TBBThreadPoolProvider (const TBBThreadPoolProvider&) = delete;
+    TBBThreadPoolProvider&
+    operator= (const TBBThreadPoolProvider&)                       = delete;
+    TBBThreadPoolProvider (TBBThreadPoolProvider&&)            = delete;
+    TBBThreadPoolProvider& operator= (TBBThreadPoolProvider&&) = delete;
+    ~TBBThreadPoolProvider () noexcept override
+    {
+        finish ();
+    }
+
+    int numThreads () const override
+    {
+        return _arena ? _arena->max_concurrency () : 1;
+    }
+    void setNumThreads (int count) override
+    {
+        if (_arena)
+            _arena->terminate ();
+        _arena.reset ();
+
+        if (count > 1)
+        {
+            _arena = std::make_unique<tbb::task_arena> (count);
+            _arena->initialize ();
+        }
+    }
+
+    void addTask (Task* task) override
+    {
+        if (_arena)
+        {
+            _arena->enqueue ([=] ()
+            {
+                handleProcessTask (task);
+            });
+        }
+        else
+            handleProcessTask (task);
+    }
+
+    void finish () override
+    {
+        if (_arena)
+            _arena->terminate ();
+        _arena.reset();
+    }
+private:
+
+    std::unique_ptr<tbb::task_arena> _arena;
+};
+#endif
+
+//
+// class DefaultThreadPoolProvider
+//
+class DefaultThreadPoolProvider : public ThreadPoolProvider
+{
+public:
+    DefaultThreadPoolProvider (int count);
+    DefaultThreadPoolProvider (const DefaultThreadPoolProvider&) = delete;
+    DefaultThreadPoolProvider&
+    operator= (const DefaultThreadPoolProvider&)                       = delete;
+    DefaultThreadPoolProvider (DefaultThreadPoolProvider&&)            = delete;
+    DefaultThreadPoolProvider& operator= (DefaultThreadPoolProvider&&) = delete;
+    ~DefaultThreadPoolProvider () override;
+
+    int  numThreads () const override;
+    void setNumThreads (int count) override;
+    void addTask (Task* task) override;
+
+    void finish () override;
+
+private:
+    void lockedFinish ();
+    void threadLoop (std::shared_ptr<DefaultThreadPoolData> d);
+
+    std::shared_ptr<DefaultThreadPoolData> _data;
+};
+
+DefaultThreadPoolProvider::DefaultThreadPoolProvider (int count)
+    : _data (std::make_shared<DefaultThreadPoolData> ())
+{
+    _data->resetAtomics ();
+    setNumThreads (count);
 }
 
+DefaultThreadPoolProvider::~DefaultThreadPoolProvider ()
+{}
+
+int
+DefaultThreadPoolProvider::numThreads () const
+{
+    return _data->_threadCount.load ();
+}
 
 void
-WorkerThread::run ()
+DefaultThreadPoolProvider::setNumThreads (int count)
 {
-    //
-    // Signal that the thread has started executing
-    //
+    // since we're a private class, the thread pool won't call us if
+    // we aren't changing size so no need to check that...
 
-    _data->threadSemaphore.post();
+    std::lock_guard<std::mutex> lock (_data->_threadMutex);
 
+    size_t curThreads = _data->_threads.size ();
+    size_t nToAdd     = static_cast<size_t> (count);
+
+    if (nToAdd < curThreads)
+    {
+        // no easy way to only shutdown the n threads at the end of
+        // the vector (well, really, guaranteeing they are the ones to
+        // be woken up), so just kill all of the threads
+        lockedFinish ();
+        curThreads = 0;
+    }
+
+    _data->_threads.resize (nToAdd);
+    for (size_t i = curThreads; i < nToAdd; ++i)
+    {
+        _data->_threads[i] =
+            std::thread (&DefaultThreadPoolProvider::threadLoop, this, _data);
+    }
+    _data->_threadCount = static_cast<int> (_data->_threads.size ());
+}
+
+void
+DefaultThreadPoolProvider::addTask (Task* task)
+{
+    // the thread pool will kill us and switch to a null provider
+    // if the thread count is set to 0, so we can always
+    // go ahead and lock and assume we have a thread to do the
+    // processing
+    {
+        std::lock_guard<std::mutex> taskLock (_data->_taskMutex);
+
+        //
+        // Push the new task into the FIFO
+        //
+        _data->_tasks.push_back (task);
+    }
+
+    //
+    // Signal that we have a new task to process
+    //
+    _data->_taskSemaphore.post ();
+}
+
+void
+DefaultThreadPoolProvider::finish ()
+{
+    std::lock_guard<std::mutex> lock (_data->_threadMutex);
+
+    lockedFinish ();
+}
+
+void
+DefaultThreadPoolProvider::lockedFinish ()
+{
+    _data->stop ();
+
+    //
+    // Signal enough times to allow all threads to stop.
+    //
+    // NB: we must do this as many times as we have threads.
+    //
+    // If there is still work in the queue, or this call happens "too
+    // quickly", threads will not be waiting on the semaphore, so we
+    // need to ensure the semaphore is at a count equal to the amount
+    // of work left plus the number of threads to ensure exit of a
+    // thread. There can be threads in a few states:
+    //   - still starting up (successive calls to setNumThreads)
+    //   - in the middle of processing a task / looping
+    //   - waiting in the semaphore
+    size_t curT = _data->_threads.size ();
+    for (size_t i = 0; i != curT; ++i)
+        _data->_taskSemaphore.post ();
+
+    //
+    // We should not need to check joinability, they should all, by
+    // definition, be joinable (assuming normal start)
+    //
+    for (size_t i = 0; i != curT; ++i)
+    {
+        // This isn't quite right in that the thread may have actually
+        // be in an exited / signalled state (needing the
+        // WaitForSingleObject call), and so already have an exit code
+        // (I think, but the docs are vague), but if we don't do the
+        // join, the stl thread seems to then throw an exception. The
+        // join should just return invalid handle and continue, and is
+        // more of a windows bug... except maybe someone needs to work
+        // around it...
+        //#    ifdef TEST_FOR_WIN_THREAD_STATUS
+        //
+        //        // per OIIO issue #2038, on exit / dll unload, windows may
+        //        // kill the thread, double check that it is still active prior
+        //        // to joining.
+        //        DWORD tstatus;
+        //        if (GetExitCodeThread (_threads[i].native_handle (), &tstatus))
+        //        {
+        //            if (tstatus != STILL_ACTIVE) { continue; }
+        //        }
+        //#    endif
+
+        _data->_threads[i].join ();
+    }
+
+    _data->_threads.clear ();
+
+    _data->resetAtomics ();
+}
+
+void
+DefaultThreadPoolProvider::threadLoop (
+    std::shared_ptr<DefaultThreadPoolData> data)
+{
     while (true)
     {
-	//
+        //
         // Wait for a task to become available
-	//
+        //
 
-        _data->taskSemaphore.wait();
+        data->_taskSemaphore.wait ();
 
         {
-            Lock taskLock (_data->taskMutex);
-    
-	    //
+            std::unique_lock<std::mutex> taskLock (data->_taskMutex);
+
+            //
             // If there is a task pending, pop off the next task in the FIFO
-	    //
+            //
 
-            if (_data->numTasks > 0)
+            if (!data->_tasks.empty ())
             {
-                Task* task = _data->tasks.front();
-		TaskGroup* taskGroup = task->group();
-                _data->tasks.pop_front();
-                _data->numTasks--;
+                Task* task = data->_tasks.back ();
+                data->_tasks.pop_back ();
 
-                taskLock.release();
-                task->execute();
-                taskLock.acquire();
+                // release the mutex while we process
+                taskLock.unlock ();
 
-                delete task;
-                taskGroup->_data->removeTask();
+                handleProcessTask (task);
+
+                // do not need to reacquire the lock at all since we
+                // will just loop around, pull any other task
             }
-            else if (_data->stopped())
-	    {
-                break;
-	    }
+            else if (data->stopped ()) { break; }
         }
     }
 }
 
+} //namespace
 
 //
 // struct TaskGroup::Data
 //
 
-TaskGroup::Data::Data (): isEmpty (1), numPending (0)
-{
-    // empty
-}
-
+TaskGroup::Data::Data ()
+    : numPending (0), inFlight (0), isEmpty (1)
+{}
 
 TaskGroup::Data::~Data ()
+{}
+
+void
+TaskGroup::Data::waitForEmpty ()
 {
     //
     // A TaskGroup acts like an "inverted" semaphore: if the count
-    // is above 0 then waiting on the taskgroup will block.  This
+    // is above 0 then waiting on the taskgroup will block.  The
     // destructor waits until the taskgroup is empty before returning.
     //
 
     isEmpty.wait ();
 
-    // Alas, given the current bug in glibc we need a secondary
-    // syncronisation primitive here to account for the fact that
-    // destructing the isEmpty Semaphore in this thread can cause
-    // an error for a separate thread that is issuing the post() call.
-    // We are entitled to destruct the semaphore at this point, however,
-    // that post() call attempts to access data out of the associated
-    // memory *after* it has woken the waiting threads, including this one,
-    // potentially leading to invalid memory reads.
-    // http://sources.redhat.com/bugzilla/show_bug.cgi?id=12674
-
-    Lock lock (dtorMutex);
+    // pseudo spin to wait for the notifying thread to finish the post
+    // to avoid a premature deletion of the semaphore
+    int count = 0;
+    while (inFlight.load () > 0)
+    {
+        ++count;
+        if (count > 100)
+        {
+            std::this_thread::yield ();
+            count = 0;
+        }
+    }
 }
-
 
 void
-TaskGroup::Data::addTask () 
+TaskGroup::Data::addTask ()
 {
-    //
-    // Any access to the taskgroup is protected by a mutex that is
-    // held by the threadpool.  Therefore it is safe to access
-    // numPending before we wait on the semaphore.
-    //
+    inFlight.fetch_add (1);
 
-    if (numPending++ == 0)
-	isEmpty.wait ();
+    // if we are the first task off the rank, clear the
+    // isEmpty semaphore such that the group will actually pause
+    // until the task finishes
+    if (numPending.fetch_add (1) == 0) { isEmpty.wait (); }
 }
-
 
 void
 TaskGroup::Data::removeTask ()
 {
-    // Alas, given the current bug in glibc we need a secondary
-    // syncronisation primitive here to account for the fact that
-    // destructing the isEmpty Semaphore in a separate thread can
-    // cause an error. Issuing the post call here the current libc
-    // implementation attempts to access memory *after* it has woken
-    // waiting threads.
-    // Since other threads are entitled to delete the semaphore the
-    // access to the memory location can be invalid.
-    // http://sources.redhat.com/bugzilla/show_bug.cgi?id=12674
+    // if we are the last task, notify the group we're done
+    if (numPending.fetch_sub (1) == 1) { isEmpty.post (); }
 
-    if (--numPending == 0)
-    {
-        Lock lock (dtorMutex);
-        isEmpty.post ();
-    }
+    // in theory, a background thread could actually finish a task
+    // prior to the next task being added. The fetch_add / fetch_sub
+    // logic between addTask and removeTask are fine to keep the
+    // inverted semaphore straight. All addTask must happen prior to
+    // the TaskGroup destructor.
+    //
+    // But to let the taskgroup thread waiting know we're actually
+    // finished with the last one and finished posting (the semaphore
+    // might wake up the other thread while in the middle of post) so
+    // we don't destroy the semaphore while posting to it, keep a
+    // separate counter that is modified pre / post semaphore
+    inFlight.fetch_sub (1);
 }
-    
 
 //
 // struct ThreadPool::Data
 //
 
-ThreadPool::Data::Data (): numTasks (0), numThreads (0), stopping (false)
+ThreadPool::Data::Data ()
 {
     // empty
 }
 
-
-ThreadPool::Data::~Data()
+ThreadPool::Data::Data (ThreadPoolProvider *p)
 {
-    Lock lock (threadMutex);
-    finish ();
+#    ifdef ILMTHREAD_HAVE_ATOMIC_SHARED_PTR
+    _provider.store (ProviderPtr (p), std::memory_order_release);
+#    else
+    _provider = ProviderPtr (p);
+#    endif
 }
 
-
-void
-ThreadPool::Data::finish ()
+ThreadPool::Data::~Data ()
 {
-    stop();
-
-    //
-    // Signal enough times to allow all threads to stop.
-    //
-    // Wait until all threads have started their run functions.
-    // If we do not wait before we destroy the threads then it's
-    // possible that the threads have not yet called their run
-    // functions.
-    // If this happens then the run function will be called off
-    // of an invalid object and we will crash, most likely with
-    // an error like: "pure virtual method called"
-    //
-
-    for (size_t i = 0; i < numThreads; i++)
-    {
-	taskSemaphore.post();
-	threadSemaphore.wait();
-    }
-
-    //
-    // Join all the threads
-    //
-
-    for (list<WorkerThread*>::iterator i = threads.begin();
-	 i != threads.end();
-	 ++i)
-    {
-	delete (*i);
-    }
-
-    Lock lock1 (taskMutex);
-    Lock lock2 (stopMutex);
-    threads.clear();
-    tasks.clear();
-    numThreads = 0;
-    numTasks = 0;
-    stopping = false;
+    setProvider (nullptr);
 }
 
-
-bool
-ThreadPool::Data::stopped () const
-{
-    Lock lock (stopMutex);
-    return stopping;
-}
-
-
-void
-ThreadPool::Data::stop ()
-{
-    Lock lock (stopMutex);
-    stopping = true;
-}
-
+#endif // ENABLE_THREADING
 
 //
 // class Task
 //
 
-Task::Task (TaskGroup* g): _group(g)
+Task::Task (TaskGroup* g) : _group (g)
+{
+#ifdef ENABLE_THREADING
+    if (g) g->_data->addTask ();
+#endif
+}
+
+Task::~Task ()
 {
     // empty
 }
-
-
-Task::~Task()
-{
-    // empty
-}
-
 
 TaskGroup*
 Task::group ()
@@ -333,132 +537,159 @@ Task::group ()
     return _group;
 }
 
-
-TaskGroup::TaskGroup ():
-    _data (new Data())
+TaskGroup::TaskGroup ()
+    :
+#ifdef ENABLE_THREADING
+    _data (new Data)
+#else
+    _data (nullptr)
+#endif
 {
     // empty
 }
 
-
 TaskGroup::~TaskGroup ()
 {
+#ifdef ENABLE_THREADING
+    _data->waitForEmpty ();
     delete _data;
+#endif
 }
 
+void
+TaskGroup::finishOneTask ()
+{
+#ifdef ENABLE_THREADING
+    _data->removeTask ();
+#endif
+}
+
+//
+// class ThreadPoolProvider
+//
+
+ThreadPoolProvider::ThreadPoolProvider ()
+{}
+
+ThreadPoolProvider::~ThreadPoolProvider ()
+{}
 
 //
 // class ThreadPool
 //
 
-ThreadPool::ThreadPool (unsigned nthreads):
-    _data (new Data())
+ThreadPool::ThreadPool (unsigned nthreads)
+    :
+#ifdef ENABLE_THREADING
+    _data (new Data)
+#else
+    _data (nullptr)
+#endif
 {
-    setNumThreads (nthreads);
+#ifdef ENABLE_THREADING
+    setNumThreads (static_cast<int> (nthreads));
+#endif
 }
 
+// private constructor to avoid multiple calls
+ThreadPool::ThreadPool (Data&& d)
+    :
+#ifdef ENABLE_THREADING
+    _data (new Data (std::move (d)))
+#else
+    _data (nullptr)
+#endif
+{
+}
 
 ThreadPool::~ThreadPool ()
 {
+#ifdef ENABLE_THREADING
+    // ensures any jobs / threads are finished & shutdown
+    _data->setProvider (nullptr);
     delete _data;
+#endif
 }
-
 
 int
 ThreadPool::numThreads () const
 {
-    Lock lock (_data->threadMutex);
-    return _data->numThreads;
+#ifdef ENABLE_THREADING
+    Data::ProviderPtr sp = _data->getProvider ();
+    return (sp) ? sp->numThreads () : 0;
+#else
+    return 0;
+#endif
 }
-
 
 void
 ThreadPool::setNumThreads (int count)
 {
+#ifdef ENABLE_THREADING
     if (count < 0)
-        throw IEX_INTERNAL_NAMESPACE::ArgExc ("Attempt to set the number of threads "
-			   "in a thread pool to a negative value.");
+        throw IEX_INTERNAL_NAMESPACE::ArgExc (
+            "Attempt to set the number of threads "
+            "in a thread pool to a negative value.");
 
-    //
-    // Lock access to thread list and size
-    //
-
-    Lock lock (_data->threadMutex);
-
-    if ((size_t)count > _data->numThreads)
     {
-	//
-        // Add more threads
-	//
-
-        while (_data->numThreads < (size_t)count)
+        Data::ProviderPtr sp = _data->getProvider ();
+        if (sp)
         {
-            _data->threads.push_back (new WorkerThread (_data));
-            _data->numThreads++;
+            int curT = sp->numThreads ();
+            if (curT == count) return;
+
+            if (count != 0)
+            {
+                sp->setNumThreads (count);
+                return;
+            }
         }
     }
-    else if ((size_t)count < _data->numThreads)
-    {
-	//
-	// Wait until all existing threads are finished processing,
-	// then delete all threads.
-	//
 
-        _data->finish ();
+    // either a null provider or a case where we should switch from
+    // a default provider to a null one or vice-versa
+    if (count == 0)
+        _data->setProvider (nullptr);
+    else
+        _data->setProvider (
+            std::make_shared<DefaultThreadPoolProvider> (count));
 
-	//
-        // Add in new threads
-	//
-
-        while (_data->numThreads < (size_t)count)
-        {
-            _data->threads.push_back (new WorkerThread (_data));
-            _data->numThreads++;
-        }
-    }
+#else
+    // just blindly ignore
+    (void) count;
+#endif
 }
-
 
 void
-ThreadPool::addTask (Task* task) 
+ThreadPool::setThreadProvider (ThreadPoolProvider* provider)
 {
-    //
-    // Lock the threads, needed to access numThreads
-    //
-
-    Lock lock (_data->threadMutex);
-
-    if (_data->numThreads == 0)
-    {
-        task->execute ();
-        delete task;
-    }
-    else
-    {
-	//
-        // Get exclusive access to the tasks queue
-	//
-
-        {
-            Lock taskLock (_data->taskMutex);
-
-	    //
-            // Push the new task into the FIFO
-	    //
-
-            _data->tasks.push_back (task);
-            _data->numTasks++;
-            task->group()->_data->addTask();
-        }
-        
-	//
-        // Signal that we have a new task to process
-	//
-
-        _data->taskSemaphore.post ();
-    }
+#ifdef ENABLE_THREADING
+    // contract is we take ownership and will free the provider
+    _data->setProvider (Data::ProviderPtr (provider));
+#else
+    throw IEX_INTERNAL_NAMESPACE::ArgExc (
+        "Attempt to set a thread provider on a system with threads"
+        " disabled / not available");
+#endif
 }
 
+void
+ThreadPool::addTask (Task* task)
+{
+    if (task)
+    {
+#ifdef ENABLE_THREADING
+        Data::ProviderPtr p = _data->getProvider ();
+        if (p)
+        {
+            p->addTask (task);
+            return;
+        }
+#endif
+
+        handleProcessTask (task);
+    }
+}
 
 ThreadPool&
 ThreadPool::globalThreadPool ()
@@ -466,18 +697,57 @@ ThreadPool::globalThreadPool ()
     //
     // The global thread pool
     //
-    
+#if ILMTHREAD_USE_TBB
+    // Use TBB for the global thread pool by default
+    //
+    // We do not (currently) use this as the default thread pool
+    // provider as it can easily cause recursive mutex deadlocks as
+    // TBB shares a single thread pool with multiple arenas
+    static ThreadPool gThreadPool (
+        ThreadPool::Data (
+            new TBBThreadPoolProvider (
+                tbb::this_task_arena::max_concurrency ())));
+#else
     static ThreadPool gThreadPool (0);
-
+#endif
     return gThreadPool;
 }
-
 
 void
 ThreadPool::addGlobalTask (Task* task)
 {
-    globalThreadPool().addTask (task);
+    globalThreadPool ().addTask (task);
 }
 
+unsigned
+ThreadPool::estimateThreadCountForFileIO ()
+{
+#ifdef ENABLE_THREADING
+#    if ILMTHREAD_USE_TBB
+    return tbb::this_task_arena::max_concurrency ();
+#    else
+    unsigned rv = std::thread::hardware_concurrency ();
+    // hardware concurrency is not required to work
+    if (rv == 0 ||
+        rv > static_cast<unsigned> (std::numeric_limits<int>::max ()))
+    {
+        rv = 1;
+#        if (defined(_WIN32) || defined(_WIN64))
+        SYSTEM_INFO si;
+        GetNativeSystemInfo (&si);
+
+        rv = si.dwNumberOfProcessors;
+#        else
+        // linux, bsd, and mac are fine with this
+        // other *nix should be too, right?
+        rv = sysconf (_SC_NPROCESSORS_ONLN);
+#        endif
+    }
+    return rv;
+#    endif
+#else
+    return 0;
+#endif
+}
 
 ILMTHREAD_INTERNAL_NAMESPACE_SOURCE_EXIT

@@ -1,3 +1,17 @@
+Current build
+=====================================================================
+CMake is how this tree is built with MinGW or MSYS2. See README.md.
+
+From an MSYS2 MINGW64 shell:
+
+    pacman -S mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-ninja
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+
+For Visual Studio or `cl.exe` + Ninja, use `cmake --preset vs2022` or `cmake --preset ninja-msvc` from a Developer Command Prompt (see README.md).
+
+The sections below are the legacy `Makefile.mingw` path, written for MinGW GCC 4.4.
+
 =====================================================================
 Using the FreeImage library with the MinGW Compiler Suite
 =====================================================================

@@ -1,84 +1,88 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
-
 
 #ifndef INCLUDED_IMF_COMPRESSION_H
 #define INCLUDED_IMF_COMPRESSION_H
 
 //-----------------------------------------------------------------------------
 //
-//	enum Compression
+//  enum Compression
 //
-//-----------------------------------------------------------------------------
-#include "ImfNamespace.h"
+// This file enumerates available compression methods and defines a simple API
+// to query them.
+//
+// ----------------------------------------------------------------------------
+
+#include "ImfForward.h"
+#include <string>
+
+#include "openexr_attr.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
-enum Compression
+// All available compression methods. This is a type that is not
+// easily replaced by the core C library as it is a c++ type and so
+// not easily aliased as it would need to be in the global namespace
+// (or have different names). Instead, we replicate it, but keep the
+// numbers in sync.
+enum IMF_EXPORT_ENUM Compression
 {
-    NO_COMPRESSION  = 0,	// no compression
-
-    RLE_COMPRESSION = 1,	// run length encoding
-
-    ZIPS_COMPRESSION = 2,	// zlib compression, one scan line at a time
-
-    ZIP_COMPRESSION = 3,	// zlib compression, in blocks of 16 scan lines
-
-    PIZ_COMPRESSION = 4,	// piz-based wavelet compression
-
-    PXR24_COMPRESSION = 5,	// lossy 24-bit float compression
-
-    B44_COMPRESSION = 6,	// lossy 4-by-4 pixel block compression,
-    				// fixed compression rate
-
-    B44A_COMPRESSION = 7,	// lossy 4-by-4 pixel block compression,
-    				// flat fields are compressed more
-
-    DWAA_COMPRESSION = 8,       // lossy DCT based compression, in blocks
-                                // of 32 scanlines. More efficient for partial
-                                // buffer access.
-
-    DWAB_COMPRESSION = 9,       // lossy DCT based compression, in blocks
-                                // of 256 scanlines. More efficient space
-                                // wise and faster to decode full frames
-                                // than DWAA_COMPRESSION.
-
-    NUM_COMPRESSION_METHODS	// number of different compression methods
+    NO_COMPRESSION = EXR_COMPRESSION_NONE,
+    RLE_COMPRESSION = EXR_COMPRESSION_RLE,
+    ZIPS_COMPRESSION = EXR_COMPRESSION_ZIPS,
+    ZIP_COMPRESSION = EXR_COMPRESSION_ZIP,
+    PIZ_COMPRESSION = EXR_COMPRESSION_PIZ,
+    PXR24_COMPRESSION = EXR_COMPRESSION_PXR24,
+    B44_COMPRESSION = EXR_COMPRESSION_B44,
+    B44A_COMPRESSION = EXR_COMPRESSION_B44A,
+    DWAA_COMPRESSION = EXR_COMPRESSION_DWAA,
+    DWAB_COMPRESSION = EXR_COMPRESSION_DWAB,
+    HTJ2K256_COMPRESSION = EXR_COMPRESSION_HTJ2K256,
+    HTJ2K32_COMPRESSION = EXR_COMPRESSION_HTJ2K32,
+    LJ2K_COMPRESSION = EXR_COMPRESSION_LJ2K,
+    ZSTD_COMPRESSION = EXR_COMPRESSION_ZSTD,
+    NUM_COMPRESSION_METHODS = EXR_COMPRESSION_LAST_TYPE
 };
 
-OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
+/// Returns a codec ID's short name (lowercase).
+IMF_EXPORT void getCompressionNameFromId (Compression id, std::string& name);
 
+/// Returns a codec ID's short description (lowercase).
+IMF_EXPORT void
+getCompressionDescriptionFromId (Compression id, std::string& desc);
+
+/// Returns the codec name's ID, NUM_COMPRESSION_METHODS if not found.
+IMF_EXPORT void
+getCompressionIdFromName (const std::string& name, Compression& id);
+
+/// Return true if a compression id exists.
+IMF_EXPORT bool isValidCompression (int id);
+
+/// Return a string enumerating all compression names, with a custom separator.
+IMF_EXPORT void
+getCompressionNamesString (const std::string& separator, std::string& in);
+
+/// Return the number of scan lines expected by a given compression method.
+IMF_EXPORT int getCompressionNumScanlines (Compression id);
+
+/// Return true is the compression method exists and doesn't preserves data integrity.
+IMF_EXPORT bool isLossyCompression (Compression id);
+
+/// Return true is the compression method exists and supports deep data.
+IMF_EXPORT bool isValidDeepCompression (Compression id);
+
+/// Controls the default zip compression level used. Zip is used for
+/// the 2 zip levels as well as some modes of the DWAA/B compression.
+IMF_EXPORT void setDefaultZipCompressionLevel (int level);
+
+/// Controls the default quality level for the DWA lossy compression
+IMF_EXPORT void setDefaultDwaCompressionLevel (float level);
+
+/// Controls the default quality level for the lossy HTJ2K compression
+IMF_EXPORT void setDefaultLossyHTJ2KQuality (float quality);
+
+OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 
 #endif

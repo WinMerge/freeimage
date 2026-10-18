@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
 
  LibRaw is free software; you can redistribute it and/or modify
@@ -14,6 +14,13 @@
  */
 
 #include "../../internal/libraw_cxx_defs.h"
+#include <vector>
+
+void LibRaw::dng_ycbcr_thumb_loader()
+{
+	// Placeholder: the only known camera w/ YCC previews in DNG provides broken files
+	throw LIBRAW_EXCEPTION_UNSUPPORTED_FORMAT;
+}
 
 void LibRaw::kodak_thumb_loader()
 {
@@ -106,7 +113,7 @@ void LibRaw::kodak_thumb_loader()
         dmax = C.pre_mul[c];
 
     for (c = 0; c < 3; c++)
-      scale_mul[c] = (C.pre_mul[c] / dmax) * 65535.0 / C.maximum;
+      scale_mul[c] = float((C.pre_mul[c] / dmax) * 65535. / C.maximum);
     scale_mul[3] = scale_mul[1];
 
     size_t size = S.height * S.width;
@@ -115,7 +122,7 @@ void LibRaw::kodak_thumb_loader()
       val = imgdata.image[0][i];
       if (!val)
         continue;
-      val *= scale_mul[i & 3];
+      val = int(val * scale_mul[i & 3]);
       imgdata.image[0][i] = CLIP(val);
     }
   }
@@ -127,26 +134,36 @@ void LibRaw::kodak_thumb_loader()
   int(*t_hist)[LIBRAW_HISTOGRAM_SIZE] =
       (int(*)[LIBRAW_HISTOGRAM_SIZE])calloc(sizeof(*t_hist), 4);
 
-  float out[3], out_cam[3][4] = {{2.81761312f, -1.98369181f, 0.166078627f, 0},
-                                 {-0.111855984f, 1.73688626f, -0.625030339f, 0},
-                                 {-0.0379119813f, -0.891268849f, 1.92918086f, 0}};
-
-  for (img = imgdata.image[0], row = 0; row < S.height; row++)
-    for (col = 0; col < S.width; col++, img += 4)
-    {
-      out[0] = out[1] = out[2] = 0;
-      int c;
-      for (c = 0; c < 3; c++)
+  if (imgdata.idata.maker_index == LIBRAW_CAMERAMAKER_Canon) // Skip color conversion for canon PPM tiffs
+  {
+    for (img = imgdata.image[0], row = 0; row < S.height; row++)
+      for (col = 0; col < S.width; col++, img += 4)
+        for (int c = 0; c < P1.colors; c++)
+          t_hist[c][img[c] >> 3]++;
+  }
+  else
+  {
+    float out[3], out_cam[3][4] = {{2.81761312f, -1.98369181f, 0.166078627f, 0},
+                                   {-0.111855984f, 1.73688626f, -0.625030339f, 0},
+                                   {-0.0379119813f, -0.891268849f, 1.92918086f, 0}};
+    
+	for (img = imgdata.image[0], row = 0; row < S.height; row++)
+      for (col = 0; col < S.width; col++, img += 4)
       {
-        out[0] += out_cam[0][c] * img[c];
-        out[1] += out_cam[1][c] * img[c];
-        out[2] += out_cam[2][c] * img[c];
+        out[0] = out[1] = out[2] = 0;
+        int c;
+        for (c = 0; c < 3; c++)
+        {
+          out[0] += out_cam[0][c] * img[c];
+          out[1] += out_cam[1][c] * img[c];
+          out[2] += out_cam[2][c] * img[c];
+        }
+        for (c = 0; c < 3; c++)
+          img[c] = CLIP((int)out[c]);
+        for (c = 0; c < P1.colors; c++)
+          t_hist[c][img[c] >> 3]++;
       }
-      for (c = 0; c < 3; c++)
-        img[c] = CLIP((int)out[c]);
-      for (c = 0; c < P1.colors; c++)
-        t_hist[c][img[c] >> 3]++;
-    }
+  }
 
   // from gamma_lut
   int(*save_hist)[LIBRAW_HISTOGRAM_SIZE] =
@@ -160,7 +177,7 @@ void LibRaw::kodak_thumb_loader()
   {
     int perc, val, total, t_white = 0x2000, c;
 
-    perc = S.width * S.height * 0.01; /* 99th percentile white level */
+    perc = int(S.width * S.height * 0.01f); /* 99th percentile white level */
     if (IO.fuji_width)
       perc /= 2;
     if (!((O.highlight & ~2) || O.no_auto_bright))
@@ -173,7 +190,7 @@ void LibRaw::kodak_thumb_loader()
         if (t_white < val)
           t_white = val;
       }
-    gamma_curve(O.gamm[0], O.gamm[1], 2, (t_white << 3) / O.bright);
+    gamma_curve(O.gamm[0], O.gamm[1], 2, int((t_white << 3) / O.bright));
   }
 
   libraw_internal_data.output_data.histogram = save_hist;
@@ -237,7 +254,6 @@ void LibRaw::kodak_thumb_loader()
   libraw_internal_data.unpacker_data.load_flags = s_flags;
 }
 
-// ������� thumbnail �� �����, ������ thumb_format � ������������ � ��������
 
 int LibRaw::thumbOK(INT64 maxsz)
 {
@@ -257,7 +273,9 @@ int LibRaw::thumbOK(INT64 maxsz)
     return 0; // No thumb for raw > 4Gb-1
   int tsize = 0;
   int tcol = (T.tcolors > 0 && T.tcolors < 4) ? T.tcolors : 3;
-  if (Tformat == LIBRAW_INTERNAL_THUMBNAIL_JPEG)
+  if (Tformat == LIBRAW_INTERNAL_THUMBNAIL_DNG_YCBCR)
+	  return 0; // Temp: unless we get correct DNG w/ YCBCR preview
+  else if (Tformat == LIBRAW_INTERNAL_THUMBNAIL_JPEG)
     tsize = T.tlength;
   else if (Tformat == LIBRAW_INTERNAL_THUMBNAIL_PPM)
     tsize = tcol * T.twidth * T.theight;
@@ -301,6 +319,9 @@ int LibRaw::dcraw_thumb_writer(const char *fname)
   {
     switch (T.tformat)
     {
+    case LIBRAW_THUMBNAIL_JPEGXL:
+      fwrite(T.thumb, 1, T.tlength, tfp);
+      break;
     case LIBRAW_THUMBNAIL_JPEG:
       jpeg_thumb_writer(tfp, T.thumb, T.tlength);
       break;

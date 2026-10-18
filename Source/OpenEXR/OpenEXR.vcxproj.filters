@@ -24,9 +24,6 @@
     <Filter Include="Source Files\IlmThread Source Files">
       <UniqueIdentifier>{5968a30f-0820-4196-955e-4580044a3cf9}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\IexMath Source Files">
-      <UniqueIdentifier>{542dccc2-e018-453d-b903-8a8ef8005749}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files">
       <UniqueIdentifier>{90ef9c88-bf45-47bb-a4a8-68764ac65242}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl</Extensions>
@@ -50,14 +47,50 @@
     <Filter Include="Header Files\IlmThread Header Files">
       <UniqueIdentifier>{3f37cb3e-6374-4d66-a36b-f31de14b3b78}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Header Files\IexMath Header Files">
-      <UniqueIdentifier>{c43ac413-feb4-49c6-8907-fcc20948ed0a}</UniqueIdentifier>
+    <Filter Include="Source Files\OpenEXRCore Source Files">
+      <UniqueIdentifier>{06b0dfe3-22f1-43f1-8468-aa51d8ebbe23}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\OpenEXRCore Header Files">
+      <UniqueIdentifier>{c88fb8b8-cedf-4934-976d-ee0d18458e03}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Zstd">
+      <UniqueIdentifier>{70e1222c-6eff-413f-b229-e20040f79a18}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Zstd\lib">
+      <UniqueIdentifier>{a1b377c6-8a58-425d-9558-a3ae1f2ca64f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Zstd\lib\common">
+      <UniqueIdentifier>{bd824485-a28f-4c98-a773-69e34fe9b0c1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Zstd\lib\compress">
+      <UniqueIdentifier>{7063fb48-02c3-459e-983b-3e700d9d2310}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Zstd\lib\decompress">
+      <UniqueIdentifier>{33d4facd-7512-4e53-9d8d-4610a702dcee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\OpenJPH Source Files">
+      <UniqueIdentifier>{27c97bdc-661b-4b6c-95bc-9e5703148a29}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\OpenJPH Source Files\codestream">
+      <UniqueIdentifier>{0721cf90-c3ad-460b-a37e-a97744ab8bf9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\OpenJPH Source Files\coding">
+      <UniqueIdentifier>{63f24651-2426-4afc-857d-8f4e42faff88}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\OpenJPH Source Files\others">
+      <UniqueIdentifier>{f2719dbc-9c12-4c48-b11a-6093af0812d5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\OpenJPH Source Files\transform">
+      <UniqueIdentifier>{0d8f59f4-8761-4bcc-9780-e0b8079d2477}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\OpenJPH">
+      <UniqueIdentifier>{e1b98fae-ee2c-49f8-b545-b6d7ff137e39}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\OpenJPH\openjph">
+      <UniqueIdentifier>{d9fb7e6c-8c61-4b17-a90b-600e02a79da0}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="IlmImf\b44ExpLogTable.cpp">
-      <Filter>Source Files\IlmImf Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="IlmImf\ImfAcesFile.cpp">
       <Filter>Source Files\IlmImf Source Files</Filter>
     </ClCompile>
@@ -325,25 +358,16 @@
     <ClCompile Include="IlmImf\ImfZipCompressor.cpp">
       <Filter>Source Files\IlmImf Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Imath\ImathBox.cpp">
+    <ClCompile Include="..\Imath\ImathColorAlgo.cpp">
       <Filter>Source Files\Imath Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Imath\ImathColorAlgo.cpp">
+    <ClCompile Include="..\Imath\ImathFun.cpp">
       <Filter>Source Files\Imath Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Imath\ImathFun.cpp">
+    <ClCompile Include="..\Imath\ImathMatrixAlgo.cpp">
       <Filter>Source Files\Imath Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Imath\ImathMatrixAlgo.cpp">
-      <Filter>Source Files\Imath Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Imath\ImathRandom.cpp">
-      <Filter>Source Files\Imath Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Imath\ImathShear.cpp">
-      <Filter>Source Files\Imath Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Imath\ImathVec.cpp">
+    <ClCompile Include="..\Imath\ImathRandom.cpp">
       <Filter>Source Files\Imath Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Iex\IexBaseExc.cpp">
@@ -358,20 +382,341 @@
     <ClCompile Include="IlmThread\IlmThread.cpp">
       <Filter>Source Files\IlmThread Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="IlmThread\IlmThreadMutex.cpp">
-      <Filter>Source Files\IlmThread Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="IlmThread\IlmThreadPool.cpp">
       <Filter>Source Files\IlmThread Source Files</Filter>
     </ClCompile>
     <ClCompile Include="IlmThread\IlmThreadSemaphore.cpp">
       <Filter>Source Files\IlmThread Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="IexMath\IexMathFloatExc.cpp">
-      <Filter>Source Files\IexMath Source Files</Filter>
+    <ClCompile Include="IlmThread\IlmThreadSemaphoreWin32.cpp">
+      <Filter>Source Files\IlmThread Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="IexMath\IexMathFpu.cpp">
-      <Filter>Source Files\IexMath Source Files</Filter>
+    <ClCompile Include="OpenEXRCore\attributes.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\base.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\bytes.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\channel_list.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\chunk.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\coding.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\color_metadata.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\compression.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\context.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\debug.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\decoding.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\encoding.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\float_vector.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_b44.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_b44_table.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_b44_table_init.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_dwa.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_dwa_table.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_dwa_table_init.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_huf.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_piz.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_pxr24.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_rle.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_structs.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_zip.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_zstd.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_zstd_delta.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_zstd_shuffle.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\memory.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\opaque.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\pack.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\parse_header.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\part.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\part_attr.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\preview.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\std_attr.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\string.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\string_vector.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\unpack.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\validation.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\write_header.c">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\debug.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\entropy_common.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\error_private.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\fse_decompress.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\pool.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\threading.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\xxhash.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\common\zstd_common.c">
+      <Filter>Source Files\Zstd\lib\common</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\fse_compress.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\hist.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\huf_compress.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_compress.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_compress_literals.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_compress_sequences.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_compress_superblock.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_double_fast.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_fast.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_lazy.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_ldm.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_opt.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstd_preSplit.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\compress\zstdmt_compress.c">
+      <Filter>Source Files\Zstd\lib\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\decompress\huf_decompress.c">
+      <Filter>Source Files\Zstd\lib\decompress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\decompress\zstd_ddict.c">
+      <Filter>Source Files\Zstd\lib\decompress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\decompress\zstd_decompress.c">
+      <Filter>Source Files\Zstd\lib\decompress</Filter>
+    </ClCompile>
+    <ClCompile Include="Zstd\lib\decompress\zstd_decompress_block.c">
+      <Filter>Source Files\Zstd\lib\decompress</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfColorMetadata.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfCompression.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfContext.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfContextInit.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfIDManifest.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfIDManifestAttribute.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfZstdCompressor.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfBytesAttribute.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_ht.cpp">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenEXRCore\internal_ht_common.cpp">
+      <Filter>Source Files\OpenEXRCore Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_codeblock.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_codeblock_fun.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_codestream.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_codestream_gen.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_codestream_local.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_params.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_precinct.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_resolution.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_subband.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_tile.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\codestream\ojph_tile_comp.cpp">
+      <Filter>Source Files\OpenJPH Source Files\codestream</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_common.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder_avx2.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder_ssse3.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder32.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder64.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_encoder.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_encoder_avx2.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\coding\ojph_block_encoder_avx512.cpp">
+      <Filter>Source Files\OpenJPH Source Files\coding</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\transform\ojph_colour.cpp">
+      <Filter>Source Files\OpenJPH Source Files\transform</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\transform\ojph_colour_avx.cpp">
+      <Filter>Source Files\OpenJPH Source Files\transform</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\transform\ojph_colour_avx2.cpp">
+      <Filter>Source Files\OpenJPH Source Files\transform</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\transform\ojph_transform.cpp">
+      <Filter>Source Files\OpenJPH Source Files\transform</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\transform\ojph_transform_avx.cpp">
+      <Filter>Source Files\OpenJPH Source Files\transform</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\transform\ojph_transform_avx2.cpp">
+      <Filter>Source Files\OpenJPH Source Files\transform</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\transform\ojph_transform_avx512.cpp">
+      <Filter>Source Files\OpenJPH Source Files\transform</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\others\ojph_arch.cpp">
+      <Filter>Source Files\OpenJPH Source Files\others</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\others\ojph_file.cpp">
+      <Filter>Source Files\OpenJPH Source Files\others</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\others\ojph_mem.cpp">
+      <Filter>Source Files\OpenJPH Source Files\others</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\others\ojph_mem_c.c">
+      <Filter>Source Files\OpenJPH Source Files\others</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenJPH\others\ojph_message.cpp">
+      <Filter>Source Files\OpenJPH Source Files\others</Filter>
+    </ClCompile>
+    <ClCompile Include="IlmImf\ImfHTCompressor.cpp">
+      <Filter>Source Files\IlmImf Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -717,103 +1062,103 @@
     <ClInclude Include="IlmImf\ImfZipCompressor.h">
       <Filter>Header Files\IlmImf Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathBox.h">
+    <ClInclude Include="..\Imath\ImathBox.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathBoxAlgo.h">
+    <ClInclude Include="..\Imath\ImathBoxAlgo.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathColor.h">
+    <ClInclude Include="..\Imath\ImathColor.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathColorAlgo.h">
+    <ClInclude Include="..\Imath\ImathColorAlgo.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathEuler.h">
+    <ClInclude Include="..\Imath\ImathEuler.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathExc.h">
+    <ClInclude Include="..\Imath\ImathExc.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathExport.h">
+    <ClInclude Include="..\Imath\ImathExport.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathForward.h">
+    <ClInclude Include="..\Imath\ImathForward.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathFrame.h">
+    <ClInclude Include="..\Imath\ImathFrame.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathFrustum.h">
+    <ClInclude Include="..\Imath\ImathFrustum.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathFrustumTest.h">
+    <ClInclude Include="..\Imath\ImathFrustumTest.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathFun.h">
+    <ClInclude Include="..\Imath\ImathFun.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathGL.h">
+    <ClInclude Include="..\Imath\ImathGL.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathGLU.h">
+    <ClInclude Include="..\Imath\ImathGLU.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathHalfLimits.h">
+    <ClInclude Include="..\Imath\ImathHalfLimits.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathInt64.h">
+    <ClInclude Include="..\Imath\ImathInt64.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathInterval.h">
+    <ClInclude Include="..\Imath\ImathInterval.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathLimits.h">
+    <ClInclude Include="..\Imath\ImathLimits.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathLine.h">
+    <ClInclude Include="..\Imath\ImathLine.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathLineAlgo.h">
+    <ClInclude Include="..\Imath\ImathLineAlgo.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathMath.h">
+    <ClInclude Include="..\Imath\ImathMath.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathMatrix.h">
+    <ClInclude Include="..\Imath\ImathMatrix.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathMatrixAlgo.h">
+    <ClInclude Include="..\Imath\ImathMatrixAlgo.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathNamespace.h">
+    <ClInclude Include="..\Imath\ImathNamespace.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathPlane.h">
+    <ClInclude Include="..\Imath\ImathPlane.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathPlatform.h">
+    <ClInclude Include="..\Imath\ImathPlatform.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathQuat.h">
+    <ClInclude Include="..\Imath\ImathQuat.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathRandom.h">
+    <ClInclude Include="..\Imath\ImathRandom.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathRoots.h">
+    <ClInclude Include="..\Imath\ImathRoots.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathShear.h">
+    <ClInclude Include="..\Imath\ImathShear.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathSphere.h">
+    <ClInclude Include="..\Imath\ImathSphere.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathVec.h">
+    <ClInclude Include="..\Imath\ImathVec.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Imath\ImathVecAlgo.h">
+    <ClInclude Include="..\Imath\ImathVecAlgo.h">
       <Filter>Header Files\Imath Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Iex\Iex.h">
@@ -879,11 +1224,209 @@
     <ClInclude Include="IlmThread\IlmThreadSemaphore.h">
       <Filter>Header Files\IlmThread Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="IexMath\IexMathFloatExc.h">
-      <Filter>Header Files\IexMath Header Files</Filter>
+    <ClInclude Include="OpenEXRCore\backward_compatibility.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="IexMath\IexMathIeeeExc.h">
-      <Filter>Header Files\IexMath Header Files</Filter>
+    <ClInclude Include="OpenEXRCore\internal_attr.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_bytes.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_channel_list.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_coding.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_compress.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_constants.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_cpuid.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_decompress.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_dwa_channeldata.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_dwa_classifier.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_dwa_compressor.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_dwa_decoder.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_dwa_encoder.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_dwa_helpers.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_dwa_simd.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_file.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_float_vector.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_ht_common.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_ht_quality.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_huf.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_legacy_structs.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_memory.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_opaque.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_posix_file_impl.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_preview.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_string.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_string_vector.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_structs.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_thread.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_util.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_win32_file_impl.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\internal_xdr.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_attr.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_base.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_chunkio.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_coding.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_color_metadata.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_compression.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_config.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_context.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_debug.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_decode.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_encode.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_errors.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_part.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_std_attr.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenEXRCore\openexr_version.h">
+      <Filter>Header Files\OpenEXRCore Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfBytesAttribute.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfColorMetadata.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfCompressorDeepInternal.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfContext.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfContextInit.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfHTCompressor.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfIDManifest.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfIDManifestAttribute.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="IlmImf\ImfZstdCompressor.h">
+      <Filter>Header Files\IlmImf Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_arch.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_arg.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_base.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_codestream.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_defs.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_file.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_mem.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_message.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_params.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenJPH\openjph\ojph_version.h">
+      <Filter>Header Files\OpenJPH\openjph</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

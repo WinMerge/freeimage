@@ -1,0 +1,95 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{d67faf16-4f82-41bc-882b-620fed678573}</UniqueIdentifier>
+      <Extensions>cpp;c;cxx;rc;def;r;odl;idl;hpj;bat</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{f4a416b7-ef3f-4ba1-b047-c2e553510a1a}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl</Extensions>
+    </Filter>
+    <Filter Include="Source Files\x86">
+      <UniqueIdentifier>{f505a701-13a2-4ef0-a294-05036d4a0873}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\lib">
+      <UniqueIdentifier>{608b6cbe-43ac-4068-93d2-6bdd357a9a6b}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="lib\zlib_decompress.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\adler32.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\crc32.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\deflate_compress.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\deflate_decompress.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\utils.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\zlib_compress.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\x86\cpu_features.c">
+      <Filter>Source Files\x86</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="deflate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="libdeflate.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="common_defs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\bt_matchfinder.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\cpu_features_common.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\crc32_multipliers.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\crc32_tables.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\decompress_template.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\deflate_compress.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\deflate_constants.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\gzip_constants.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\hc_matchfinder.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\ht_matchfinder.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\lib_common.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\matchfinder_common.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+    <ClInclude Include="lib\zlib_constants.h">
+      <Filter>Header Files\lib</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>

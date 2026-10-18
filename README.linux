@@ -1,3 +1,12 @@
+Current build
+-------------
+CMake is how this tree is built. See README.md.
+
+    cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+    cmake --build build -j$(nproc)
+
+The notes below are the legacy `make` path (`Makefile` / `Makefile.gnu`). The distribution list (Red Hat 7.3 through Debian 4) is historical.
+
 Release Notes
 --------------
 This version of the library has been tested under the following OS:

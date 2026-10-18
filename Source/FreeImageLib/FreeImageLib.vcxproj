@@ -184,7 +184,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -227,7 +227,7 @@ copy ..\FreeImage.h ..\..\Dist\x32
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -266,7 +266,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     <Midl />
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -305,7 +305,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     <Midl />
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -348,7 +348,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <WholeProgramOptimization>true</WholeProgramOptimization>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -394,7 +394,7 @@ copy ..\FreeImage.h ..\..\Dist\x32
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -437,7 +437,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -480,7 +480,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\OpenEXR;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -516,6 +516,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\FreeImageToolkit\Analysis.cpp" />
     <ClCompile Include="..\FreeImage\BitmapAccess.cpp" />
     <ClCompile Include="..\FreeImage\ColorLookup.cpp" />
     <ClCompile Include="..\FreeImage\ConversionRGBA16.cpp" />
@@ -527,6 +528,8 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     <ClCompile Include="..\FreeImage\MemoryIO.cpp" />
     <ClCompile Include="..\FreeImage\PixelAccess.cpp" />
     <ClCompile Include="..\FreeImage\NNQuantizer.cpp" />
+    <ClCompile Include="..\FreeImage\PluginHEIF.cpp" />
+    <ClCompile Include="..\FreeImage\PluginJPEGXL.cpp" />
     <ClCompile Include="..\FreeImage\WuQuantizer.cpp" />
     <ClCompile Include="..\FreeImage\Conversion.cpp" />
     <ClCompile Include="..\FreeImage\Conversion16_555.cpp" />

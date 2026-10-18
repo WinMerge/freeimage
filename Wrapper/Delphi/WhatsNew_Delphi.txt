@@ -19,7 +19,7 @@ September 17, 2015
 May 5, 2014
 + [Lorenzo Monti] updated wrapper for FreeImage 3.16.1
 + [Lorenzo Monti] added preprocessor tests for Delphi XE2..XE6
-+ [Lorenzo Monti] merged changes for OSX compatibility (submitted by Maurício)
++ [Lorenzo Monti] merged changes for OSX compatibility (submitted by MaurÃ­cio)
 
 December 8, 2012
 + [Lorenzo Monti] updated wrapper for FreeImage 3.15.4
@@ -63,7 +63,7 @@ July 14, 2010
 ! [Lorenzo Monti] changed FreeBitmap.pas, FreeUtils.pas and TargaImage.pas to reflect changes in the FreeImage.pas unit
 
 July 17, 2006
-+ [Hervé Drolon] added FIF_FAXG3 and FIF_SGI definitions, added FreeImage_MakeThumbnail definition. 
++ [HervÃ© Drolon] added FIF_FAXG3 and FIF_SGI definitions, added FreeImage_MakeThumbnail definition. 
 
 January 20, 2006
 ! [Anatoliy Pulyaevskiy] updated WinBitmap demo
@@ -121,7 +121,7 @@ January 7, 2004
 + [Tommy] added TargaImage unit
 
 October 28, 2003
-+ [Peter Byström] updated the wrapper for FreeImage 3.0.2
++ [Peter BystrÃ¶m] updated the wrapper for FreeImage 3.0.2
 
 August 9, 2003
 + [Simon Beavis] added a wrapper for FreeImage 2.6.1

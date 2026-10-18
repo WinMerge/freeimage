@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw uses code from dcraw.c -- Dave Coffin's raw photo decoder,
  dcraw.c is copyright 1997-2018 by Dave Coffin, dcoffin a cybercom o net.
@@ -47,7 +47,8 @@ void LibRaw::pre_interpolate()
     }
     else
     {
-      img = (ushort(*)[4])calloc(height, width * sizeof *img);
+      int extra = filters ? (filters == 9 ? 6 : 2) : 0;
+      img = (ushort(*)[4])calloc((height+extra), (width+extra) * sizeof *img);
       for (row = 0; row < height; row++)
         for (col = 0; col < width; col++)
         {
@@ -153,7 +154,7 @@ void LibRaw::lin_interpolate()
           *ip++ = color;
           sum[color] += 1 << shift;
         }
-      code[(row * 16 + col) * 32] = (ip - (code + ((row * 16) + col) * 32)) / 3;
+      code[(row * 16 + col) * 32] = int((ip - (code + ((row * 16) + col) * 32)) / 3);
       FORCC
       if (c != f)
       {
@@ -212,6 +213,8 @@ void LibRaw::vng_interpolate()
   int prow = 8, pcol = 2, *ip, *code[16][16], gval[8], gmin, gmax, sum[4];
   int row, col, x, y, x1, x2, y1, y2, t, weight, grads, color, diag;
   int g, diff, thold, num, c;
+
+  if (width < 8 || height < 8) return;  // skip interploation on too small images
 
   lin_interpolate();
 

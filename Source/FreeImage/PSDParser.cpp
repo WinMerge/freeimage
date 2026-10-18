@@ -12,6 +12,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
 // THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
@@ -778,6 +780,7 @@ int psdThumbnail::Read(FreeImageIO *io, fi_handle handle, int iResourceSize, boo
 
 	if(_dib) {
 		FreeImage_Unload(_dib);
+		_dib = NULL;
 	}
 
 	if(_Format == 1) {
@@ -791,14 +794,43 @@ int psdThumbnail::Read(FreeImageIO *io, fi_handle handle, int iResourceSize, boo
 	}
 	else {
 		// kRawRGB thumbnail image
+		// Header fields are attacker-controlled. packed row bytes must fit in
+		// both the declared WidthBytes buffer and the allocated DIB pitch
+		// (CVE-2020-24293). WidthBytes is DWORD-padded per the PSD spec, so
+		// it may be larger than width * bpp/8; it must never be smaller.
+		if ((_Width <= 0) || (_Height <= 0) || (_BitPerPixel <= 0) || (_WidthBytes <= 0)) {
+			throw "Invalid PSD image";
+		}
+		if ((_BitPerPixel % 8) != 0) {
+			throw "Invalid PSD image";
+		}
+		const unsigned bytes_pp = (unsigned)_BitPerPixel / 8;
+		const unsigned packed_line = (unsigned)_Width * bytes_pp;
+		if ((packed_line / bytes_pp) != (unsigned)_Width) {
+			throw "Invalid PSD image";
+		}
+		if ((unsigned)_WidthBytes < packed_line) {
+			throw "Invalid PSD image";
+		}
+
 		_dib = FreeImage_Allocate(_Width, _Height, _BitPerPixel);
+		if (_dib == NULL) {
+			throw FI_MSG_ERROR_DIB_MEMORY;
+		}
 		BYTE* dst_line_start = FreeImage_GetScanLine(_dib, _Height - 1);//<*** flipped
+		if (dst_line_start == NULL) {
+			throw "Invalid PSD image";
+		}
 		BYTE* line_start = new BYTE[_WidthBytes];
 		const unsigned dstLineSize = FreeImage_GetPitch(_dib);
+		if (packed_line > dstLineSize) {
+			SAFE_DELETE_ARRAY(line_start);
+			throw "Invalid PSD image";
+		}
 		for(unsigned h = 0; h < (unsigned)_Height; ++h, dst_line_start -= dstLineSize) {//<*** flipped
 			io->read_proc(line_start, _WidthBytes, 1, handle);
 			iTotalData -= _WidthBytes;
-			memcpy(dst_line_start, line_start, _Width * _BitPerPixel / 8);
+			memcpy(dst_line_start, line_start, packed_line);
 		}
 #if FREEIMAGE_COLORORDER == FREEIMAGE_COLORORDER_BGR
 		SwapRedBlue32(_dib);
@@ -1487,6 +1519,11 @@ FIBITMAP* psdParser::ReadImageData(FreeImageIO *io, fi_handle handle) {
 
 	const unsigned dstBpp =  (depth == 1) ? 1 : FreeImage_GetBPP(bitmap)/8;
 	const unsigned dstLineSize = FreeImage_GetPitch(bitmap);
+	if ((nHeight != 0) && (dstLineSize > (~0u / nHeight))) {
+		FreeImage_Unload(bitmap);
+		throw "Invalid PSD image";
+	}
+	const unsigned dst_buffer_size = dstLineSize * nHeight;
 	BYTE* const dst_first_line = FreeImage_GetScanLine(bitmap, nHeight - 1);//<*** flipped
 
 	BYTE* line_start = new BYTE[lineSize]; //< fileline cache
@@ -1501,6 +1538,13 @@ FIBITMAP* psdParser::ReadImageData(FreeImageIO *io, fi_handle handle) {
 				}
 
 				const unsigned channelOffset = GetChannelOffset(bitmap, c) * bytes;
+
+				// Channel writes must fit in the allocated DIB (CVE-2020-24295).
+				if ((channelOffset >= dst_buffer_size) || (lineSize > dst_buffer_size - channelOffset)) {
+					FreeImage_Unload(bitmap);
+					SAFE_DELETE_ARRAY(line_start);
+					throw "Invalid PSD image";
+				}
 
 				BYTE* dst_line_start = dst_first_line + channelOffset;
 				for(unsigned h = 0; h < nHeight; ++h, dst_line_start -= dstLineSize) {//<*** flipped
@@ -1581,6 +1625,15 @@ FIBITMAP* psdParser::ReadImageData(FreeImageIO *io, fi_handle handle) {
 				const BYTE* const line_end = line_start + lineSize;
 
 				const unsigned channelOffset = GetChannelOffset(bitmap, ch) * bytes;
+
+				// Channel writes must fit in the allocated DIB (CVE-2020-24295).
+				if ((channelOffset >= dst_buffer_size) || (lineSize > dst_buffer_size - channelOffset)) {
+					FreeImage_Unload(bitmap);
+					SAFE_DELETE_ARRAY(line_start);
+					SAFE_DELETE_ARRAY(rleLineSizeList);
+					SAFE_DELETE_ARRAY(rle_line_start);
+					throw "Invalid PSD image";
+				}
 
 				BYTE* dst_line_start = dst_first_line + channelOffset;
 				for(unsigned h = 0; h < nHeight; ++h, dst_line_start -= dstLineSize) {//<*** flipped

@@ -1,41 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
-// Primary authors:
-//     Florian Kainz <kainz@ilm.com>
-//     Rod Bogart <rgb@ilm.com>
-
 
 //---------------------------------------------------------------------------
 //
@@ -83,54 +49,55 @@
 #ifndef _HALF_FUNCTION_H_
 #define _HALF_FUNCTION_H_
 
+/// @cond Doxygen_Suppress
+
 #include "half.h"
 
-#include "IlmBaseConfig.h"
-#ifndef ILMBASE_HAVE_LARGE_STACK  
-#include <string.h>     // need this for memset
-#else 
+#include "ImathConfig.h"
+#ifndef IMATH_HAVE_LARGE_STACK
+#    include <string.h> // need this for memset
+#else
 #endif
 
 #include <float.h>
 
-
-template <class T>
-class halfFunction
+template <class T> class halfFunction
 {
   public:
-
     //------------
     // Constructor
     //------------
 
     template <class Function>
     halfFunction (Function f,
-		  half domainMin = -HALF_MAX,
-		  half domainMax =  HALF_MAX,
-		  T defaultValue = 0,
-		  T posInfValue  = 0,
-		  T negInfValue  = 0,
-		  T nanValue     = 0);
+                  half domainMin = -HALF_MAX,
+                  half domainMax = HALF_MAX,
+                  T defaultValue = 0,
+                  T posInfValue  = 0,
+                  T negInfValue  = 0,
+                  T nanValue     = 0);
 
-#ifndef ILMBASE_HAVE_LARGE_STACK
-    ~halfFunction () { delete [] _lut; }    
+#ifndef IMATH_HAVE_LARGE_STACK
+    ~halfFunction() { delete[] _lut; }
+    halfFunction (const halfFunction&) = delete;
+    halfFunction& operator= (const halfFunction&) = delete;
+    halfFunction (halfFunction&&)                 = delete;
+    halfFunction& operator= (halfFunction&&) = delete;
 #endif
-    
+
     //-----------
     // Evaluation
     //-----------
 
-    T		operator () (half x) const;
+    T operator() (half x) const;
 
   private:
-
-#ifdef ILMBASE_HAVE_LARGE_STACK
-    T		_lut[1 << 16];
+#ifdef IMATH_HAVE_LARGE_STACK
+    T _lut[1 << 16];
 #else
-    T *         _lut;
+    T* _lut;
 #endif
 };
-
 
 //---------------
 // Implementation
@@ -139,41 +106,42 @@ class halfFunction
 template <class T>
 template <class Function>
 halfFunction<T>::halfFunction (Function f,
-			       half domainMin,
-			       half domainMax,
-			       T defaultValue,
-			       T posInfValue,
-			       T negInfValue,
-			       T nanValue)
+                               half domainMin,
+                               half domainMax,
+                               T defaultValue,
+                               T posInfValue,
+                               T negInfValue,
+                               T nanValue)
 {
-#ifndef ILMBASE_HAVE_LARGE_STACK
-    _lut = new T[1<<16];
-    memset (_lut, 0 , (1<<16) * sizeof(T));
+#ifndef IMATH_HAVE_LARGE_STACK
+    _lut = new T[1 << 16];
 #endif
-    
+
     for (int i = 0; i < (1 << 16); i++)
     {
-	half x;
-	x.setBits (i);
+        half x;
+        x.setBits (i);
 
-	if (x.isNan())
-	    _lut[i] = nanValue;
-	else if (x.isInfinity())
-	    _lut[i] = x.isNegative()? negInfValue: posInfValue;
-	else if (x < domainMin || x > domainMax)
-	    _lut[i] = defaultValue;
-	else
-	    _lut[i] = f (x);
+        if (x.isNan())
+            _lut[i] = nanValue;
+        else if (x.isInfinity())
+            _lut[i] = x.isNegative() ? negInfValue : posInfValue;
+        else if (x < domainMin || x > domainMax)
+            _lut[i] = defaultValue;
+        else
+            _lut[i] = f (x);
     }
 }
 
-
 template <class T>
 inline T
-halfFunction<T>::operator () (half x) const
+halfFunction<T>::operator() (half x) const
 {
     return _lut[x.bits()];
 }
+
+
+/// @endcond
 
 
 #endif

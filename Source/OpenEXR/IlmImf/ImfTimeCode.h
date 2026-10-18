@@ -1,37 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
 
 #ifndef INCLUDED_IMF_TIME_CODE_H
 #define INCLUDED_IMF_TIME_CODE_H
@@ -42,7 +12,7 @@
 //-----------------------------------------------------------------------------
 //
 //	class TimeCode
-// 	
+//
 // 	A TimeCode object stores time and control codes as described
 // 	in SMPTE standard 12M-1999.  A TimeCode object contains the
 // 	following fields:
@@ -115,128 +85,151 @@
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
-   
-class IMF_EXPORT TimeCode
+class IMF_EXPORT_TYPE TimeCode
 {
-  public:
-
+public:
     //---------------------
     // Bit packing variants
     //---------------------
 
-    enum Packing
+    enum IMF_EXPORT_ENUM Packing
     {
-	TV60_PACKING,		// packing for 60-field television
-	TV50_PACKING,		// packing for 50-field television
-	FILM24_PACKING		// packing for 24-frame film
+        TV60_PACKING,  // packing for 60-field television
+        TV50_PACKING,  // packing for 50-field television
+        FILM24_PACKING // packing for 24-frame film
     };
-
 
     //-------------------------------------
     // Constructors and assignment operator
     //-------------------------------------
 
-    TimeCode ();  // all fields set to 0 or false
+    IMF_EXPORT
+    TimeCode (); // all fields set to 0 or false
 
-    TimeCode (int hours,
-	      int minutes,
-	      int seconds,
-	      int frame,
-	      bool dropFrame = false,
-	      bool colorFrame = false,
-	      bool fieldPhase = false,
-	      bool bgf0 = false,
-	      bool bgf1 = false,
-	      bool bgf2 = false,
-	      int binaryGroup1 = 0,
-	      int binaryGroup2 = 0,
-	      int binaryGroup3 = 0,
-	      int binaryGroup4 = 0,
-	      int binaryGroup5 = 0,
-	      int binaryGroup6 = 0,
-	      int binaryGroup7 = 0,
-	      int binaryGroup8 = 0);
+    IMF_EXPORT
+    TimeCode (
+        int  hours,
+        int  minutes,
+        int  seconds,
+        int  frame,
+        bool dropFrame    = false,
+        bool colorFrame   = false,
+        bool fieldPhase   = false,
+        bool bgf0         = false,
+        bool bgf1         = false,
+        bool bgf2         = false,
+        int  binaryGroup1 = 0,
+        int  binaryGroup2 = 0,
+        int  binaryGroup3 = 0,
+        int  binaryGroup4 = 0,
+        int  binaryGroup5 = 0,
+        int  binaryGroup6 = 0,
+        int  binaryGroup7 = 0,
+        int  binaryGroup8 = 0);
 
-    TimeCode (unsigned int timeAndFlags,
-	      unsigned int userData = 0,
-	      Packing packing = TV60_PACKING);
+    IMF_EXPORT
+    TimeCode (
+        unsigned int timeAndFlags,
+        unsigned int userData = 0,
+        Packing      packing  = TV60_PACKING);
 
-    TimeCode (const TimeCode &other);
+    IMF_EXPORT
+    TimeCode (const TimeCode& other);
 
-    TimeCode & operator = (const TimeCode &other);
+    ~TimeCode () = default;
 
+    IMF_EXPORT
+    TimeCode& operator= (const TimeCode& other);
 
     //----------------------------
     // Access to individual fields
     //----------------------------
 
-    int		hours () const;
-    void	setHours (int value);
+    IMF_EXPORT
+    int hours () const;
+    IMF_EXPORT
+    void setHours (int value);
 
-    int		minutes () const;
-    void	setMinutes (int value);
+    IMF_EXPORT
+    int minutes () const;
+    IMF_EXPORT
+    void setMinutes (int value);
 
-    int		seconds () const;
-    void	setSeconds (int value);
+    IMF_EXPORT
+    int seconds () const;
+    IMF_EXPORT
+    void setSeconds (int value);
 
-    int		frame () const;
-    void	setFrame (int value);
+    IMF_EXPORT
+    int frame () const;
+    IMF_EXPORT
+    void setFrame (int value);
 
-    bool	dropFrame () const;
-    void	setDropFrame (bool value);
+    IMF_EXPORT
+    bool dropFrame () const;
+    IMF_EXPORT
+    void setDropFrame (bool value);
 
-    bool	colorFrame () const;
-    void	setColorFrame (bool value);
+    IMF_EXPORT
+    bool colorFrame () const;
+    IMF_EXPORT
+    void setColorFrame (bool value);
 
-    bool	fieldPhase () const;
-    void	setFieldPhase (bool value);
+    IMF_EXPORT
+    bool fieldPhase () const;
+    IMF_EXPORT
+    void setFieldPhase (bool value);
 
-    bool	bgf0 () const;
-    void	setBgf0 (bool value);
+    IMF_EXPORT
+    bool bgf0 () const;
+    IMF_EXPORT
+    void setBgf0 (bool value);
 
-    bool	bgf1 () const;
-    void	setBgf1 (bool value);
+    IMF_EXPORT
+    bool bgf1 () const;
+    IMF_EXPORT
+    void setBgf1 (bool value);
 
-    bool	bgf2 () const;
-    void	setBgf2 (bool value);
+    IMF_EXPORT
+    bool bgf2 () const;
+    IMF_EXPORT
+    void setBgf2 (bool value);
 
-    int		binaryGroup (int group) const; // group must be between 1 and 8
-    void	setBinaryGroup (int group, int value);
+    IMF_EXPORT
+    int binaryGroup (int group) const; // group must be between 1 and 8
+    IMF_EXPORT
+    void setBinaryGroup (int group, int value);
 
-    
     //---------------------------------
     // Access to packed representations
     //---------------------------------
 
-    unsigned int	timeAndFlags (Packing packing = TV60_PACKING) const;
+    IMF_EXPORT
+    unsigned int timeAndFlags (Packing packing = TV60_PACKING) const;
 
-    void		setTimeAndFlags (unsigned int value,
-					 Packing packing = TV60_PACKING);
+    IMF_EXPORT
+    void setTimeAndFlags (unsigned int value, Packing packing = TV60_PACKING);
 
-    unsigned int	userData () const;
+    IMF_EXPORT
+    unsigned int userData () const;
 
-    void		setUserData (unsigned int value);
-    
-    
+    IMF_EXPORT
+    void setUserData (unsigned int value);
+
     //---------
     // Equality
     //---------
-    
-    bool		operator == (const TimeCode &v) const;    
-    bool		operator != (const TimeCode &v) const;
-    
-  private:
 
-    unsigned int	_time;
-    unsigned int	_user;
+    IMF_EXPORT
+    bool operator== (const TimeCode& v) const;
+    IMF_EXPORT
+    bool operator!= (const TimeCode& v) const;
+
+private:
+    unsigned int _time;
+    unsigned int _user;
 };
 
-
-
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
-
-
-
-
 
 #endif

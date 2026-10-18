@@ -2,9 +2,11 @@
 // Channel processing support
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -212,7 +214,7 @@ FreeImage_SetChannel(FIBITMAP *dst, FIBITMAP *src, FREE_IMAGE_COLOR_CHANNEL chan
 	// src image should be grayscale, dst image should be RGB or RGBA
 	FREE_IMAGE_COLOR_TYPE src_type = FreeImage_GetColorType(src);
 	FREE_IMAGE_COLOR_TYPE dst_type = FreeImage_GetColorType(dst);
-	if((dst_type != FIC_RGB) && (dst_type != FIC_RGBALPHA) || (src_type != FIC_MINISBLACK)) {
+	if(((dst_type != FIC_RGB) && (dst_type != FIC_RGBALPHA)) || (src_type != FIC_MINISBLACK)) {
 		return FALSE;
 	}
 
@@ -224,7 +226,7 @@ FreeImage_SetChannel(FIBITMAP *dst, FIBITMAP *src, FREE_IMAGE_COLOR_CHANNEL chan
 		// src image should be grayscale, dst image should be 24- or 32-bit
 		unsigned src_bpp = FreeImage_GetBPP(src);
 		unsigned dst_bpp = FreeImage_GetBPP(dst);
-		if((src_bpp != 8) || (dst_bpp != 24) && (dst_bpp != 32))
+		if((src_bpp != 8) || ((dst_bpp != 24) && (dst_bpp != 32)))
 			return FALSE;
 
 
@@ -268,7 +270,7 @@ FreeImage_SetChannel(FIBITMAP *dst, FIBITMAP *src, FREE_IMAGE_COLOR_CHANNEL chan
 		// src image should be grayscale, dst image should be 48- or 64-bit
 		unsigned src_bpp = FreeImage_GetBPP(src);
 		unsigned dst_bpp = FreeImage_GetBPP(dst);
-		if((src_bpp != 16) || (dst_bpp != 48) && (dst_bpp != 64))
+		if((src_bpp != 16) || ((dst_bpp != 48) && (dst_bpp != 64)))
 			return FALSE;
 
 
@@ -312,7 +314,7 @@ FreeImage_SetChannel(FIBITMAP *dst, FIBITMAP *src, FREE_IMAGE_COLOR_CHANNEL chan
 		// src image should be grayscale, dst image should be 96- or 128-bit
 		unsigned src_bpp = FreeImage_GetBPP(src);
 		unsigned dst_bpp = FreeImage_GetBPP(dst);
-		if((src_bpp != 32) || (dst_bpp != 96) && (dst_bpp != 128))
+		if((src_bpp != 32) || ((dst_bpp != 96) && (dst_bpp != 128)))
 			return FALSE;
 
 
@@ -424,6 +426,8 @@ FreeImage_GetComplexChannel(FIBITMAP *src, FREE_IMAGE_COLOR_CHANNEL channel) {
 					}
 				}
 				break;
+			default:
+				break;
 		}
 	}
 
@@ -481,6 +485,8 @@ FreeImage_SetComplexChannel(FIBITMAP *dst, FIBITMAP *src, FREE_IMAGE_COLOR_CHANN
 					dst_bits[x].i = src_bits[x];
 				}
 			}
+			break;
+		default:
 			break;
 	}
 

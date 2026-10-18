@@ -2,9 +2,11 @@
 // JPEG2000 helpers
 //
 // Design and implementation by
-// - Herv� Drolon (drolon@infonie.fr)
+// - Hervé Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -21,7 +23,7 @@
 
 #include "FreeImage.h"
 #include "Utilities.h"
-#include "../LibOpenJPEG/openjpeg.h"
+#include <openjpeg.h>
 #include "J2KHelper.h"
 
 // --------------------------------------------------------------------------
@@ -30,7 +32,7 @@ static OPJ_UINT64
 _LengthProc(J2KFIO_t *fio) {
 	long start_pos = fio->io->tell_proc(fio->handle);
 	fio->io->seek_proc(fio->handle, 0, SEEK_END);
-	unsigned file_length = fio->io->tell_proc(fio->handle) - start_pos;
+	unsigned file_length = (unsigned)(fio->io->tell_proc(fio->handle) - start_pos);
 	fio->io->seek_proc(fio->handle, start_pos, SEEK_SET);
 	return (OPJ_UINT64)file_length;
 }
@@ -128,8 +130,7 @@ FIBITMAP* J2KImageToFIBITMAP(int format_id, const opj_image_t *image, BOOL heade
 
 	try {
 		// opj_read_header() can return success while still leaving *image
-		// NULL for some malformed codestreams - guard against the NULL
-		// pointer dereference below rather than trusting callers to check.
+		// NULL for some malformed codestreams
 		if (!image) {
 			throw FI_MSG_ERROR_CORRUPTED_IMAGE;
 		}

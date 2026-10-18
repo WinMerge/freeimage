@@ -1,0 +1,59 @@
+name: Windows optional codecs
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  msvc-codecs:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        static: ["ON", "OFF"]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ github.workspace }}/.vcpkg-binary-cache
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create binary-cache directory
+        run: New-Item -ItemType Directory -Force $env:VCPKG_DEFAULT_BINARY_CACHE
+      - uses: actions/cache@v4
+        with:
+          path: .vcpkg-binary-cache
+          key: windows-codecs-v1-${{ hashFiles('.github/workflows/windows-codecs.yml') }}
+          restore-keys: windows-codecs-v1-
+      - name: Install native codec SDKs
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT/vcpkg.exe" install 'libheif[aom]:x64-windows' 'libjxl:x64-windows'
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          "$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/bin" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "LIBHEIF_PLUGIN_PATH=$env:VCPKG_INSTALLATION_ROOT/installed/x64-windows/plugins/libheif" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - name: Configure each codec without pkg-config
+        run: |
+          foreach ($codec in @('HEIF', 'JXL')) {
+            cmake -S . -B "configure-$codec" -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" "-DBUILD_LIB$codec=ON" "-DUSE_SYSTEM_LIB$codec=ON" -DCMAKE_CXX_STANDARD=11 -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+      - name: Build and test both codecs
+        run: |
+          cmake -S . -B build -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON -DUSE_SYSTEM_LIBHEIF=ON -DUSE_SYSTEM_LIBJXL=ON -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=${{ matrix.static }} -DCMAKE_CXX_STANDARD=11 -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build build --config Release --parallel 4
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ctest --test-dir build -C Release --output-on-failure
+      - name: Test installed CMake consumer without pkg-config
+        run: |
+          $prefix = "$env:RUNNER_TEMP/freeimage-codec-install"
+          cmake --install build --config Release --prefix "$prefix"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake -S packaging/tests/codec-consumer -B consumer -A x64 "-DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" "-DCMAKE_PREFIX_PATH=$prefix" -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build consumer --config Release --parallel 4
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          $env:PATH = "$prefix/bin;$env:PATH"
+          & ./consumer/Release/CodecConsumer.exe

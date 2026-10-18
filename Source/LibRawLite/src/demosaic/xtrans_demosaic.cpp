@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw uses code from dcraw.c -- Dave Coffin's raw photo decoder,
  dcraw.c is copyright 1997-2018 by Dave Coffin, dcoffin a cybercom o net.
@@ -36,7 +36,7 @@ void LibRaw::xtrans_interpolate(int passes)
   short allhex[3][3][2][8];
   ushort sgrow = 0, sgcol = 0;
 
-  if (width < LIBRAW_AHD_TILE || height < LIBRAW_AHD_TILE)
+  if (width < LIBRAW_AHD_TILE || height < LIBRAW_AHD_TILE || filters != 9)
     throw LIBRAW_EXCEPTION_IO_CORRUPT; // too small image
                                        /* Check against right pattern */
   for (int row = 0; row < 6; row++)
@@ -82,8 +82,8 @@ void LibRaw::xtrans_interpolate(int passes)
                 int h = orth[d + 2] * patt[g][c * 2] + orth[d + 3] * patt[g][c * 2 + 1];
                 minv = MIN(v, minv);
                 maxv = MAX(v, maxv);
-                minh = MIN(v, minh);
-                maxh = MAX(v, maxh);
+                minh = MIN(h, minh);
+                maxh = MAX(h, maxh);
                 allhex[row][col][0][c ^ (g * 2 & d)] = h + v * width;
                 allhex[row][col][1][c ^ (g * 2 & d)] = h + v * LIBRAW_AHD_TILE;
             }
@@ -265,6 +265,10 @@ void LibRaw::xtrans_interpolate(int passes)
                 {
                     rix = &rgb[0][row - top][col - left];
                     int h = fcol(row, col + 1);
+
+					if (h == 1) // Incorrect pattern
+                      break;
+
                     float diff[6];
                     memset(diff, 0, sizeof diff);
                     for (int i = 1, d = 0; d < 6; d++, i ^= LIBRAW_AHD_TILE ^ 1, h ^= 2)
@@ -356,9 +360,11 @@ void LibRaw::xtrans_interpolate(int passes)
                         lix = &lab[row][col];
                         int g = 2 * lix[0][0] - lix[f][0] - lix[-f][0];
                         drv[d][row][col] =
+							float(
                             SQR(g) +
                             SQR((2 * lix[0][1] - lix[f][1] - lix[-f][1] + g * 500 / 232)) +
-                            SQR((2 * lix[0][2] - lix[f][2] - lix[-f][2] - g * 500 / 580));
+                            SQR((2 * lix[0][2] - lix[f][2] - lix[-f][2] - g * 500 / 580))
+								);
                     }
             }
 

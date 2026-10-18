@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw uses code from dcraw.c -- Dave Coffin's raw photo decoder,
  dcraw.c is copyright 1997-2018 by Dave Coffin, dcoffin a cybercom o net.
@@ -32,13 +32,16 @@ void LibRaw::cubic_spline(const int *x_, const int *y_, const int len)
   y = len + (x = i + (d = i + (c = i + (b = A[0] + i * i))));
   for (i = 0; i < len; i++)
   {
-    x[i] = x_[i] / 65535.0;
-    y[i] = y_[i] / 65535.0;
+    x[i] = float(x_[i]) / 65535.0f;
+    y[i] = float(y_[i]) / 65535.0f;
   }
   for (i = len - 1; i > 0; i--)
   {
-    b[i] = (y[i] - y[i - 1]) / (x[i] - x[i - 1]);
-    d[i - 1] = x[i] - x[i - 1];
+	float _div = x[i] - x[i - 1];
+	if (fabsf(_div) < 1.0e-15f)
+		_div = 1;
+    b[i] = (y[i] - y[i - 1]) / _div;
+    d[i - 1] = _div;
   }
   for (i = 1; i < len - 1; i++)
   {
@@ -65,7 +68,7 @@ void LibRaw::cubic_spline(const int *x_, const int *y_, const int len)
   }
   for (i = 0; i < 0x10000; i++)
   {
-    float x_out = (float)(i / 65535.0);
+    float x_out = (float)(i / 65535.0f);
     float y_out = 0;
     for (j = 0; j < len - 1; j++)
     {
@@ -76,13 +79,13 @@ void LibRaw::cubic_spline(const int *x_, const int *y_, const int len)
                 ((y[j + 1] - y[j]) / d[j] -
                  (2 * d[j] * c[j] + c[j + 1] * d[j]) / 6) *
                     v +
-                (c[j] * 0.5) * v * v +
-                ((c[j + 1] - c[j]) / (6 * d[j])) * v * v * v;
+                (c[j] * 0.5f) * v * v +
+                ((c[j + 1] - c[j]) / (6.f * d[j])) * v * v * v;
       }
     }
     curve[i] = y_out < 0.0
                    ? 0
-                   : (y_out >= 1.0 ? 65535 : (ushort)(y_out * 65535.0 + 0.5));
+                   : (y_out >= 1.0 ? 65535 : (ushort)(y_out * 65535.0f + 0.5f));
   }
   free(A);
 }
@@ -127,13 +130,15 @@ void LibRaw::gamma_curve(double pwr, double ts, int mode, int imax)
     curve[i] = 0xffff;
     if ((r = (double)i / imax) < 1)
       curve[i] =
+		ushort(
           0x10000 *
           (mode ? (r < g[3] ? r * g[1]
                             : (g[0] ? pow(r, g[0]) * (1 + g[4]) - g[4]
                                     : log(r) * g[2] + 1))
                 : (r < g[2] ? r / g[1]
                             : (g[0] ? pow((r + g[4]) / (1 + g[4]), 1 / g[0])
-                                    : exp((r - 1) / g[2]))));
+                                    : exp((r - 1) / g[2]))))
+			);
   }
 }
 

@@ -17,6 +17,8 @@ add_executable(MainTestSuite
 
 if (BUILD_TESTS)
     target_link_libraries(MainTestSuite FreeImage)
+    target_compile_definitions(MainTestSuite PRIVATE FREEIMAGE_TEST_LIBJXL=$<BOOL:${BUILD_LIBJXL}>)
+    target_compile_definitions(MainTestSuite PRIVATE FREEIMAGE_TEST_LIBHEIF=$<BOOL:${BUILD_LIBHEIF}>)
     if (DEFINED PNG_LIBRARY)
         target_link_libraries(MainTestSuite ${PNG_LIBRARY})
     endif()
@@ -31,5 +33,149 @@ if (BUILD_TESTS)
     )
     endif()
 
+    # Windows searches beside the executable for linked DLLs. The library
+    # lives in the parent build directory, while tests run from TestAPI.
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET MainTestSuite POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:MainTestSuite>
+            VERBATIM)
+    endif()
+
     add_test(NAME MainTestSuite WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/TestAPI COMMAND $<TARGET_FILE:MainTestSuite>)
+
+    add_executable(IffPbmRleTest testIffPbmRle.cpp)
+    target_link_libraries(IffPbmRleTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET IffPbmRleTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:IffPbmRleTest>
+            VERBATIM)
+    endif()
+    add_test(NAME IffPbmRleTest COMMAND IffPbmRleTest)
+    set_tests_properties(IffPbmRleTest PROPERTIES TIMEOUT 5)
+
+    add_executable(GifPlaybackBoundsTest testGifPlaybackBounds.cpp)
+    target_link_libraries(GifPlaybackBoundsTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET GifPlaybackBoundsTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:GifPlaybackBoundsTest>
+            VERBATIM)
+    endif()
+    add_test(NAME GifPlaybackBoundsTest COMMAND GifPlaybackBoundsTest)
+    set_tests_properties(GifPlaybackBoundsTest PROPERTIES TIMEOUT 10)
+
+    add_executable(RasWordLoopTest testRasWordLoop.cpp)
+    target_link_libraries(RasWordLoopTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET RasWordLoopTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:RasWordLoopTest>
+            VERBATIM)
+    endif()
+    add_test(NAME RasWordLoopTest COMMAND RasWordLoopTest)
+    set_tests_properties(RasWordLoopTest PROPERTIES TIMEOUT 10)
 endif ()
+
+# These tests call vendored codec APIs directly to create inputs that exercise
+# FreeImage's loaders. Those internal symbols are not part of its Windows DLL API.
+if(BUILD_TESTS AND FREEIMAGE_STATIC AND BUILD_OPENEXR AND NOT USE_SYSTEM_OPENEXR
+   AND BUILD_LIBTIFF AND NOT USE_SYSTEM_LIBTIFF)
+    add_executable(VendorCodecTest testVendorCodecs.cpp)
+    target_link_libraries(VendorCodecTest PRIVATE FreeImage)
+    target_compile_definitions(VendorCodecTest PRIVATE
+        FREEIMAGE_TEST_OPENJPH_SIMD=$<BOOL:${FREEIMAGE_OPENJPH_SIMD_ENABLED}>)
+    add_test(NAME VendorCodecTest COMMAND VendorCodecTest)
+endif()
+
+if(BUILD_TESTS AND BUILD_LIBHEIF)
+    add_executable(HeifCodecTest testHeif.cpp)
+    target_link_libraries(HeifCodecTest PRIVATE FreeImage)
+    if(NOT USE_SYSTEM_LIBHEIF)
+        target_compile_definitions(HeifCodecTest PRIVATE FREEIMAGE_TEST_BUNDLED_HEIF)
+    endif()
+    add_executable(GenerateHeifFixtures EXCLUDE_FROM_ALL heif/generate.cpp)
+    target_link_libraries(GenerateHeifFixtures PRIVATE FreeImageCodec::HEIF)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET HeifCodecTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:HeifCodecTest> VERBATIM)
+    endif()
+    add_test(NAME HeifCodecTest COMMAND HeifCodecTest)
+    set_tests_properties(HeifCodecTest PROPERTIES TIMEOUT 120
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
+endif()
+
+if(BUILD_TESTS)
+    add_executable(SaveErrorTest testSaveErrors.cpp)
+    target_link_libraries(SaveErrorTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET SaveErrorTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:SaveErrorTest>)
+    endif()
+    add_test(NAME SaveErrorTest COMMAND SaveErrorTest)
+endif()
+
+if(BUILD_TESTS)
+    add_executable(DoubleRGBFTest testDoubleRGBF.cpp)
+    target_link_libraries(DoubleRGBFTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET DoubleRGBFTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:DoubleRGBFTest>)
+    endif()
+    add_test(NAME DoubleRGBFTest COMMAND DoubleRGBFTest)
+endif()
+
+if(BUILD_TESTS AND BUILD_LIBHEIF)
+    add_test(NAME HeifEncodingTest COMMAND HeifCodecTest --encode)
+    set_tests_properties(HeifEncodingTest PROPERTIES TIMEOUT 120 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
+    if(USE_SYSTEM_LIBHEIF AND UNIX AND NOT APPLE)
+        # Ubuntu's external x265 encoder leaks its configuration object. Keep
+        # decoder tests unsuppressed, and suppress only that encoder allocator.
+        set_tests_properties(HeifEncodingTest PROPERTIES ENVIRONMENT
+            "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/heif/x265-lsan.supp")
+    endif()
+endif()
+
+if(BUILD_TESTS AND BUILD_LIBJXL)
+    add_executable(JpegXLTest testJpegXL.cpp)
+    target_link_libraries(JpegXLTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET JpegXLTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:JpegXLTest>)
+    endif()
+    add_test(NAME JpegXLTest COMMAND JpegXLTest)
+    set_tests_properties(JpegXLTest PROPERTIES TIMEOUT 60)
+endif()
+
+if(BUILD_TESTS)
+    add_executable(DependencyInfoTest testDependencies.cpp)
+    target_link_libraries(DependencyInfoTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET DependencyInfoTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:DependencyInfoTest>)
+    endif()
+    add_test(NAME DependencyInfoTest COMMAND DependencyInfoTest)
+endif()
+
+if(BUILD_TESTS)
+    add_executable(ImageAnalysisTest testAnalysis.cpp)
+    target_link_libraries(ImageAnalysisTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET ImageAnalysisTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:ImageAnalysisTest>)
+    endif()
+    add_test(NAME ImageAnalysisTest COMMAND ImageAnalysisTest)
+endif()
+
+if(BUILD_TESTS AND BUILD_LIBTIFF)
+    add_executable(UnicodeMultiPageTest testUnicodeMultiPage.cpp)
+    target_link_libraries(UnicodeMultiPageTest PRIVATE FreeImage)
+    if(WIN32 AND NOT FREEIMAGE_STATIC)
+        add_custom_command(TARGET UnicodeMultiPageTest POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:UnicodeMultiPageTest>)
+    endif()
+    add_test(NAME UnicodeMultiPageTest COMMAND UnicodeMultiPageTest)
+endif()

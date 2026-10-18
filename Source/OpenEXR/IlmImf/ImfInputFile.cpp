@@ -1,36 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
 
 //-----------------------------------------------------------------------------
 //
@@ -39,857 +10,690 @@
 //-----------------------------------------------------------------------------
 
 #include "ImfInputFile.h"
-#include "ImfScanLineInputFile.h"
-#include "ImfTiledInputFile.h"
+
+#include "ImfCheckedArithmetic.h"
+
 #include "ImfChannelList.h"
-#include "ImfMisc.h"
-#include "ImfStdIO.h"
-#include "ImfVersion.h"
-#include "ImfPartType.h"
 #include "ImfInputPartData.h"
+#include "ImfInputStreamMutex.h"
+#include "ImfMisc.h"
 #include "ImfMultiPartInputFile.h"
+#include "ImfPartType.h"
+#include "ImfScanLineInputFile.h"
+#include "ImfStdIO.h"
+#include "ImfTiledInputFile.h"
+#include "ImfVersion.h"
 
-#include <ImfCompositeDeepScanLine.h>
-#include <ImfDeepScanLineInputFile.h>
+#include "ImfCompositeDeepScanLine.h"
+#include "ImfDeepScanLineInputFile.h"
 
-#include "ImathFun.h"
-#include "IlmThreadMutex.h"
 #include "Iex.h"
-#include "half.h"
+#include <ImathFun.h>
+#include <half.h>
 
-#include <fstream>
 #include <algorithm>
-
-#include "ImfNamespace.h"
+#include <fstream>
+#include <iostream>
+#include <vector>
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
-
-using IMATH_NAMESPACE::Box2i;
-using IMATH_NAMESPACE::divp;
-using IMATH_NAMESPACE::modp;
-using ILMTHREAD_NAMESPACE::Mutex;
-using ILMTHREAD_NAMESPACE::Lock;
-
-
-//
-// Struct InputFile::Data stores things that will be
-// needed between calls to readPixels
-//
-
-struct InputFile::Data : public Mutex
+struct InputFile::Data
 {
-    Header              header;
-    int                 version;
-    bool                isTiled;
+    static constexpr int kDefaultPart = 0;
 
-    TiledInputFile *	tFile;
-    ScanLineInputFile *	sFile;
-    DeepScanLineInputFile * dsFile;
+    Data (Context* ctxt, int t) : _ctxt (ctxt), _numThreads (t) {}
+    ~Data ()
+    {
+        deleteCachedBuffer ();
+    }
 
-    LineOrder		lineOrder;      // the file's lineorder
-    int			minY;           // data window's min y coord
-    int			maxY;           // data window's max x coord
-    
-    FrameBuffer		tFileBuffer; 
-    FrameBuffer *	cachedBuffer;
-    CompositeDeepScanLine * compositor; // for loading deep files
-    
-    int			cachedTileY;
-    int                 offset;
-    
-    int                 numThreads;
+    const Header& getHeader (int part)
+    {
+        int pc = _ctxt->partCount ();
+#if ILMTHREAD_THREADING_ENABLED
+        std::lock_guard<std::mutex> lk (_mx);
+#endif
+        if (part >= 0 && part < pc)
+        {
+            int cursz = static_cast<int> (_lazy_header_cache.size ());
+            // lazily build up the cache of headers
+            if (part >= cursz)
+            {
+                _lazy_header_cache.resize (static_cast<size_t> (part) + 1);
+                for (int i = cursz; i <= part; ++i)
+                    _lazy_header_cache[i] = _ctxt->header (i);
+            }
+            return _lazy_header_cache[part];
+        }
+        else
+        {
+            THROW (
+                IEX_NAMESPACE::ArgExc,
+                "Invalid out of bounds part number " << part << ", only " << pc
+                                                     << " parts in "
+                                                     << _ctxt->fileName ());
+        }
+    }
 
-    int                 partNumber;
-    InputPartData*      part;
+    void setFrameBuffer (const FrameBuffer& frameBuffer);
+    void lockedSetFrameBuffer (const FrameBuffer& frameBuffer);
 
-    bool                multiPartBackwardSupport;
-    MultiPartInputFile* multiPartFile;
-    InputStreamMutex    * _streamData;
-    bool                _deleteStream;
+    void readPixels (int scanline1, int scanline2);
+    void bufferedReadPixels (int scanline1, int scanline2);
 
-     Data (int numThreads);
-    ~Data ();
+    void readPixels (
+        const FrameBuffer& frameBuffer, int scanline1, int scanline2);
 
-    void		deleteCachedBuffer();
+    void deleteCachedBuffer (void);
+    void copyCachedBuffer (FrameBuffer::ConstIterator to,
+                           FrameBuffer::ConstIterator from,
+                           int scanline1, int scanline2,
+                           int yStart, int xStart, int width);
+    void fillBuffer (FrameBuffer::ConstIterator to,
+                     int scanline1, int scanline2,
+                     int yStart, int xStart, int width);
+
+    int getPartIdx () const { return _part ? _part->partNumber : kDefaultPart; }
+#if ILMTHREAD_THREADING_ENABLED
+    // TODO: remove once we can do everything init in the constructor
+    // and just use the C interface
+    std::mutex _mx;
+#endif
+    Context*      _ctxt;
+    int           _numThreads = 0;
+    exr_storage_t _storage;
+
+    // TODO: remove
+    InputPartData*                         _part = nullptr;
+    std::unique_ptr<MultiPartInputFile>    _mFile;
+    std::unique_ptr<TiledInputFile>        _tFile;
+    std::unique_ptr<ScanLineInputFile>     _sFile;
+    std::unique_ptr<DeepScanLineInputFile> _dsFile;
+    std::unique_ptr<CompositeDeepScanLine>
+        _compositor; // for loading deep files
+
+    // TODO: remove once we can remove deprecated API or to make it slow so
+    // people switch to the new UI
+    std::vector<Header> _lazy_header_cache;
+
+    FrameBuffer                  _cacheFrameBuffer;
+    int                          _cachedTileY  = -1;
+    int                          _cachedOffset = 0;
+    std::unique_ptr<FrameBuffer> _cachedBuffer;
+    std::vector< std::unique_ptr<char[]> > _slicePointers;
 };
 
-
-InputFile::Data::Data (int numThreads):
-    isTiled (false),
-    tFile (0),
-    sFile (0),
-    dsFile(0),
-    cachedBuffer (0),
-    compositor(0),
-    cachedTileY (-1),
-    numThreads (numThreads),
-    partNumber (-1),
-    part(NULL),
-    multiPartBackwardSupport (false),
-    multiPartFile (0),
-    _streamData(0),
-    _deleteStream(false)
-           
+InputFile::InputFile (
+    const char* filename, const ContextInitializer& ctxtinit, int numThreads)
+    : _data (std::make_shared<Data> (&_ctxt, numThreads))
 {
-    // empty
+    _data->_mFile.reset (new MultiPartInputFile (filename, ctxtinit, numThreads, false));
+    _data->_part = _data->_mFile->getPart (Data::kDefaultPart);
+    _ctxt = _data->_part->context;
+
+    initialize ();
 }
 
+InputFile::InputFile (const char filename[], int numThreads)
+    : InputFile (filename,
+                 ContextInitializer ()
+                 .silentHeaderParse (true)
+                 .strictHeaderValidation (false),
+                 numThreads)
+{}
 
-InputFile::Data::~Data ()
+InputFile::InputFile (
+    OPENEXR_IMF_INTERNAL_NAMESPACE::IStream& is, int numThreads)
+    : InputFile (
+          is.fileName (),
+          ContextInitializer ()
+          .silentHeaderParse (true)
+          .strictHeaderValidation (false)
+          .setInputStream (&is),
+          numThreads)
+{}
+
+InputFile::InputFile (InputPartData* part)
+    : _ctxt (part->context),
+      _data (std::make_shared<Data> (&_ctxt, part->numThreads))
 {
-    if (tFile)
-        delete tFile;
-    if (sFile)
-        delete sFile;
-    if (dsFile)
-        delete dsFile;
-    if (compositor)
-        delete compositor;
-
-    deleteCachedBuffer();
-
-    if (multiPartBackwardSupport && multiPartFile)
-        delete multiPartFile;
+    _data->_part = part;
+    initialize ();
 }
 
-
-void	
-InputFile::Data::deleteCachedBuffer()
+const char*
+InputFile::fileName () const
 {
-    //
-    // Delete the cached frame buffer, and all memory
-    // allocated for the slices in the cached frameBuffer.
-    //
+    return _ctxt.fileName ();
+}
 
-    if (cachedBuffer)
+const Header&
+InputFile::header () const
+{
+    if (_data->_part) return _data->_part->header;
+    return _data->getHeader (Data::kDefaultPart);
+}
+
+int
+InputFile::version () const
+{
+    if (_data->_part) return _data->_part->context.version ();
+    return _ctxt.version ();
+}
+
+void
+InputFile::setFrameBuffer (const FrameBuffer& frameBuffer)
+{
+    _data->setFrameBuffer (frameBuffer);
+}
+
+const FrameBuffer&
+InputFile::frameBuffer () const
+{
+    // Really not actual protection once this returns...
+#if ILMTHREAD_THREADING_ENABLED
+    std::lock_guard<std::mutex> lock (_data->_mx);
+#endif
+
+    if (_data->_compositor) { return _data->_compositor->frameBuffer (); }
+
+    return _data->_cacheFrameBuffer;
+}
+
+bool
+InputFile::isComplete () const
+{
+    return _ctxt.chunkTableValid (_data->getPartIdx ());
+}
+
+bool
+InputFile::isOptimizationEnabled () const
+{
+    // TODO: the core library has a number of special cased patterns,
+    // this is all kind of ... not useful? for now, return a pattern
+    // similar to legacy version
+    return _ctxt.channels (_data->getPartIdx ())->num_channels != 2;
+}
+
+void
+InputFile::readPixels (int scanLine1, int scanLine2)
+{
+    _data->readPixels (scanLine1, scanLine2);
+}
+
+void
+InputFile::readPixels (int scanLine)
+{
+    _data->readPixels (scanLine, scanLine);
+}
+
+void
+InputFile::readPixels (
+    const FrameBuffer& frameBuffer, int scanLine1, int scanLine2)
+{
+    _data->readPixels (frameBuffer, scanLine1, scanLine2);
+}
+
+void
+InputFile::rawPixelData (
+    int firstScanLine, const char*& pixelData, int& pixelDataSize)
+{
+    _data->_sFile->rawPixelData (firstScanLine, pixelData, pixelDataSize);
+}
+
+void
+InputFile::rawPixelDataToBuffer (
+    int scanLine, char* pixelData, int& pixelDataSize) const
+{
+    _data->_sFile->rawPixelDataToBuffer (scanLine, pixelData, pixelDataSize);
+}
+
+void
+InputFile::rawTileData (
+    int&         dx,
+    int&         dy,
+    int&         lx,
+    int&         ly,
+    const char*& pixelData,
+    int&         pixelDataSize)
+{
+    try
     {
-	for (FrameBuffer::Iterator k = cachedBuffer->begin();
-	     k != cachedBuffer->end();
-	     ++k)
-	{
-	    Slice &s = k.slice();
+        if (_data->_storage != EXR_STORAGE_TILED &&
+            _data->_storage != EXR_STORAGE_DEEP_TILED)
+        {
+            THROW (
+                IEX_NAMESPACE::ArgExc,
+                "Tried to read a raw tile "
+                "from a scanline-based image.");
+        }
 
-	    switch (s.type)
-	    {
-	      case OPENEXR_IMF_INTERNAL_NAMESPACE::UINT:
-
-		delete [] (((unsigned int *)s.base) + offset);
-		break;
-
-	      case OPENEXR_IMF_INTERNAL_NAMESPACE::HALF:
-
-		delete [] ((half *)s.base + offset);
-		break;
-
-	      case OPENEXR_IMF_INTERNAL_NAMESPACE::FLOAT:
-
-		delete [] (((float *)s.base) + offset);
-		break;
-              case NUM_PIXELTYPES :
-                  throw(IEX_NAMESPACE::ArgExc("Invalid pixel type"));
-	    }                
-	}
-
-	//
-	// delete the cached frame buffer
-	//
-
-	delete cachedBuffer;
-	cachedBuffer = 0;
+        _data->_tFile->rawTileData (dx, dy, lx, ly, pixelData, pixelDataSize);
+    }
+    catch (IEX_NAMESPACE::BaseExc& e)
+    {
+        REPLACE_EXC (
+            e,
+            "Error reading tile data from image "
+            "file \""
+                << fileName () << "\". " << e.what ());
+        throw;
     }
 }
 
-
-namespace {
+TiledInputFile&
+InputFile::asTiledInput (void) const
+{
+    return *(_data->_tFile);
+}
 
 void
-bufferedReadPixels (InputFile::Data* ifd, int scanLine1, int scanLine2)
+InputFile::initialize (void)
 {
+    int partidx;
+
+    partidx = _data->getPartIdx ();
+    _data->_storage = _ctxt.storage (partidx);
+
+    // silly protection rules mean make_unique can't be used here
+    if (_data->_storage == EXR_STORAGE_DEEP_SCANLINE)
+    {
+        _data->_dsFile.reset (new DeepScanLineInputFile (_data->_part));
+        _data->_compositor = std::make_unique<CompositeDeepScanLine> ();
+        _data->_compositor->addSource (_data->_dsFile.get ());
+    }
+    else if (
+        _data->_storage == EXR_STORAGE_DEEP_TILED ||
+        _data->_storage == EXR_STORAGE_TILED)
+    {
+        _data->_tFile.reset (new TiledInputFile (_data->_part));
+    }
+    else if (_data->_storage == EXR_STORAGE_SCANLINE)
+    {
+        _data->_sFile.reset (new ScanLineInputFile (_data->_part));
+    }
+    else
+    {
+        THROW (
+            IEX_NAMESPACE::ArgExc,
+            "Unable to handle data storage type in file '" << fileName ()
+                                                           << "'");
+    }
+}
+
+void
+InputFile::Data::setFrameBuffer (const FrameBuffer& frameBuffer)
+{
+#if ILMTHREAD_THREADING_ENABLED
+    std::lock_guard<std::mutex> lk (_mx);
+#endif
+    lockedSetFrameBuffer (frameBuffer);
+}
+
+void
+InputFile::Data::lockedSetFrameBuffer (const FrameBuffer& frameBuffer)
+{
+    if (_storage == EXR_STORAGE_TILED)
+    {
+        //
+        // We must invalidate the cached buffer if the new frame
+        // buffer has a different set of channels than the old
+        // frame buffer, or if the type of a channel has changed.
+        //
+
+        const FrameBuffer& oldFrameBuffer = _cacheFrameBuffer;
+
+        FrameBuffer::ConstIterator i = oldFrameBuffer.begin ();
+        FrameBuffer::ConstIterator j = frameBuffer.begin ();
+
+        while (i != oldFrameBuffer.end () && j != frameBuffer.end ())
+        {
+            if (strcmp (i.name (), j.name ()) ||
+                i.slice ().type != j.slice ().type)
+                break;
+
+            ++i;
+            ++j;
+        }
+
+        if (i != oldFrameBuffer.end () || j != frameBuffer.end ())
+        {
+            //
+            // Invalidate the cached buffer.
+            //
+            deleteCachedBuffer ();
+
+            //
+            // Create new a cached frame buffer.  It can hold a single
+            // row of tiles.  The cached buffer can be reused for each
+            // row of tiles because we set the yTileCoords parameter of
+            // each Slice to true.
+            //
+
+            _cachedBuffer               = std::make_unique<FrameBuffer> ();
+            int              partidx    = getPartIdx ();
+            exr_attr_box2i_t dataWindow = _ctxt->dataWindow (partidx);
+            _cachedOffset               = dataWindow.min.x;
+
+            uint64_t tileRowSize =
+                static_cast<uint64_t> (_tFile->tileYSize ()) *
+                static_cast<uint64_t> (
+                    static_cast<int64_t> (dataWindow.max.x) -
+                    static_cast<int64_t> (dataWindow.min.x) +
+                    1LL );
+
+            // before we allocate a (potentially large) chunk of ram, let's
+            // quick ensure we can read the tiles
+            if (!_ctxt->chunkTableValid (getPartIdx ()))
+            {
+                THROW (
+                    IEX_NAMESPACE::ArgExc,
+                    "Unable to use generic API to read with (partially?) corrupt chunk table in "
+                    << _ctxt->fileName () << ", part " << getPartIdx () );
+            }
+
+            for (FrameBuffer::ConstIterator k = frameBuffer.begin ();
+                 k != frameBuffer.end ();
+                 ++k)
+            {
+                Slice s = k.slice ();
+
+                //
+                // omit adding channels that are not listed - 'fill' channels are added later
+                //
+                if (_ctxt->hasChannel (partidx, k.name ()))
+                {
+                    uint64_t bytes = (s.type == OPENEXR_IMF_INTERNAL_NAMESPACE::HALF) ? 2 : 4;
+                    uint64_t offset = bytes * _cachedOffset;
+                    uint64_t tilebytes = bytes * tileRowSize;
+
+                    _slicePointers.emplace_back (std::make_unique<char[]> (tilebytes));
+
+                    _cachedBuffer->insert (
+                        k.name (),
+                        Slice (
+                            s.type,
+                            _slicePointers.back ().get() - offset,
+                            bytes,
+                            bytes * _tFile->levelWidth (0),
+                            1,
+                            1,
+                            s.fillValue,
+                            false,
+                            true));
+                }
+            }
+        }
+
+        _cacheFrameBuffer = frameBuffer;
+    }
+    else if (
+        _storage == EXR_STORAGE_DEEP_SCANLINE ||
+        _storage == EXR_STORAGE_DEEP_TILED)
+    {
+        if (!_compositor)
+            _compositor = std::make_unique<CompositeDeepScanLine> ();
+        _compositor->setFrameBuffer (frameBuffer);
+    }
+    else
+    {
+        _sFile->setFrameBuffer (frameBuffer);
+        _cacheFrameBuffer = frameBuffer;
+    }
+}
+
+void
+InputFile::Data::readPixels (int scanLine1, int scanLine2)
+{
+#if ILMTHREAD_THREADING_ENABLED
+    std::lock_guard<std::mutex> lock (_mx);
+#endif
+
+    if (_compositor) { _compositor->readPixels (scanLine1, scanLine2); }
+    else if (_storage == EXR_STORAGE_TILED)
+    {
+        bufferedReadPixels (scanLine1, scanLine2);
+    }
+    else { _sFile->readPixels (scanLine1, scanLine2); }
+}
+
+void
+InputFile::Data::readPixels (
+    const FrameBuffer& frameBuffer, int scanLine1, int scanLine2)
+{
+    if (_compositor)
+    {
+#if ILMTHREAD_THREADING_ENABLED
+        std::lock_guard<std::mutex> lock (_mx);
+#endif
+        _compositor->setFrameBuffer (frameBuffer);
+        _compositor->readPixels (scanLine1, scanLine2);
+    }
+    else if (_storage == EXR_STORAGE_TILED)
+    {
+#if ILMTHREAD_THREADING_ENABLED
+        std::lock_guard<std::mutex> lock (_mx);
+#endif
+
+        lockedSetFrameBuffer (frameBuffer);
+        bufferedReadPixels (scanLine1, scanLine2);
+    }
+    else { _sFile->readPixels (frameBuffer, scanLine1, scanLine2); }
+}
+
+void
+InputFile::Data::bufferedReadPixels (int scanLine1, int scanLine2)
+{
+    exr_attr_box2i_t dataWindow = _ctxt->dataWindow (getPartIdx ());
+
     //
     // bufferedReadPixels reads each row of tiles that intersect the
     // scan-line range (scanLine1 to scanLine2). The previous row of
-    // tiles is cached in order to prevent redundent tile reads when
+    // tiles is cached in order to prevent redundant tile reads when
     // accessing scanlines sequentially.
     //
 
     int minY = std::min (scanLine1, scanLine2);
     int maxY = std::max (scanLine1, scanLine2);
 
-    if (minY < ifd->minY || maxY >  ifd->maxY)
+    if (minY < dataWindow.min.y || maxY > dataWindow.max.y)
     {
         throw IEX_NAMESPACE::ArgExc ("Tried to read scan line outside "
-			   "the image file's data window.");
+                                     "the image file's data window.");
     }
 
-    //
-    // The minimum and maximum y tile coordinates that intersect this
-    // scanline range
-    //
+    int minDy = (minY - dataWindow.min.y) / _tFile->tileYSize ();
+    int maxDy = (maxY - dataWindow.min.y) / _tFile->tileYSize ();
 
-    int minDy = (minY - ifd->minY) / ifd->tFile->tileYSize();
-    int maxDy = (maxY - ifd->minY) / ifd->tFile->tileYSize();
-
-    //
-    // Figure out which one is first in the file so we can read without seeking
-    //
-
-    int yStart, yEnd, yStep;
-
-    if (ifd->lineOrder == DECREASING_Y)
+    // if we're reading the whole thing, just skip the double copy entirely
+    if (minY == dataWindow.min.y && maxY == dataWindow.max.y)
     {
-        yStart = maxDy;
-        yEnd = minDy - 1;
-        yStep = -1;
-    }
-    else
-    {
-        yStart = minDy;
-        yEnd = maxDy + 1;
-        yStep = 1;
+        _tFile->setFrameBuffer (_cacheFrameBuffer);
+        _tFile->readTiles (0, _tFile->numXTiles (0) - 1, minDy, maxDy, 0, 0);
+        return;
     }
 
-    //
-    // the number of pixels in a row of tiles
-    //
+    _tFile->setFrameBuffer (*_cachedBuffer);
 
-    Box2i levelRange = ifd->tFile->dataWindowForLevel(0);
-    
-    //
-    // Read the tiles into our temporary framebuffer and copy them into
-    // the user's buffer
-    //
-
-    for (int j = yStart; j != yEnd; j += yStep)
+    for ( int j = minDy; j <= maxDy; ++j )
     {
-        Box2i tileRange = ifd->tFile->dataWindowForTile (0, j, 0);
-
-        int minYThisRow = std::max (minY, tileRange.min.y);
-        int maxYThisRow = std::min (maxY, tileRange.max.y);
-
-        if (j != ifd->cachedTileY)
+        if (j != _cachedTileY)
         {
             //
             // We don't have any valid buffered info, so we need to read in
             // from the file.
+            // if no channels are being read that are present in file, cachedBuffer will be empty
             //
 
-            ifd->tFile->readTiles (0, ifd->tFile->numXTiles (0) - 1, j, j);
-            ifd->cachedTileY = j;
+            if (_cachedBuffer &&
+                _cachedBuffer->begin () != _cachedBuffer->end ())
+            {
+                _tFile->readTiles (0, _tFile->numXTiles (0) - 1, j, j, 0, 0);
+            }
+
+            _cachedTileY = j;
         }
 
-        //
-        // Copy the data from our cached framebuffer into the user's
-        // framebuffer.
-        //
+        IMATH_NAMESPACE::Box2i tileRange = _tFile->dataWindowForTile (0, j, 0);
 
-        for (FrameBuffer::ConstIterator k = ifd->cachedBuffer->begin();
-             k != ifd->cachedBuffer->end();
+        int minYThisRow = std::max (minY, tileRange.min.y);
+        int maxYThisRow = std::min (maxY, tileRange.max.y);
+
+        int xStart = dataWindow.min.x;
+        int width = dataWindow.max.x - dataWindow.min.x + 1;
+
+        for (FrameBuffer::ConstIterator k = _cacheFrameBuffer.begin ();
+             k != _cacheFrameBuffer.end ();
              ++k)
         {
-            Slice fromSlice = k.slice();		// slice to write from
-            Slice toSlice = ifd->tFileBuffer[k.name()];	// slice to write to
-
-            char *fromPtr, *toPtr;
-            int size = pixelTypeSize (toSlice.type);
-
-	    int xStart = levelRange.min.x;
-	    int yStart = minYThisRow;
-
-	    while (modp (xStart, toSlice.xSampling) != 0)
-		++xStart;
-
-	    while (modp (yStart, toSlice.ySampling) != 0)
-		++yStart;
-
-            for (int y = yStart;
-		 y <= maxYThisRow;
-		 y += toSlice.ySampling)
+            if (_cachedBuffer)
             {
-		//
-                // Set the pointers to the start of the y scanline in
-                // this row of tiles
-		//
-                
-                fromPtr = fromSlice.base +
-                          (y - tileRange.min.y) * fromSlice.yStride +
-                          xStart * fromSlice.xStride;
-
-                toPtr = toSlice.base +
-                        divp (y, toSlice.ySampling) * toSlice.yStride +
-                        divp (xStart, toSlice.xSampling) * toSlice.xStride;
-
-		//
-                // Copy all pixels for the scanline in this row of tiles
-		//
-
-                for (int x = xStart;
-		     x <= levelRange.max.x;
-		     x += toSlice.xSampling)
+                FrameBuffer::ConstIterator c = _cachedBuffer->find (k.name ());
+                if (c != _cachedBuffer->end ())
                 {
-		    for (int i = 0; i < size; ++i)
-			toPtr[i] = fromPtr[i];
-
-		    fromPtr += fromSlice.xStride * toSlice.xSampling;
-		    toPtr += toSlice.xStride;
+                    copyCachedBuffer (k, c, minYThisRow, maxYThisRow,
+                                      tileRange.min.y, xStart, width);
+                    continue;
                 }
             }
+            fillBuffer (k, minYThisRow, maxYThisRow,
+                        dataWindow.min.y, xStart, width);
         }
     }
 }
 
-} // namespace
+////////////////////////////////////////
 
-
-
-InputFile::InputFile (const char fileName[], int numThreads):
-    _data (new Data (numThreads))
+void
+InputFile::Data::copyCachedBuffer (FrameBuffer::ConstIterator to,
+                                   FrameBuffer::ConstIterator from,
+                                   int scanline1, int scanline2,
+                                   int yStart, int xStart, int width)
 {
-    _data->_streamData = NULL;
-    _data->_deleteStream=true;
-    
-    OPENEXR_IMF_INTERNAL_NAMESPACE::IStream* is = 0;
-    try
-    {
-        is = new StdIFStream (fileName);
-        readMagicNumberAndVersionField(*is, _data->version);
+    Slice toSlice = to.slice ();
+    if (toSlice.xSampling != 1 || toSlice.ySampling != 1)
+        throw IEX_NAMESPACE::ArgExc ("Tiled data should not have subsampling.");
+    Slice fromSlice = from.slice ();
+    if (fromSlice.xSampling != 1 || fromSlice.ySampling != 1)
+        throw IEX_NAMESPACE::ArgExc ("Tiled data should not have subsampling.");
+    if (fromSlice.xTileCoords || !fromSlice.yTileCoords)
+        throw IEX_NAMESPACE::ArgExc ("Invalid expectation around tile coords flags from setFrameBuffer.");
 
-        //
-        // compatibility to read multipart file.
-        //
-        if (isMultiPart(_data->version))
+    if (toSlice.type != fromSlice.type)
+        throw IEX_NAMESPACE::ArgExc ("Invalid type mismatch in slice from setFrameBuffer.");
+    if (fromSlice.xStride != 2 && fromSlice.xStride != 4)
+        throw IEX_NAMESPACE::ArgExc ("Unhandled type in copying tile cache slice.");
+
+    for (int y = scanline1; y <= scanline2; ++y)
+    {
+        char* toPtr = toSlice.base;
+        const char* fromPtr = fromSlice.base;
+
+        if (toSlice.yTileCoords)
+            toPtr += ( int64_t (y) - int64_t (yStart) ) * toSlice.yStride;
+        else
+            toPtr += int64_t (y) * toSlice.yStride;
+        if (!toSlice.xTileCoords)
+            toPtr += int64_t (xStart) * toSlice.xStride;
+
+        fromPtr += ( int64_t (y) - int64_t (yStart) ) * fromSlice.yStride;
+        if (fromSlice.xStride == 2)
         {
-            compatibilityInitialize(*is);
+            fromPtr += int64_t (xStart) * 2;
+            for (int x = 0; x < width; ++x)
+            {
+                *reinterpret_cast<uint16_t*> (toPtr) =
+                    *reinterpret_cast<const uint16_t*> (fromPtr);
+                toPtr += toSlice.xStride;
+                fromPtr += 2;
+            }
         }
         else
         {
-            _data->_streamData = new InputStreamMutex();
-            _data->_streamData->is = is;
-            _data->header.readFrom (*_data->_streamData->is, _data->version);
-            
-            // fix type attribute in single part regular image types
-            // (may be wrong if an old version of OpenEXR converts
-            // a tiled image to scanline or vice versa)
-            if(!isNonImage(_data->version)  && 
-               !isMultiPart(_data->version) && 
-               _data->header.hasType())
+            fromPtr += int64_t (xStart) * 4;
+            for (int x = 0; x < width; ++x)
             {
-                _data->header.setType(isTiled(_data->version) ? TILEDIMAGE : SCANLINEIMAGE);
+                *reinterpret_cast<uint32_t*> (toPtr) =
+                    *reinterpret_cast<const uint32_t*> (fromPtr);
+                toPtr += toSlice.xStride;
+                fromPtr += 4;
             }
-            
-            _data->header.sanityCheck (isTiled (_data->version));
-
-            initialize();
         }
-    }
-    catch (IEX_NAMESPACE::BaseExc &e)
-    {
-        if (is)          delete is;
-         
-        if ( _data && !_data->multiPartBackwardSupport  && _data->_streamData)
-        {
-            delete _data->_streamData;
-            _data->_streamData=NULL;
-        }
-        
-        if (_data)       delete _data;
-        _data=NULL;
-
-        REPLACE_EXC (e, "Cannot read image file "
-			"\"" << fileName << "\". " << e);
-        throw;
-    }
-    catch (...)
-    {
-        if (is)          delete is;
-        if (_data && !_data->multiPartBackwardSupport && _data->_streamData)
-        {
-            delete _data->_streamData;
-        }
-        if (_data)       delete _data;
-
-        throw;
     }
 }
 
+////////////////////////////////////////
 
-InputFile::InputFile (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, int numThreads):
-    _data (new Data (numThreads))
+void
+InputFile::Data::fillBuffer (FrameBuffer::ConstIterator to,
+                             int scanline1, int scanline2,
+                             int yStart, int xStart, int width)
 {
-    _data->_streamData=NULL;
-    _data->_deleteStream=false;
-    try
-    {
-        readMagicNumberAndVersionField(is, _data->version);
+    Slice toSlice = to.slice ();
+    if (toSlice.xSampling != 1 || toSlice.ySampling != 1)
+        throw IEX_NAMESPACE::ArgExc ("Tiled data should not have subsampling.");
 
-        //
-        // Backward compatibility to read multpart file.
-        //
-        if (isMultiPart(_data->version))
-        {
-            compatibilityInitialize(is);
-        }
+    for (int y = scanline1; y <= scanline2; ++y)
+    {
+        char* toPtr = toSlice.base;
+
+        if (toSlice.yTileCoords)
+            toPtr += ( int64_t (y) - int64_t (yStart) ) * toSlice.yStride;
         else
+            toPtr += int64_t (y) * toSlice.yStride;
+        if (!toSlice.xTileCoords)
+            toPtr += int64_t (xStart) * toSlice.xStride;
+
+        //
+        // Copy all pixels for the scanline in this row of tiles
+        //
+
+        switch (toSlice.type)
         {
-            _data->_streamData = new InputStreamMutex();
-            _data->_streamData->is = &is;
-            _data->header.readFrom (*_data->_streamData->is, _data->version);
-            
-            // fix type attribute in single part regular image types
-            // (may be wrong if an old version of OpenEXR converts
-            // a tiled image to scanline or vice versa)
-            if(!isNonImage(_data->version)  && 
-               !isMultiPart(_data->version) &&  
-               _data->header.hasType())
+            case UINT:
             {
-                _data->header.setType(isTiled(_data->version) ? TILEDIMAGE : SCANLINEIMAGE);
+                unsigned int fill =
+                    static_cast<unsigned int> (toSlice.fillValue);
+                for (int x = 0; x < width; ++x)
+                {
+                    *reinterpret_cast<unsigned int*> (toPtr) = fill;
+                    toPtr += toSlice.xStride;
+                }
+                break;
             }
-            
-            _data->header.sanityCheck (isTiled (_data->version));
-
-            initialize();
+            case HALF:
+            {
+                half fill = toSlice.fillValue;
+                for (int x = 0; x < width; ++x)
+                {
+                    *reinterpret_cast<half*> (toPtr) = fill;
+                    toPtr += toSlice.xStride;
+                }
+                break;
+            }
+            case FLOAT:
+            {
+                float fill = toSlice.fillValue;
+                for (int x = 0; x < width; ++x)
+                {
+                    *reinterpret_cast<float*> (toPtr) = fill;
+                    toPtr += toSlice.xStride;
+                }
+                break;
+            }
+            case NUM_PIXELTYPES:
+                break;
         }
     }
-    catch (IEX_NAMESPACE::BaseExc &e)
-    {
-        if (_data && !_data->multiPartBackwardSupport && _data->_streamData) delete _data->_streamData;
-        if (_data)       delete _data;
-        _data=NULL; 
-
-        REPLACE_EXC (e, "Cannot read image file "
-			"\"" << is.fileName() << "\". " << e);
-        throw;
-    }
-    catch (...)
-    {
-        if (_data &&  !_data->multiPartBackwardSupport  && _data->_streamData) delete _data->_streamData;
-        if (_data)       delete _data;
-        _data=NULL;
-        throw;
-    }
 }
-
-
-InputFile::InputFile (InputPartData* part) :
-    _data (new Data (part->numThreads))
-{
-    _data->_deleteStream=false;
-    multiPartInitialize (part);
-}
-
 
 void
-InputFile::compatibilityInitialize (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream& is)
+InputFile::Data::deleteCachedBuffer (void)
 {
-    is.seekg(0);
-
-    //
-    // Construct a MultiPartInputFile, initialize InputFile
-    // with the part 0 data.
-    // (TODO) may want to have a way to set the reconstruction flag.
-    //
-    _data->multiPartBackwardSupport = true;
-    _data->multiPartFile = new MultiPartInputFile(is, _data->numThreads);
-    InputPartData* part = _data->multiPartFile->getPart(0);
-
-    multiPartInitialize (part);
+    _cachedBuffer.reset ();
+    _slicePointers.clear ();
+    _cachedTileY = -1;
 }
-
-
-void
-InputFile::multiPartInitialize (InputPartData* part)
-{
-    _data->_streamData = part->mutex;
-    _data->version = part->version;
-    _data->header = part->header;
-    _data->partNumber = part->partNumber;
-    _data->part = part;
-
-    initialize();
-}
-
-
-void
-InputFile::initialize ()
-{
-    if (!_data->part)
-    {
-        if(_data->header.hasType() && _data->header.type()==DEEPSCANLINE)
-        {
-            _data->isTiled=false;
-            const Box2i &dataWindow = _data->header.dataWindow();
-            _data->minY = dataWindow.min.y;
-            _data->maxY = dataWindow.max.y;
-            
-            _data->dsFile = new DeepScanLineInputFile (_data->header,
-                                               _data->_streamData->is,
-                                               _data->version,
-                                               _data->numThreads);
-            _data->compositor = new CompositeDeepScanLine;
-            _data->compositor->addSource(_data->dsFile);
-        }
-        
-        else if (isTiled (_data->version))
-        {
-            _data->isTiled = true;
-            _data->lineOrder = _data->header.lineOrder();
-
-            //
-            // Save the dataWindow information
-            //
-    
-            const Box2i &dataWindow = _data->header.dataWindow();
-            _data->minY = dataWindow.min.y;
-            _data->maxY = dataWindow.max.y;
-
-            _data->tFile = new TiledInputFile (_data->header,
-                                               _data->_streamData->is,
-                                               _data->version,
-                                               _data->numThreads);
-        }
-        
-        else if(!_data->header.hasType() || _data->header.type()==SCANLINEIMAGE)
-        {
-            _data->sFile = new ScanLineInputFile (_data->header,
-                                                  _data->_streamData->is,
-                                                  _data->numThreads);
-        }else{
-            // type set but not recognised
-            
-            THROW(IEX_NAMESPACE::ArgExc, "InputFile cannot handle parts of type " << _data->header.type());
-        }
-    }
-    else
-    {
-        if(_data->header.hasType() && _data->header.type()==DEEPSCANLINE)
-        {
-            _data->isTiled=false;
-            const Box2i &dataWindow = _data->header.dataWindow();
-            _data->minY = dataWindow.min.y;
-            _data->maxY = dataWindow.max.y;
-            
-            _data->dsFile = new DeepScanLineInputFile (_data->part);
-            _data->compositor = new CompositeDeepScanLine;
-            _data->compositor->addSource(_data->dsFile);
-        }
-        else if (isTiled (_data->header.type()))
-        {
-            _data->isTiled = true;
-            _data->lineOrder = _data->header.lineOrder();
-
-            //
-            // Save the dataWindow information
-            //
-
-            const Box2i &dataWindow = _data->header.dataWindow();
-            _data->minY = dataWindow.min.y;
-            _data->maxY = dataWindow.max.y;
-
-            _data->tFile = new TiledInputFile (_data->part);
-        }
-        else if(!_data->header.hasType() || _data->header.type()==SCANLINEIMAGE)
-        {
-            _data->sFile = new ScanLineInputFile (_data->part);
-        }else{
-            THROW(IEX_NAMESPACE::ArgExc, "InputFile cannot handle parts of type " << _data->header.type());
-            
-        }
-    }
-}
-
-#include <iostream>
-InputFile::~InputFile ()
-{
-    if (_data->_deleteStream)
-        delete _data->_streamData->is;
-
-    // unless this file was opened via the multipart API,
-    // delete the streamData object too
-    if (_data->partNumber==-1 && _data->_streamData)
-        delete _data->_streamData;
-
-    if (_data)  delete _data;
-}
-
-const char *
-InputFile::fileName () const
-{
-    return _data->_streamData->is->fileName();
-}
-
-
-const Header &
-InputFile::header () const
-{
-    return _data->header;
-}
-
-
-int
-InputFile::version () const
-{
-    return _data->version;
-}
-
-
-void
-InputFile::setFrameBuffer (const FrameBuffer &frameBuffer)
-{
-    if (_data->isTiled)
-    {
-	Lock lock (*_data);
-
-	//
-        // We must invalidate the cached buffer if the new frame
-	// buffer has a different set of channels than the old
-	// frame buffer, or if the type of a channel has changed.
-	//
-
-	const FrameBuffer &oldFrameBuffer = _data->tFileBuffer;
-
-	FrameBuffer::ConstIterator i = oldFrameBuffer.begin();
-	FrameBuffer::ConstIterator j = frameBuffer.begin();
-
-	while (i != oldFrameBuffer.end() && j != frameBuffer.end())
-	{
-	    if (strcmp (i.name(), j.name()) || i.slice().type != j.slice().type)
-		break;
-
-	    ++i;
-	    ++j;
-	}
-
-	if (i != oldFrameBuffer.end() || j != frameBuffer.end())
-        {
-	    //
-	    // Invalidate the cached buffer.
-	    //
-
-            _data->deleteCachedBuffer ();
-	    _data->cachedTileY = -1;
-
-	    //
-	    // Create new a cached frame buffer.  It can hold a single
-	    // row of tiles.  The cached buffer can be reused for each
-	    // row of tiles because we set the yTileCoords parameter of
-	    // each Slice to true.
-	    //
-
-	    const Box2i &dataWindow = _data->header.dataWindow();
-	    _data->cachedBuffer = new FrameBuffer();
-	    _data->offset = dataWindow.min.x;
-	    
-	    int tileRowSize = (dataWindow.max.x - dataWindow.min.x + 1) *
-			      _data->tFile->tileYSize();
-
-	    for (FrameBuffer::ConstIterator k = frameBuffer.begin();
-		 k != frameBuffer.end();
-		 ++k)
-	    {
-		Slice s = k.slice();
-
-		switch (s.type)
-		{
-		  case OPENEXR_IMF_INTERNAL_NAMESPACE::UINT:
-
-		    _data->cachedBuffer->insert
-			(k.name(),
-			 Slice (UINT,
-				(char *)(new unsigned int[tileRowSize] - 
-					_data->offset),
-				sizeof (unsigned int),
-				sizeof (unsigned int) *
-				    _data->tFile->levelWidth(0),
-				1, 1,
-				s.fillValue,
-				false, true));
-		    break;
-
-		  case OPENEXR_IMF_INTERNAL_NAMESPACE::HALF:
-
-		    _data->cachedBuffer->insert
-			(k.name(),
-			 Slice (HALF,
-				(char *)(new half[tileRowSize] - 
-					_data->offset),
-				sizeof (half),
-				sizeof (half) *
-				    _data->tFile->levelWidth(0),
-				1, 1,
-				s.fillValue,
-				false, true));
-		    break;
-
-		  case OPENEXR_IMF_INTERNAL_NAMESPACE::FLOAT:
-
-		    _data->cachedBuffer->insert
-			(k.name(),
-			 Slice (OPENEXR_IMF_INTERNAL_NAMESPACE::FLOAT,
-				(char *)(new float[tileRowSize] - 
-					_data->offset),
-				sizeof(float),
-				sizeof(float) *
-				    _data->tFile->levelWidth(0),
-				1, 1,
-				s.fillValue,
-				false, true));
-		    break;
-
-		  default:
-
-		    throw IEX_NAMESPACE::ArgExc ("Unknown pixel data type.");
-		}
-	    }
-
-	    _data->tFile->setFrameBuffer (*_data->cachedBuffer);
-        }
-
-	_data->tFileBuffer = frameBuffer;
-    }
-    else if(_data->compositor)
-    {
-        _data->compositor->setFrameBuffer(frameBuffer);
-    }else {
-        _data->sFile->setFrameBuffer(frameBuffer);
-        _data->tFileBuffer = frameBuffer;
-    }
-}
-
-
-const FrameBuffer &
-InputFile::frameBuffer () const
-{
-    if(_data->compositor)
-    {
-        return _data->compositor->frameBuffer();
-    }
-    else if(_data->isTiled)
-    {
-	Lock lock (*_data);
-	return _data->tFileBuffer;
-    }
-    else
-    {
-	return _data->sFile->frameBuffer();
-    }
-}
-
-
-bool
-InputFile::isComplete () const
-{
-    if (_data->dsFile)
-        return _data->dsFile->isComplete();
-    else if (_data->isTiled)
-	return _data->tFile->isComplete();
-    else
-	return _data->sFile->isComplete();
-}
-
-bool
-InputFile::isOptimizationEnabled() const
-{
-   if(_data->sFile)
-   {
-       return _data->sFile->isOptimizationEnabled();
-   }else{
-       return false;
-   }
-}
-
-
-void
-InputFile::readPixels (int scanLine1, int scanLine2)
-{
-    if (_data->compositor)
-    {
-        _data->compositor->readPixels(scanLine1,scanLine2);
-    }
-    else if (_data->isTiled)
-    {
-	Lock lock (*_data);
-        bufferedReadPixels (_data, scanLine1, scanLine2);
-    }
-    else
-    {
-        _data->sFile->readPixels (scanLine1, scanLine2);
-    }
-}
-
-
-void
-InputFile::readPixels (int scanLine)
-{
-    readPixels (scanLine, scanLine);
-}
-
-
-void
-InputFile::rawPixelData (int firstScanLine,
-			 const char *&pixelData,
-			 int &pixelDataSize)
-{
-    try
-    {
-        if (_data->dsFile)
-        {
-            throw IEX_NAMESPACE::ArgExc ("Tried to read a raw scanline "
-            "from a deep image.");
-        }
-        
-	else if (_data->isTiled)
-	{
-	    throw IEX_NAMESPACE::ArgExc ("Tried to read a raw scanline "
-			       "from a tiled image.");
-	}
-        
-        _data->sFile->rawPixelData (firstScanLine, pixelData, pixelDataSize);
-    }
-    catch (IEX_NAMESPACE::BaseExc &e)
-    {
-	REPLACE_EXC (e, "Error reading pixel data from image "
-		        "file \"" << fileName() << "\". " << e);
-	throw;
-    }
-}
-
-
-void
-InputFile::rawTileData (int &dx, int &dy,
-			int &lx, int &ly,
-			const char *&pixelData,
-			int &pixelDataSize)
-{
-    try
-    {
-	if (!_data->isTiled)
-	{
-	    throw IEX_NAMESPACE::ArgExc ("Tried to read a raw tile "
-			       "from a scanline-based image.");
-	}
-        
-        _data->tFile->rawTileData (dx, dy, lx, ly, pixelData, pixelDataSize);
-    }
-    catch (IEX_NAMESPACE::BaseExc &e)
-    {
-	REPLACE_EXC (e, "Error reading tile data from image "
-		        "file \"" << fileName() << "\". " << e);
-	throw;
-    }
-}
-
-
-TiledInputFile*
-InputFile::tFile()
-{
-    if (!_data->isTiled)
-    {
-	throw IEX_NAMESPACE::ArgExc ("Cannot get a TiledInputFile pointer "
-			   "from an InputFile that is not tiled.");
-    }
-
-    return _data->tFile;
-}
-
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT

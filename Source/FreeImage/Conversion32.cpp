@@ -3,11 +3,13 @@
 //
 // Design and implementation by
 // - Floris van den Berg (flvdberg@wxs.nl)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Jani Kajala (janik@remedy.fi)
 // - Detlev Vendt (detlev.vendt@brillit.de)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -263,7 +265,10 @@ FreeImage_ConvertTo32Bits(FIBITMAP *dib) {
 			case 16:
 			{
 				for (int rows = 0; rows < height; rows++) {
-					if (/*(FreeImage_GetRedMask(dib) == FI16_565_RED_MASK) && */(FreeImage_GetGreenMask(dib) == FI16_565_GREEN_MASK)/* && (FreeImage_GetBlueMask(dib) == FI16_565_BLUE_MASK)*/) {
+					// FI16_565_BLUE_MASK == FI16_555_BLUE_MASK (0x001F), so it can't distinguish
+					// the two formats; some 16-bit producers also don't set the red mask
+					// reliably. The green mask (0x07E0 vs 0x03E0) is the only field that does.
+					if (FreeImage_GetGreenMask(dib) == FI16_565_GREEN_MASK) {
 						FreeImage_ConvertLine16To32_565(FreeImage_GetScanLine(new_dib, rows), FreeImage_GetScanLine(dib, rows), width);
 					} else {
 						// includes case where all the masks are 0

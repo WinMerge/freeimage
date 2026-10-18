@@ -2,9 +2,11 @@
 // Tone mapping operators
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -36,8 +38,10 @@ FIBITMAP * DLL_CALLCONV
 FreeImage_ToneMapping(FIBITMAP *dib, FREE_IMAGE_TMO tmo, double first_param, double second_param) {
 	if(FreeImage_HasPixels(dib)) {
 		switch(tmo) {
-			// Adaptive logarithmic mapping (F. Drago, 2003)
-			case FITMO_DRAGO03:
+            case FITMO_CLAMP: return FreeImage_TmoClamp(dib, first_param);
+            case FITMO_LINEAR: return FreeImage_TmoLinear(dib, first_param);
+            // Adaptive logarithmic mapping (F. Drago, 2003)
+            case FITMO_DRAGO03:
 				if((first_param == 0) && (second_param == 0)) {
 					// use default values (gamma = 2.2, exposure = 0)
 					return FreeImage_TmoDrago03(dib, 2.2, 0);

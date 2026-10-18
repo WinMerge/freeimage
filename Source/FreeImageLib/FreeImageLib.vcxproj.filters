@@ -296,6 +296,15 @@
     <ClCompile Include="..\FreeImage\ConversionRGBA16.cpp">
       <Filter>Source Files\Conversion</Filter>
     </ClCompile>
+    <ClCompile Include="..\FreeImage\PluginHEIF.cpp">
+      <Filter>Source Files\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\FreeImage\PluginJPEGXL.cpp">
+      <Filter>Source Files\Plugins</Filter>
+    </ClCompile>
+    <ClCompile Include="..\FreeImageToolkit\Analysis.cpp">
+      <Filter>Toolkit Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\CacheFile.h">

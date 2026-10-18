@@ -401,9 +401,13 @@
     <ClCompile Include="src\decoders\generic.cpp" />
     <ClCompile Include="src\decoders\kodak_decoders.cpp" />
     <ClCompile Include="src\decoders\load_mfbacks.cpp" />
+    <ClCompile Include="src\decoders\olympus14.cpp" />
+    <ClCompile Include="src\decoders\pana8.cpp" />
     <ClCompile Include="src\decoders\smal.cpp" />
+    <ClCompile Include="src\decoders\sonycc.cpp" />
     <ClCompile Include="src\decoders\unpack.cpp" />
     <ClCompile Include="src\decoders\unpack_thumb.cpp" />
+    <ClCompile Include="src\decompressors\losslessjpeg.cpp" />
     <ClCompile Include="src\demosaic\aahd_demosaic.cpp" />
     <ClCompile Include="src\demosaic\ahd_demosaic.cpp" />
     <ClCompile Include="src\demosaic\dcb_demosaic.cpp" />

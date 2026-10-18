@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw is free software; you can redistribute it and/or modify
  it under the terms of the one of two licenses as you choose:
@@ -12,7 +12,17 @@
 
  */
 
+#define LIBRAW_DNGSDK_CONFLICT 1
+
 #include "../../internal/libraw_cxx_defs.h"
+
+#ifdef USE_DNGSDK
+#include "dng_host.h"
+#include "dng_negative.h"
+#include "dng_simple_image.h"
+#include "dng_info.h"
+#endif
+
 
 #if defined (USE_GPRSDK) && !defined(USE_DNGSDK)
 #error  GPR (GoPro) SDK should be used with Adobe DNG SDK
@@ -25,6 +35,22 @@
 #endif
 
 #ifdef USE_DNGSDK
+
+void clear_dng_negative(void *p)
+{
+  if (!p)
+    return;
+  dng_negative *dn = (dng_negative *)p;
+  delete dn;
+}
+
+void clear_dng_image(void *p)
+{
+	if (!p) return;
+	dng_image *dimage = (dng_image *)p;
+	delete dimage;
+}
+
 static dng_ifd* search_single_ifd(const std::vector <dng_ifd *>& v, uint64 offset, int& idx, dng_stream& stream)
 {
     idx = -1;
@@ -83,6 +109,17 @@ int LibRaw::valid_for_dngsdk()
   if (!imgdata.idata.dng_version)
     return 0;
 
+  if (libraw_internal_data.unpacker_data.tiff_compress == 52546) // regardless of flags or use_dngsdk value!
+  {
+#ifdef qDNGSupportJXL
+	  if (dngVersion_Current >= dngVersion_1_7_0_0)
+		  return 1;
+	  else
+#endif
+		  return 0; // Old DNG SDK
+  }
+
+
   // All DNG larger than 2GB - to DNG SDK
   if (libraw_internal_data.internal_data.input->size() > 2147483647ULL)
       return 1;
@@ -95,32 +132,48 @@ int LibRaw::valid_for_dngsdk()
 
   if (libraw_internal_data.unpacker_data.tiff_compress == 34892
 	  && libraw_internal_data.unpacker_data.tiff_bps == 8
-	  && libraw_internal_data.unpacker_data.tiff_samples == 3
+	  && (libraw_internal_data.unpacker_data.tiff_samples == 3
+		  || libraw_internal_data.unpacker_data.tiff_samples == 1
+		  || libraw_internal_data.unpacker_data.tiff_samples == 4 )
 	  && load_raw == &LibRaw::lossy_dng_load_raw
 	  )
   {
       if (!dnghost)
           return 0;
-      dng_host *host = static_cast<dng_host *>(dnghost);
-      libraw_dng_stream stream(libraw_internal_data.internal_data.input);
-      AutoPtr<dng_negative> negative;
-      negative.Reset(host->Make_dng_negative());
-      dng_info info;
-      info.Parse(*host, stream);
-      info.PostParse(*host);
-      if (!info.IsValidDNG())
-          return 0;
-      negative->Parse(*host, stream, info);
-      negative->PostParse(*host, stream, info);
-      int ifdindex = -1;
-      dng_ifd *rawIFD = search_for_ifd(info, libraw_internal_data.unpacker_data.data_offset, imgdata.sizes.raw_width, imgdata.sizes.raw_height, ifdindex,stream);
-      if (rawIFD && ifdindex >= 0 && ifdindex == info.fMainIndex)
+	  try
+	  {
+        dng_host *host = static_cast<dng_host *>(dnghost);
+        libraw_dng_stream stream(libraw_internal_data.internal_data.input);
+        AutoPtr<dng_negative> negative;
+        negative.Reset(host->Make_dng_negative());
+        dng_info info;
+        info.Parse(*host, stream);
+        info.PostParse(*host);
+		if (!info.IsValidDNG())
+		{
+			imgdata.process_warnings |= LIBRAW_WARN_DNG_NOT_PARSED;
+			return 0;
+		}
+        negative->Parse(*host, stream, info);
+        negative->PostParse(*host, stream, info);
+        int ifdindex = -1;
+        dng_ifd *rawIFD = search_for_ifd(info, libraw_internal_data.unpacker_data.data_offset, imgdata.sizes.raw_width,
+                                         imgdata.sizes.raw_height, ifdindex, stream);
+        if (rawIFD && ifdindex >= 0 && ifdindex == info.fMainIndex)
           return 1;
-	  return 0;
+        if (rawIFD && ifdindex >= 0 && (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_ADD_PREVIEWS))
+          return 1;
+        return 0;
+	  }
+	  catch (...)
+	  {
+		  imgdata.process_warnings |= LIBRAW_WARN_DNG_NOT_PARSED;
+		  return 0;
+	  }
   }
 
 #ifdef USE_GPRSDK
-  if (load_raw == &LibRaw::vc5_dng_load_raw_placeholder) // regardless of flags or use_dngsdk value!
+  if (libraw_internal_data.unpacker_data.tiff_compress == 9) // regardless of flags or use_dngsdk value!
       return 1;
 #endif
   if (!imgdata.rawparams.use_dngsdk)
@@ -180,43 +233,84 @@ int LibRaw::try_dngsdk()
     negative->PostParse(*host, stream, info);
     int ifdindex;
     dng_ifd *rawIFD = search_for_ifd(info,libraw_internal_data.unpacker_data.data_offset,imgdata.sizes.raw_width,imgdata.sizes.raw_height,ifdindex,stream);
-    if(!rawIFD)
-        return LIBRAW_DATA_ERROR;
+	if (!rawIFD)
+	{
+		imgdata.process_warnings |= LIBRAW_WARN_DNG_NOT_PROCESSED;
+		return LIBRAW_DATA_ERROR;
+	}
 
     AutoPtr<dng_simple_image> stage2;
-    bool stage23used = false;
+	unsigned stageBits = 0; // 1=> release Stage2, 2=> change Black/Max
 	bool zerocopy = false;
+	bool isLossy = (rawIFD->fCompression == 34892) || (rawIFD->fCompression == 52546);
 
-    //(new dng_simple_image(rawIFD->Bounds(), rawIFD->fSamplesPerPixel, rawIFD->PixelType(), host->Allocator()));
+	INT64 rawbytes = INT64(rawIFD->Bounds().W()) * INT64(rawIFD->Bounds().H()) * INT64(rawIFD->fSamplesPerPixel) * INT64(TagTypeSize(rawIFD->PixelType()));
+	if(rawbytes > INT64(imgdata.rawparams.max_raw_memory_mb) * INT64(1024 * 1024))
+      return LIBRAW_TOO_BIG;
 
-    if (((libraw_internal_data.unpacker_data.tiff_compress == 34892 
+    if (
+#ifdef USE_GPRSDK
+		libraw_internal_data.unpacker_data.tiff_compress != 9 &&
+#endif
+		(
+		((libraw_internal_data.unpacker_data.tiff_compress == 34892 
         && libraw_internal_data.unpacker_data.tiff_bps == 8
         && libraw_internal_data.unpacker_data.tiff_samples == 3
-        && load_raw == &LibRaw::lossy_dng_load_raw) 
+        && load_raw == &LibRaw::lossy_dng_load_raw) // JPEG DNG or JPEG DNG RAW Preview
         || (imgdata.rawparams.options & (LIBRAW_RAWOPTIONS_DNG_STAGE2| LIBRAW_RAWOPTIONS_DNG_STAGE3))
         || ((tiff_ifd[ifdindex].dng_levels.parsedfields & (LIBRAW_DNGFM_OPCODE2| LIBRAW_DNGFM_OPCODE3))
             && (imgdata.rawparams.options & (LIBRAW_RAWOPTIONS_DNG_STAGE2_IFPRESENT | LIBRAW_RAWOPTIONS_DNG_STAGE3_IFPRESENT)))
+
+			|| ((tiff_ifd[ifdindex].dng_levels.parsedfields & (LIBRAW_DNGFM_OPCODE2| LIBRAW_DNGFM_OPCODE3))
+            && isLossy && (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE23_IFPRESENT_JPGJXL))
         )
         && ifdindex >= 0)
+		)
     {
         if (info.fMainIndex != ifdindex)
             info.fMainIndex = ifdindex;
 
-        negative->ReadStage1Image(*host, stream, info);
-        negative->BuildStage2Image(*host);
-		imgdata.process_warnings |= LIBRAW_WARN_DNG_STAGE2_APPLIED;
-		if (  (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE3) ||
-            ((tiff_ifd[ifdindex].dng_levels.parsedfields & LIBRAW_DNGFM_OPCODE3) &&
-             (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE3_IFPRESENT))
-            )
+		if (rawIFD->fNewSubFileType == 1) // Preview
 		{
-			negative->BuildStage3Image(*host);
-			stage2.Reset((dng_simple_image*)negative->Stage3Image());
-			imgdata.process_warnings |= LIBRAW_WARN_DNG_STAGE3_APPLIED;
+          dng_read_image reader;
+          AutoPtr<dng_image> copy2;
+          negative->ReadStage1Image(*host, stream, info); // Read image AND opcodes lists
+		  copy2.Reset((dng_simple_image*) negative->Stage1Image());
+          host->ApplyOpcodeList(negative->OpcodeList1(), *negative,copy2);
+		  stageBits = 1;
+		  if ((imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE2)
+			  || ((tiff_ifd[ifdindex].dng_levels.parsedfields & LIBRAW_DNGFM_OPCODE2) && (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE2_IFPRESENT))
+			  || ((tiff_ifd[ifdindex].dng_levels.parsedfields & LIBRAW_DNGFM_OPCODE2) && isLossy && (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE23_IFPRESENT_JPGJXL))
+			  )
+		  {
+			  host->ApplyOpcodeList(negative->OpcodeList2(), *negative, copy2);
+			  stageBits |= 2;
+		  }
+          stage2.Reset((dng_simple_image *)copy2.Get());
+		  copy2.Release();
 		}
 		else
-			stage2.Reset((dng_simple_image*)negative->Stage2Image());
-        stage23used = true;
+		{
+			negative->ReadStage1Image(*host, stream, info);
+			negative->BuildStage2Image(*host);
+			imgdata.process_warnings |= LIBRAW_WARN_DNG_STAGE2_APPLIED;
+			if ((imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE3) 
+				||
+				((tiff_ifd[ifdindex].dng_levels.parsedfields & LIBRAW_DNGFM_OPCODE3) &&
+				(imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE3_IFPRESENT))
+				||
+                ((tiff_ifd[ifdindex].dng_levels.parsedfields & LIBRAW_DNGFM_OPCODE3) && isLossy &&
+                 (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNG_STAGE23_IFPRESENT_JPGJXL))
+				)
+			{
+				negative->BuildStage3Image(*host);
+				stage2.Reset((dng_simple_image*)negative->Stage3Image());
+				imgdata.process_warnings |= LIBRAW_WARN_DNG_STAGE3_APPLIED;
+			}
+			else
+				stage2.Reset((dng_simple_image*)negative->Stage2Image());
+			stageBits = 3;
+		}
     }
     else
     {
@@ -253,10 +347,11 @@ int LibRaw::try_dngsdk()
 		else
 		{
 			stage2.Release(); // It holds copy to internal dngnegative
+			imgdata.process_warnings |= LIBRAW_WARN_DNG_NOT_PROCESSED;
 			return LIBRAW_DATA_ERROR;
 		}
     }
-	if (stage23used)
+	if (stageBits & 2)
 	{
 		if (stage2->Planes() > 1)
 		{
@@ -266,6 +361,7 @@ int LibRaw::try_dngsdk()
 		// reset BL and whitepoint
 		imgdata.color.black = 0;
 		memset(imgdata.color.cblack, 0, sizeof(imgdata.color.cblack));
+		memset(imgdata.color.linear_max, 0, sizeof(imgdata.color.linear_max));
 		imgdata.color.maximum = 0xffff;
 	}
 
@@ -275,11 +371,20 @@ int LibRaw::try_dngsdk()
     dng_pixel_buffer buffer;
     stage2->GetPixelBuffer(buffer);
 
-    int pixels = stage2->Bounds().H() * stage2->Bounds().W() * pplanes;
+    INT64 pixels = INT64(stage2->Bounds().H()) * INT64(stage2->Bounds().W()) * INT64(pplanes);
 
-    if (ptype == ttShort && !stage23used &&  !is_curve_linear())
+	INT64 allocsz = pixels * TagTypeSize(ptype);
+    if (allocsz > INT64(imgdata.rawparams.max_raw_memory_mb) * INT64(1024 * 1024))
+      throw LIBRAW_EXCEPTION_TOOBIG;
+
+    if (ptype == ttShort && !(stageBits & 1) &&  !is_curve_linear())
     {
-      imgdata.rawdata.raw_alloc = malloc(pixels * TagTypeSize(ptype));
+      imgdata.rawdata.raw_alloc 
+#ifdef LIBRAW_CALLOC_RAWSTORE
+          = calloc(pixels, TagTypeSize(ptype));
+#else
+		  = malloc(pixels * TagTypeSize(ptype));
+#endif
       ushort *src = (ushort *)buffer.fData;
       ushort *dst = (ushort *)imgdata.rawdata.raw_alloc;
       for (int i = 0; i < pixels; i++)
@@ -289,13 +394,17 @@ int LibRaw::try_dngsdk()
     }
     else if (ptype == ttByte)
     {
-      imgdata.rawdata.raw_alloc = malloc(pixels * TagTypeSize(ttShort));
+      imgdata.rawdata.raw_alloc 
+#ifdef LIBRAW_CALLOC_RAWSTORE
+          = calloc(pixels, TagTypeSize(ttShort));
+#else
+		  = malloc(pixels * TagTypeSize(ttShort));
+#endif
       unsigned char *src = (unsigned char *)buffer.fData;
       ushort *dst = (ushort *)imgdata.rawdata.raw_alloc;
       if (is_curve_linear())
       {
-        for (int i = 0; i < pixels; i++)
-          dst[i] = src[i];
+        memmove(dst, src, pixels * TagTypeSize(ptype));
       }
       else
       {
@@ -307,20 +416,25 @@ int LibRaw::try_dngsdk()
     else
     {
       // Alloc
-      if ((imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNGSDK_ZEROCOPY) && !stage23used)
+      if ((imgdata.rawparams.options & LIBRAW_RAWOPTIONS_DNGSDK_ZEROCOPY) && !(stageBits & 1))
       {
         zerocopy = true;
       }
       else
       {
-        imgdata.rawdata.raw_alloc = malloc(pixels * TagTypeSize(ptype));
+        imgdata.rawdata.raw_alloc 
+#ifdef LIBRAW_CALLOC_RAWSTORE
+            = calloc(pixels, TagTypeSize(ptype));
+#else
+            = malloc(pixels * TagTypeSize(ptype));
+#endif
         memmove(imgdata.rawdata.raw_alloc, buffer.fData,
                 pixels * TagTypeSize(ptype));
       }
       S.raw_pitch = S.raw_width * pplanes * TagTypeSize(ptype);
     }
 
-    if (stage23used)
+    if (stageBits & 1)
         stage2.Release();
 
     if ((ptype == ttFloat) && (imgdata.rawparams.options & LIBRAW_RAWOPTIONS_CONVERTFLOAT_TO_INT))
@@ -398,10 +512,14 @@ int LibRaw::try_dngsdk()
   }
   catch (...)
   {
+    imgdata.process_warnings |= LIBRAW_WARN_DNG_NOT_PROCESSED;
     return LIBRAW_UNSPECIFIED_ERROR;
   }
   
-  return (dngnegative || imgdata.rawdata.raw_alloc) ? LIBRAW_SUCCESS : LIBRAW_UNSPECIFIED_ERROR;
+  int ret = (dngnegative || imgdata.rawdata.raw_alloc) ? LIBRAW_SUCCESS : LIBRAW_UNSPECIFIED_ERROR;
+  if(ret != LIBRAW_SUCCESS)
+	imgdata.process_warnings |= LIBRAW_WARN_DNG_NOT_PROCESSED;
+  return ret;
 #else
   return LIBRAW_UNSPECIFIED_ERROR;
 #endif

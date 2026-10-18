@@ -1,3 +1,12 @@
+Current build
+-------------
+CMake is how this tree is built on macOS. See README.md.
+
+    cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Release
+    cmake --build build -j$(sysctl -n hw.ncpu)
+
+The notes below are the legacy `Makefile.osx` path. The 10.3.9 / 10.4 SDK and gcc 4.0 requirements are historical.
+
 Release Notes
 --------------
 This version of the library has been tested under OSX 10.3.9 PPC and OSX 10.4.8 Intel.

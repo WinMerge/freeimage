@@ -1,38 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
-
 
 #ifndef INCLUDED_IMF_CHANNEL_LIST_H
 #define INCLUDED_IMF_CHANNEL_LIST_H
@@ -44,11 +13,10 @@
 //
 //-----------------------------------------------------------------------------
 
+#include "ImfForward.h"
+
 #include "ImfName.h"
 #include "ImfPixelType.h"
-
-#include "ImfNamespace.h"
-#include "ImfExport.h"
 
 #include <map>
 #include <set>
@@ -56,34 +24,31 @@
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
-
-struct IMF_EXPORT Channel
+struct IMF_EXPORT_TYPE Channel
 {
     //------------------------------
     // Data type; see ImfPixelType.h
     //------------------------------
 
-    PixelType		type;
-
+    PixelType type;
 
     //--------------------------------------------
     // Subsampling: pixel (x, y) is present in the
-    // channel only if 
+    // channel only if
     //
     //  x % xSampling == 0 && y % ySampling == 0
     //
     //--------------------------------------------
 
-    int			xSampling;
-    int			ySampling;
-
+    int xSampling;
+    int ySampling;
 
     //--------------------------------------------------------------
     // Hint to lossy compression methods that indicates whether
     // human perception of the quantity represented by this channel
     // is closer to linear or closer to logarithmic.  Compression
     // methods may optimize image quality by adjusting pixel data
-    // quantization acording to this hint.
+    // quantization according to this hint.
     // For example, perception of red, green, blue and luminance is
     // approximately logarithmic; the difference between 0.1 and 0.2
     // is perceived to be roughly the same as the difference between
@@ -93,40 +58,39 @@ struct IMF_EXPORT Channel
     // between 1.0 and 1.1.
     //--------------------------------------------------------------
 
-    bool		pLinear;
-
+    bool pLinear;
 
     //------------
     // Constructor
     //------------
-    
-    Channel (PixelType type = HALF,
-	     int xSampling = 1,
-	     int ySampling = 1,
-	     bool pLinear = false);
 
+    IMF_EXPORT
+    Channel (
+        PixelType type      = HALF,
+        int       xSampling = 1,
+        int       ySampling = 1,
+        bool      pLinear   = false);
 
     //------------
     // Operator ==
     //------------
 
-    bool		operator == (const Channel &other) const;
+    IMF_EXPORT
+    bool operator== (const Channel& other) const;
 };
 
-
-class IMF_EXPORT ChannelList
+class IMF_EXPORT_TYPE ChannelList
 {
-  public:
-
+public:
     //--------------
     // Add a channel
     //--------------
 
-    void			insert (const char name[],
-					const Channel &channel);
+    IMF_EXPORT
+    void insert (const char name[], const Channel& channel);
 
-    void			insert (const std::string &name,
-					const Channel &channel);
+    IMF_EXPORT
+    void insert (const std::string& name, const Channel& channel);
 
     //------------------------------------------------------------------
     // Access to existing channels:
@@ -140,41 +104,55 @@ class IMF_EXPORT ChannelList
     //
     //------------------------------------------------------------------
 
-    Channel &			operator [] (const char name[]);
-    const Channel &		operator [] (const char name[]) const;
+    IMF_EXPORT
+    Channel& operator[] (const char name[]);
+    IMF_EXPORT
+    const Channel& operator[] (const char name[]) const;
 
-    Channel &			operator [] (const std::string &name);
-    const Channel &		operator [] (const std::string &name) const;
+    IMF_EXPORT
+    Channel& operator[] (const std::string& name);
+    IMF_EXPORT
+    const Channel& operator[] (const std::string& name) const;
 
-    Channel *			findChannel (const char name[]);
-    const Channel *		findChannel (const char name[]) const;
+    IMF_EXPORT
+    Channel* findChannel (const char name[]);
+    IMF_EXPORT
+    const Channel* findChannel (const char name[]) const;
 
-    Channel *			findChannel (const std::string &name);
-    const Channel *		findChannel (const std::string &name) const;
-
+    IMF_EXPORT
+    Channel* findChannel (const std::string& name);
+    IMF_EXPORT
+    const Channel* findChannel (const std::string& name) const;
 
     //-------------------------------------------
     // Iterator-style access to existing channels
     //-------------------------------------------
 
-    typedef std::map <Name, Channel> ChannelMap;
+    typedef std::map<Name, Channel> ChannelMap;
 
     class Iterator;
     class ConstIterator;
 
-    Iterator			begin ();
-    ConstIterator		begin () const;
+    IMF_EXPORT
+    Iterator begin ();
+    IMF_EXPORT
+    ConstIterator begin () const;
 
-    Iterator			end ();
-    ConstIterator		end () const;
+    IMF_EXPORT
+    Iterator end ();
+    IMF_EXPORT
+    ConstIterator end () const;
 
-    Iterator			find (const char name[]);
-    ConstIterator		find (const char name[]) const;
+    IMF_EXPORT
+    Iterator find (const char name[]);
+    IMF_EXPORT
+    ConstIterator find (const char name[]) const;
 
-    Iterator			find (const std::string &name);
-    ConstIterator		find (const std::string &name) const;
+    IMF_EXPORT
+    Iterator find (const std::string& name);
+    IMF_EXPORT
+    ConstIterator find (const std::string& name) const;
 
-    
     //-----------------------------------------------------------------
     // Support for image layers:
     //
@@ -189,7 +167,7 @@ class IMF_EXPORT ChannelList
     // several different virtual light sources.  The channels in
     // this image might be called "light1.R", "light1.G", "light1.B",
     // "light2.R", "light2.G", "light2.B", etc.
-    // 
+    //
     // Note that this naming convention allows layers to be nested;
     // for example, "light1.specular.R" identifies the "R" channel
     // in the "specular" sub-layer of layer "light1".
@@ -215,16 +193,18 @@ class IMF_EXPORT ChannelList
     //
     //-----------------------------------------------------------------
 
-    void		layers (std::set <std::string> &layerNames) const;
+    IMF_EXPORT
+    void layers (std::set<std::string>& layerNames) const;
 
-    void		channelsInLayer (const std::string &layerName,
-	    				 Iterator &first,
-					 Iterator &last);
+    IMF_EXPORT
+    void channelsInLayer (
+        const std::string& layerName, Iterator& first, Iterator& last);
 
-    void		channelsInLayer (const std::string &layerName,
-	    				 ConstIterator &first,
-					 ConstIterator &last) const;
-
+    IMF_EXPORT
+    void channelsInLayer (
+        const std::string& layerName,
+        ConstIterator&     first,
+        ConstIterator&     last) const;
 
     //-------------------------------------------------------------------
     // Find all channels whose name begins with a given prefix:
@@ -238,198 +218,335 @@ class IMF_EXPORT ChannelList
     //
     //-------------------------------------------------------------------
 
-    void			channelsWithPrefix (const char prefix[],
-						    Iterator &first,
-						    Iterator &last);
+    IMF_EXPORT
+    void
+    channelsWithPrefix (const char prefix[], Iterator& first, Iterator& last);
 
-    void			channelsWithPrefix (const char prefix[],
-						    ConstIterator &first,
-						    ConstIterator &last) const;
+    IMF_EXPORT
+    void channelsWithPrefix (
+        const char prefix[], ConstIterator& first, ConstIterator& last) const;
 
-    void			channelsWithPrefix (const std::string &prefix,
-						    Iterator &first,
-						    Iterator &last);
+    IMF_EXPORT
+    void channelsWithPrefix (
+        const std::string& prefix, Iterator& first, Iterator& last);
 
-    void			channelsWithPrefix (const std::string &prefix,
-						    ConstIterator &first,
-						    ConstIterator &last) const;
+    IMF_EXPORT
+    void channelsWithPrefix (
+        const std::string& prefix,
+        ConstIterator&     first,
+        ConstIterator&     last) const;
 
     //------------
     // Operator ==
     //------------
 
-    bool			operator == (const ChannelList &other) const;
+    IMF_EXPORT
+    bool operator== (const ChannelList& other) const;
 
-  private:
-
-    ChannelMap			_map;
+private:
+    ChannelMap _map;
 };
-
 
 //----------
 // Iterators
 //----------
 
-class ChannelList::Iterator
+class IMF_EXPORT_TYPE ChannelList::Iterator
 {
-  public:
+public:
+    using iterator_category = std::bidirectional_iterator_tag;
+    using value_type          = Channel;
+    using difference_type     = std::ptrdiff_t;
+    using pointer             = Channel*;
+    using reference           = Channel&;
 
+    IMF_EXPORT
     Iterator ();
-    Iterator (const ChannelList::ChannelMap::iterator &i);
+    IMF_EXPORT
+    Iterator (const ChannelList::ChannelMap::iterator& i);
 
-    Iterator &			operator ++ ();
-    Iterator 			operator ++ (int);
+    IMF_EXPORT
+    Iterator& operator++ ();
+    IMF_EXPORT
+    Iterator operator++ (int);
 
-    const char *		name () const;
-    Channel &			channel () const;
+    IMF_EXPORT
+    Iterator& operator-- ();
+    IMF_EXPORT
+    Iterator operator-- (int);
 
-  private:
+    IMF_EXPORT
+    reference operator* () const;
 
+    IMF_EXPORT
+    pointer operator-> () const;
+
+    IMF_EXPORT
+    const char* name () const;
+    IMF_EXPORT
+    reference channel () const;
+
+private:
     friend class ChannelList::ConstIterator;
+
+    friend bool operator== (Iterator&, Iterator&);
+    friend bool operator== (Iterator&, const ConstIterator&);
+    friend bool operator== (const ConstIterator&, Iterator&);
+
+    friend bool operator!= (Iterator&, Iterator&);
+    friend bool operator!= (Iterator&, const ConstIterator&);
+    friend bool operator!= (const ConstIterator&, Iterator&);
 
     ChannelList::ChannelMap::iterator _i;
 };
 
-
-class ChannelList::ConstIterator
+class IMF_EXPORT_TYPE ChannelList::ConstIterator
 {
-  public:
+public:
+    using iterator_category = std::bidirectional_iterator_tag;
+    using value_type          = Channel;
+    using difference_type     = std::ptrdiff_t;
+    using pointer             = const Channel*;
+    using reference           = const Channel&;
 
+    IMF_EXPORT
     ConstIterator ();
-    ConstIterator (const ChannelList::ChannelMap::const_iterator &i);
-    ConstIterator (const ChannelList::Iterator &other);
+    IMF_EXPORT
+    ConstIterator (const ChannelList::ChannelMap::const_iterator& i);
+    IMF_EXPORT
+    ConstIterator (const ChannelList::Iterator& other);
 
-    ConstIterator &		operator ++ ();
-    ConstIterator 		operator ++ (int);
+    IMF_EXPORT
+    ConstIterator& operator++ ();
+    IMF_EXPORT
+    ConstIterator operator++ (int);
 
-    const char *		name () const;
-    const Channel &		channel () const;
+    IMF_EXPORT
+    ConstIterator& operator-- ();
+    IMF_EXPORT
+    ConstIterator operator-- (int);
 
-  private:
+    IMF_EXPORT
+    reference operator* () const;
 
-    friend bool operator == (const ConstIterator &, const ConstIterator &);
-    friend bool operator != (const ConstIterator &, const ConstIterator &);
+    IMF_EXPORT
+    pointer operator-> () const;
+
+    IMF_EXPORT
+    const char* name () const;
+    IMF_EXPORT
+    reference channel () const;
+
+private:
+    friend bool operator== (const ConstIterator&, const ConstIterator&);
+    friend bool operator== (Iterator&, const ConstIterator&);
+    friend bool operator== (const ConstIterator&, Iterator&);
+
+    friend bool operator!= (const ConstIterator&, const ConstIterator&);
+    friend bool operator!= (Iterator&, const ConstIterator&);
+    friend bool operator!= (const ConstIterator&, Iterator&);
 
     ChannelList::ChannelMap::const_iterator _i;
 };
-
 
 //-----------------
 // Inline Functions
 //-----------------
 
-inline
-ChannelList::Iterator::Iterator (): _i()
+inline ChannelList::Iterator::Iterator () : _i ()
 {
     // empty
 }
 
-
-inline
-ChannelList::Iterator::Iterator (const ChannelList::ChannelMap::iterator &i):
-    _i (i)
+inline ChannelList::Iterator::Iterator (
+    const ChannelList::ChannelMap::iterator& i)
+    : _i (i)
 {
     // empty
 }
 
-
-inline ChannelList::Iterator &		
-ChannelList::Iterator::operator ++ ()
+inline ChannelList::Iterator&
+ChannelList::Iterator::operator++ ()
 {
     ++_i;
     return *this;
 }
 
-
-inline ChannelList::Iterator 	
-ChannelList::Iterator::operator ++ (int)
+inline ChannelList::Iterator
+ChannelList::Iterator::operator++ (int)
 {
     Iterator tmp = *this;
     ++_i;
     return tmp;
 }
 
+inline ChannelList::Iterator&
+ChannelList::Iterator::operator-- ()
+{
+    --_i;
+    return *this;
+}
 
-inline const char *
+inline ChannelList::Iterator
+ChannelList::Iterator::operator-- (int)
+{
+    Iterator tmp = *this;
+    --_i;
+    return tmp;
+}
+
+inline ChannelList::Iterator::reference
+ChannelList::Iterator::operator* () const
+{
+    return _i->second;
+}
+
+inline ChannelList::Iterator::pointer
+ChannelList::Iterator::operator-> () const
+{
+    return &_i->second;
+}
+
+inline const char*
 ChannelList::Iterator::name () const
 {
     return *_i->first;
 }
 
-
-inline Channel &	
+inline ChannelList::Iterator::reference
 ChannelList::Iterator::channel () const
 {
     return _i->second;
 }
 
-
-inline
-ChannelList::ConstIterator::ConstIterator (): _i()
+inline ChannelList::ConstIterator::ConstIterator () : _i ()
 {
     // empty
 }
 
-inline
-ChannelList::ConstIterator::ConstIterator
-    (const ChannelList::ChannelMap::const_iterator &i): _i (i)
+inline ChannelList::ConstIterator::ConstIterator (
+    const ChannelList::ChannelMap::const_iterator& i)
+    : _i (i)
 {
     // empty
 }
 
-
-inline
-ChannelList::ConstIterator::ConstIterator (const ChannelList::Iterator &other):
-    _i (other._i)
+inline ChannelList::ConstIterator::ConstIterator (
+    const ChannelList::Iterator& other)
+    : _i (other._i)
 {
     // empty
 }
 
-inline ChannelList::ConstIterator &
-ChannelList::ConstIterator::operator ++ ()
+inline ChannelList::ConstIterator&
+ChannelList::ConstIterator::operator++ ()
 {
     ++_i;
     return *this;
 }
 
-
-inline ChannelList::ConstIterator 		
-ChannelList::ConstIterator::operator ++ (int)
+inline ChannelList::ConstIterator
+ChannelList::ConstIterator::operator++ (int)
 {
     ConstIterator tmp = *this;
     ++_i;
     return tmp;
 }
 
+inline ChannelList::ConstIterator&
+ChannelList::ConstIterator::operator-- ()
+{
+    --_i;
+    return *this;
+}
 
-inline const char *
+inline ChannelList::ConstIterator
+ChannelList::ConstIterator::operator-- (int)
+{
+    ConstIterator tmp = *this;
+    --_i;
+    return tmp;
+}
+
+inline ChannelList::ConstIterator::reference
+ChannelList::ConstIterator::operator* () const
+{
+    return _i->second;
+}
+
+inline ChannelList::ConstIterator::pointer
+ChannelList::ConstIterator::operator-> () const
+{
+    return &_i->second;
+}
+
+inline const char*
 ChannelList::ConstIterator::name () const
 {
     return *_i->first;
 }
 
-inline const Channel &	
+inline ChannelList::ConstIterator::reference
 ChannelList::ConstIterator::channel () const
 {
     return _i->second;
 }
 
-
 inline bool
-operator == (const ChannelList::ConstIterator &x,
-	     const ChannelList::ConstIterator &y)
+operator== (
+    ChannelList::Iterator& x, ChannelList::Iterator& y)
 {
     return x._i == y._i;
 }
 
-
 inline bool
-operator != (const ChannelList::ConstIterator &x,
-	     const ChannelList::ConstIterator &y)
+operator== (
+    const ChannelList::ConstIterator& x, const ChannelList::ConstIterator& y)
 {
-    return !(x == y);
+    return x._i == y._i;
 }
 
+inline bool
+operator== (
+    ChannelList::Iterator& x, const ChannelList::ConstIterator& y)
+{
+    return x._i == y._i;
+}
+
+inline bool
+operator== (
+    const ChannelList::ConstIterator& x, ChannelList::Iterator& y)
+{
+    return x._i == y._i;
+}
+
+inline bool
+operator!= (
+    ChannelList::Iterator& x, ChannelList::Iterator& y)
+{
+    return !(x._i == y._i);
+}
+
+inline bool
+operator!= (
+    const ChannelList::ConstIterator& x, const ChannelList::ConstIterator& y)
+{
+    return !(x._i == y._i);
+}
+
+inline bool
+operator!= (
+    ChannelList::Iterator& x, const ChannelList::ConstIterator& y)
+{
+    return !(x._i == y._i);
+}
+
+inline bool
+operator!= (
+    const ChannelList::ConstIterator& x, ChannelList::Iterator& y)
+{
+    return !(x._i == y._i);
+}
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 

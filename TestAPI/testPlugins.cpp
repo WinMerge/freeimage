@@ -2,9 +2,11 @@
 // FreeImage 3 Test Script
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -25,6 +27,16 @@
 // Show plugins
 // ----------------------------------------------------------
 void showPlugins() {
+	assert(FreeImage_GetFIFFromFormat("JXL") == FIF_JPEGXL);
+#ifdef FREEIMAGE_TEST_LIBJXL
+	assert(!!FreeImage_FIFSupportsReading(FIF_JPEGXL) == FREEIMAGE_TEST_LIBJXL);
+#endif
+	assert(FreeImage_GetFIFFromFormat("HEIF") == FIF_HEIF);
+	assert(FreeImage_GetFIFFromFormat("AVIF") == FIF_AVIF);
+#ifdef FREEIMAGE_TEST_LIBHEIF
+	assert(!!FreeImage_FIFSupportsReading(FIF_HEIF) == FREEIMAGE_TEST_LIBHEIF);
+	assert(!!FreeImage_FIFSupportsReading(FIF_AVIF) == FREEIMAGE_TEST_LIBHEIF);
+#endif
 	// print version & copyright infos
 
 	printf("FreeImage version: %s\n\n%s\n\n", FreeImage_GetVersion(), FreeImage_GetCopyrightMessage());

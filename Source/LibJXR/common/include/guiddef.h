@@ -30,6 +30,12 @@
 //
 //----------------------------------------------------------------------------
 
+/* MinGW's windows.h includes <guiddef.h> and then unknwnbase.h, which
+   needs the toolchain's __mingw_uuidof helpers. This directory is on the
+   include path, so hand the MinGW include back to the system header. */
+#if defined(__MINGW32__)
+#include_next <guiddef.h>
+#else
 #ifndef GUID_DEFINED
 #define GUID_DEFINED
 #if defined(__midl)
@@ -228,3 +234,4 @@ __inline int operator!=(REFGUID guidOne, REFGUID guidOther)
 #endif  // _SYS_GUID_OPERATORS_
 #endif  // __midl
 #endif  // _GUIDDEF_H_
+#endif /* !__MINGW32__ */

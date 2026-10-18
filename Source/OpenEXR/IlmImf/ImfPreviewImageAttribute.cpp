@@ -1,37 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
 
 //-----------------------------------------------------------------------------
 //
@@ -39,65 +9,88 @@
 //
 //-----------------------------------------------------------------------------
 
-#include <ImfPreviewImageAttribute.h>
+#define COMPILING_IMF_PREVIEW_IMAGE_ATTRIBUTE
+#include "ImfPreviewImageAttribute.h"
 
+#if defined(_MSC_VER)
+// suppress warning about non-exported base classes
+#    pragma warning(disable : 4251)
+#    pragma warning(disable : 4275)
+#endif
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
 using namespace OPENEXR_IMF_INTERNAL_NAMESPACE;
 
 template <>
-const char *
+IMF_EXPORT const char*
 PreviewImageAttribute::staticTypeName ()
 {
     return "preview";
 }
 
-
 template <>
-void
-PreviewImageAttribute::writeValueTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os, int version) const
+IMF_EXPORT void
+PreviewImageAttribute::writeValueTo (
+    OPENEXR_IMF_INTERNAL_NAMESPACE::OStream& os, int version) const
 {
-    Xdr::write <StreamIO> (os, _value.width());
-    Xdr::write <StreamIO> (os, _value.height());
+    Xdr::write<StreamIO> (os, _value.width ());
+    Xdr::write<StreamIO> (os, _value.height ());
 
-    int numPixels = _value.width() * _value.height();
-    const PreviewRgba *pixels = _value.pixels();
+    int                numPixels = _value.width () * _value.height ();
+    const PreviewRgba* pixels    = _value.pixels ();
 
     for (int i = 0; i < numPixels; ++i)
     {
-	Xdr::write <StreamIO> (os, pixels[i].r);
-	Xdr::write <StreamIO> (os, pixels[i].g);
-	Xdr::write <StreamIO> (os, pixels[i].b);
-	Xdr::write <StreamIO> (os, pixels[i].a);
+        Xdr::write<StreamIO> (os, pixels[i].r);
+        Xdr::write<StreamIO> (os, pixels[i].g);
+        Xdr::write<StreamIO> (os, pixels[i].b);
+        Xdr::write<StreamIO> (os, pixels[i].a);
     }
 }
 
-
 template <>
-void
-PreviewImageAttribute::readValueFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is, int size, int version)
+IMF_EXPORT void
+PreviewImageAttribute::readValueFrom (
+    OPENEXR_IMF_INTERNAL_NAMESPACE::IStream& is, int size, int version)
 {
     int width, height;
 
-    Xdr::read <StreamIO> (is, width);
-    Xdr::read <StreamIO> (is, height);
+    Xdr::read<StreamIO> (is, width);
+    Xdr::read<StreamIO> (is, height);
+
+    if (width < 0 || height < 0)
+    {
+        throw IEX_NAMESPACE::InputExc (
+            "Invalid dimensions in Preview Image Attribute");
+    }
+
+    // total attribute size should be four bytes per pixel + 8 bytes for width and height dimensions
+    if (static_cast<uint64_t> (width) * static_cast<uint64_t> (height) * 4l +
+            8l !=
+        static_cast<uint64_t> (size))
+    {
+        throw IEX_NAMESPACE::InputExc (
+            "Mismatch between Preview Image Attribute size and dimensions");
+    }
 
     PreviewImage p (width, height);
 
-    int numPixels = p.width() * p.height();
-    PreviewRgba *pixels = p.pixels();
+    int          numPixels = p.width () * p.height ();
+    PreviewRgba* pixels    = p.pixels ();
 
     for (int i = 0; i < numPixels; ++i)
     {
-	Xdr::read <StreamIO> (is, pixels[i].r);
-	Xdr::read <StreamIO> (is, pixels[i].g);
-	Xdr::read <StreamIO> (is, pixels[i].b);
-	Xdr::read <StreamIO> (is, pixels[i].a);
+        Xdr::read<StreamIO> (is, pixels[i].r);
+        Xdr::read<StreamIO> (is, pixels[i].g);
+        Xdr::read<StreamIO> (is, pixels[i].b);
+        Xdr::read<StreamIO> (is, pixels[i].a);
     }
 
     _value = p;
 }
 
+template class IMF_EXPORT_TEMPLATE_INSTANCE
+    TypedAttribute<OPENEXR_IMF_INTERNAL_NAMESPACE::PreviewImage>;
 
-OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT 
+OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT

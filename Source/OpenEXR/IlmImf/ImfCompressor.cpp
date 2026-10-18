@@ -1,38 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
-
 
 //-----------------------------------------------------------------------------
 //
@@ -40,26 +9,79 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "ImfCompressor.h"
-#include "ImfRleCompressor.h"
-#include "ImfZipCompressor.h"
-#include "ImfPizCompressor.h"
-#include "ImfPxr24Compressor.h"
-#include "ImfB44Compressor.h"
-#include "ImfDwaCompressor.h"
 #include "ImfCheckedArithmetic.h"
 #include "ImfNamespace.h"
+#include "ImfCompressor.h"
+#include "ImfB44Compressor.h"
+#include "ImfDwaCompressor.h"
+#include "ImfPizCompressor.h"
+#include "ImfPxr24Compressor.h"
+#include "ImfRleCompressor.h"
+#include "ImfZipCompressor.h"
+#include "ImfZip.h"
+#include "ImfZstdCompressor.h"
+
+#include <algorithm>
+#include <stdexcept>
+#include "ImfHTCompressor.h"
+#include "ImfCompressorDeepInternal.h"
+#include "openexr_compression.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
 using IMATH_NAMESPACE::Box2i;
 
+Compressor::Compressor (
+    const Header& hdr,
+    exr_compression_t compression_type,
+    size_t maxScanLineSize,
+    int numScanLines)
+    : _ctxt ("<compression>",
+             ContextInitializer(),
+             Context::temp_mode_t
+             {})
+    , _header (hdr)
+    , _maxScanLineSize (maxScanLineSize)
+    , _numScanLines (numScanLines)
+    , _comp_type (compression_type)
+{
+    if (maxScanLineSize > std::numeric_limits<int>::max ())
+    {
+        throw IEX_NAMESPACE::OverflowExc (
+            "ScanLine size too large for RleCompressor");
+    }
+    _ctxt.setLongNameSupport (true);
+    _ctxt.addHeader (0, hdr);
 
-Compressor::Compressor (const Header &hdr): _header (hdr) {}
+    _store_type = _ctxt.storage (0);
 
+    exr_set_zip_compression_level (_ctxt, 0, hdr.zipCompressionLevel ());
+    exr_set_dwa_compression_level (_ctxt, 0, hdr.dwaCompressionLevel ());
+    exr_set_lossy_htj2k_quality (_ctxt, 0, hdr.lossyHTJ2KQuality ());
+    exr_set_zstd_compression_level (_ctxt, 0, hdr.zstdCompressionLevel ());
 
-Compressor::~Compressor () {}
+    exr_compression_t hdrcomp;
+    if (EXR_ERR_SUCCESS != exr_get_compression (_ctxt, 0, &hdrcomp))
+        throw IEX_NAMESPACE::ArgExc ("Unable to initialize compression type");
 
+    if (hdrcomp != compression_type &&
+        compression_type != EXR_COMPRESSION_LAST_TYPE)
+    {
+        // no idea why this would fail, but also do need to apply it
+        // prior to the chunk initialization to have lines per chunk, etc.
+        // be correct
+        if (EXR_ERR_SUCCESS != exr_set_compression (_ctxt, 0, compression_type))
+            throw IEX_NAMESPACE::ArgExc ("Unable to initialize compression type");
+    }
+ }
+
+Compressor::~Compressor ()
+{
+    if (_decoder_init)
+        exr_decoding_destroy(_ctxt, &_decoder);
+    if (_encoder_init)
+        exr_encoding_destroy(_ctxt, &_encoder);
+}
 
 Compressor::Format
 Compressor::format () const
@@ -67,160 +89,422 @@ Compressor::format () const
     return XDR;
 }
 
+int
+Compressor::numScanLines () const
+{
+    return _numScanLines;
+}
 
 int
-Compressor::compressTile (const char *inPtr,
-			  int inSize,
-			  Box2i range,
-			  const char *&outPtr)
+Compressor::compress (
+    const char* inPtr, int inSize, int minY, const char*& outPtr)
 {
-    return compress (inPtr, inSize, range.min.y, outPtr);
+    return compressWithSampleCountTable (
+        *this, inPtr, inSize, minY, outPtr, nullptr, 0);
 }
 
-             
 int
-Compressor::uncompressTile (const char *inPtr,
-			    int inSize,
-			    Box2i range,
-			    const char *&outPtr)
+compressWithSampleCountTable (
+    Compressor&  compressor,
+    const char*  inPtr,
+    int          inSize,
+    int          minY,
+    const char*& outPtr,
+    const char*  sampleCountTable,
+    int          sampleCountTableSize)
 {
-    return uncompress (inPtr, inSize, range.min.y, outPtr);
+    IMATH_NAMESPACE::Box2i range = compressor._header.dataWindow ();
+
+    range.min.y = minY;
+    range.max.y = minY + compressor._numScanLines - 1;
+
+    return static_cast<int> (
+        compressor.runEncodeStep (inPtr, inSize, range, outPtr, sampleCountTable, sampleCountTableSize));
+}
+
+int
+Compressor::uncompress (
+    const char* inPtr, int inSize, int minY, const char*& outPtr)
+{
+    IMATH_NAMESPACE::Box2i range = _header.dataWindow ();
+
+    range.min.y = minY;
+    range.max.y = minY + _numScanLines - 1;
+
+    return static_cast<int> (
+        runDecodeStep (inPtr, inSize, range, outPtr));
+}
+
+int
+Compressor::compressTile (
+    const char*  inPtr,
+    int          inSize,
+    Box2i        range,
+    const char*& outPtr)
+{
+    return compressTileWithSampleCountTable (
+        *this, inPtr, inSize, range, outPtr, nullptr, 0);
+}
+
+int
+compressTileWithSampleCountTable (
+    Compressor&  compressor,
+    const char*  inPtr,
+    int          inSize,
+    Box2i        range,
+    const char*& outPtr,
+    const char*  sampleCountTable,
+    int          sampleCountTableSize)
+{
+    return static_cast<int> (
+        compressor.runEncodeStep (inPtr, inSize, range, outPtr, sampleCountTable, sampleCountTableSize));
+}
+
+int
+Compressor::uncompressTile (
+    const char*  inPtr,
+    int          inSize,
+    Box2i        range,
+    const char*& outPtr)
+{
+    return static_cast<int> (
+        runDecodeStep (inPtr, inSize, range, outPtr));
+}
+
+uint64_t
+Compressor::runEncodeStep (
+    const char* inPtr,
+    int inSize,
+    IMATH_NAMESPACE::Box2i range,
+    const char*& outPtr, 
+    const char* sampleCountTable,
+    int sampleCountTableSize)
+{
+    // special case
+    if (inSize == 0)
+    {
+        outPtr = inPtr;
+        return 0;
+    }
+
+    exr_chunk_info_t cinfo = {0};
+
+    if (EXR_ERR_SUCCESS != exr_chunk_default_initialize (
+            _ctxt, 0, (const exr_attr_box2i_t*) &range, _levelX, _levelY, &cinfo))
+        throw IEX_NAMESPACE::ArgExc ("Unable to initialize chunk information");
+
+    cinfo.type = _store_type;
+    if (!_encoder_init)
+    {
+        if (EXR_ERR_SUCCESS != exr_encoding_initialize(_ctxt, 0, &cinfo, &_encoder))
+            throw IEX_NAMESPACE::ArgExc ("Unable to initialize encoder type");
+
+        _encoder_init = true;
+    }
+    else
+    {
+        if (EXR_ERR_SUCCESS != exr_encoding_update(_ctxt, 0, &cinfo, &_encoder))
+            throw IEX_NAMESPACE::ArgExc ("Unable to update encoder type");
+    }
+
+    _encoder.packed_buffer = const_cast<char*> (inPtr);
+    _encoder.packed_bytes = inSize;
+
+    _encoder.sample_count_table = const_cast<int32_t*> (
+        reinterpret_cast<const int32_t*> (sampleCountTable));
+    _encoder.sample_count_alloc_size = sampleCountTableSize;
+    _encoder.skip_sample_count_table_compression = sampleCountTableSize > 0 ? 1 : 0;
+
+    if (EXR_ERR_SUCCESS != exr_compress_chunk(&_encoder))
+        throw IEX_NAMESPACE::ArgExc ("Unable to run compression routine");
+
+    outPtr = (const char*) _encoder.compressed_buffer;
+
+    _encoder.packed_buffer = nullptr;
+    _encoder.packed_bytes = 0;
+
+    _encoder.sample_count_table = nullptr;
+    _encoder.sample_count_alloc_size = 0;
+
+
+    return _encoder.compressed_bytes;
+}
+
+////////////////////////////////////////
+
+uint64_t
+Compressor::runDecodeStep (
+    const char* inPtr,
+    int inSize,
+    IMATH_NAMESPACE::Box2i range,
+    const char*& outPtr)
+{
+    // special case
+    if (inSize == 0)
+    {
+        if (!_memory_buffer)
+        {
+            _buf_sz = _maxScanLineSize * _numScanLines;
+            _memory_buffer.reset (new char[_buf_sz]);
+        }
+        outPtr = _memory_buffer.get ();
+        return 0;
+    }
+
+    exr_result_t rv;
+    exr_chunk_info_t cinfo = {0};
+    uint64_t expectedOutputSize;
+
+    if (EXR_ERR_SUCCESS != exr_chunk_default_initialize (
+            _ctxt, 0, (const exr_attr_box2i_t*) &range, _levelX, _levelY, &cinfo))
+        throw IEX_NAMESPACE::ArgExc ("Unable to initialize chunk information");
+
+    if (_store_type == EXR_STORAGE_DEEP_SCANLINE ||
+        _store_type == EXR_STORAGE_DEEP_TILED)
+    {
+        if (_expectedSize != 0)
+        {
+            expectedOutputSize = _expectedSize;
+            cinfo.unpacked_size = _expectedSize;
+        }
+        else
+        {
+            expectedOutputSize = _maxScanLineSize;
+            cinfo.unpacked_size = _maxScanLineSize;
+        }
+    }
+    else
+    {
+        expectedOutputSize = cinfo.unpacked_size;
+    }
+
+    cinfo.packed_size = inSize;
+    cinfo.type = _store_type;
+    if (_buf_sz < expectedOutputSize)
+    {
+        uint64_t fullbuf = _maxScanLineSize * _numScanLines;
+        _buf_sz = std::max (fullbuf, expectedOutputSize);
+        _memory_buffer.reset (new char[_buf_sz]);
+    }
+
+    if (!_decoder_init)
+    {
+        if (EXR_ERR_SUCCESS != exr_decoding_initialize(_ctxt, 0, &cinfo, &_decoder))
+            throw IEX_NAMESPACE::ArgExc ("Unable to initialize decoder type");
+
+        _decoder_init = true;
+    }
+    else
+    {
+        if (EXR_ERR_SUCCESS != exr_decoding_update(_ctxt, 0, &cinfo, &_decoder))
+            throw IEX_NAMESPACE::ArgExc ("Unable to update decoder");
+    }
+
+//    if (_store_type == EXR_STORAGE_DEEP_SCANLINE ||
+//        _store_type == EXR_STORAGE_DEEP_TILED)
+//    {
+//        _decoder.decode_flags |= EXR_DECODE_ALLOW_SHORT_DECODE;
+//    }
+
+    _decoder.packed_buffer = const_cast<char*> (inPtr);
+    _decoder.unpacked_buffer = _memory_buffer.get();
+    _decoder.unpacked_alloc_size = _buf_sz;
+
+    rv = exr_uncompress_chunk(&_decoder);
+
+    _decoder.packed_buffer   = nullptr;
+    _decoder.unpacked_buffer = nullptr;
+    _decoder.unpacked_alloc_size = 0;
+
+    outPtr = _memory_buffer.get ();
+
+    if (EXR_ERR_SUCCESS != rv)
+        throw IEX_NAMESPACE::ArgExc ("Unable to run compression routine");
+
+    return _decoder.bytes_decompressed;
 }
 
 
-bool	
-isValidCompression (Compression c)
+Compressor*
+newCompressor (Compression c, size_t maxScanLineSize, const Header& hdr)
 {
+    Compressor* ret   = nullptr;
+    int         scans = getCompressionNumScanlines (c);
+
+    // clang-format off
     switch (c)
     {
-      case NO_COMPRESSION:
-      case RLE_COMPRESSION:
-      case ZIPS_COMPRESSION:
-      case ZIP_COMPRESSION:
-      case PIZ_COMPRESSION:
-      case PXR24_COMPRESSION:
-      case B44_COMPRESSION:
-      case B44A_COMPRESSION:
-      case DWAA_COMPRESSION:
-      case DWAB_COMPRESSION:
+        case RLE_COMPRESSION:
 
-	return true;
+            ret = new RleCompressor (hdr, maxScanLineSize);
+            break;
 
-      default:
+        case ZIPS_COMPRESSION:
 
-	return false;
+            ret = new ZipCompressor (hdr, maxScanLineSize, scans);
+            break;
+
+        case ZIP_COMPRESSION:
+
+            ret = new ZipCompressor (hdr, maxScanLineSize, scans);
+            break;
+
+        case PIZ_COMPRESSION:
+
+            ret = new PizCompressor (hdr, maxScanLineSize, scans);
+            break;
+
+        case PXR24_COMPRESSION:
+
+            ret = new Pxr24Compressor (hdr, maxScanLineSize, scans);
+            break;
+
+        case B44_COMPRESSION:
+
+            ret = new B44Compressor (hdr, maxScanLineSize, scans, false);
+            break;
+
+        case B44A_COMPRESSION:
+
+            ret = new B44Compressor (hdr, maxScanLineSize, scans, true);
+            break;
+
+        case DWAA_COMPRESSION:
+
+            ret = new DwaCompressor (
+                hdr,
+                static_cast<int> (maxScanLineSize),
+                scans,
+                DwaCompressor::STATIC_HUFFMAN);
+            break;
+
+        case DWAB_COMPRESSION:
+
+            ret = new DwaCompressor (
+                hdr,
+                static_cast<int> (maxScanLineSize),
+                scans,
+                DwaCompressor::STATIC_HUFFMAN);
+            break;
+
+        case HTJ2K256_COMPRESSION:
+        case LJ2K_COMPRESSION:
+
+            ret = new HTCompressor (hdr, static_cast<int> (maxScanLineSize), scans);
+            break;
+
+        case HTJ2K32_COMPRESSION:
+
+            ret = new HTCompressor (hdr, static_cast<int> (maxScanLineSize), scans);
+            break;
+
+        case ZSTD_COMPRESSION:
+
+            ret = new ZstdCompressor (hdr, maxScanLineSize, scans);
+            break;
+
+        default: break;
     }
+    // clang-format on
+
+    if (ret && ret->storageType () == EXR_STORAGE_LAST_TYPE)
+        ret->setStorageType (EXR_STORAGE_SCANLINE);
+
+    return ret;
 }
 
-bool isValidDeepCompression(Compression c)
+// for a given compression type, return the number of scanlines
+// compressed into a single chunk
+// TODO add to API and move to ImfCompressor.cpp
+int
+numLinesInBuffer (Compression comp)
 {
-  switch(c)
-  {
-      case NO_COMPRESSION:
-      case RLE_COMPRESSION:
-      case ZIPS_COMPRESSION:
-          return true;
-      default :
-          return false;
-  }
+    int numScanlines = getCompressionNumScanlines (comp);
+    if (exr_compression_lines_per_chunk ((exr_compression_t)comp) != numScanlines)
+        throw IEX_NAMESPACE::ArgExc ("Mismatch in compression lines per chunk");
+    if (numScanlines < 1)
+        throw IEX_NAMESPACE::ArgExc ("Unknown compression type");
+    return numScanlines;
 }
 
-
-Compressor *
-newCompressor (Compression c, size_t maxScanLineSize, const Header &hdr)
+Compressor*
+newTileCompressor (
+    Compression c, size_t tileLineSize, size_t numTileLines, const Header& hdr)
 {
+    Compressor* ret = nullptr;
+    // clang-format off
     switch (c)
     {
-      case RLE_COMPRESSION:
+        case RLE_COMPRESSION:
 
-	return new RleCompressor (hdr, maxScanLineSize);
+            ret = new RleCompressor (hdr, uiMult (tileLineSize, numTileLines));
+            break;
 
-      case ZIPS_COMPRESSION:
+        case ZIPS_COMPRESSION:
+        case ZIP_COMPRESSION:
 
-	return new ZipCompressor (hdr, maxScanLineSize, 1);
+            ret = new ZipCompressor (hdr, tileLineSize, numTileLines);
+            break;
 
-      case ZIP_COMPRESSION:
+        case PIZ_COMPRESSION:
 
-	return new ZipCompressor (hdr, maxScanLineSize, 16);
+            ret = new PizCompressor (hdr, tileLineSize, numTileLines);
+            break;
 
-      case PIZ_COMPRESSION:
+        case PXR24_COMPRESSION:
 
-	return new PizCompressor (hdr, maxScanLineSize, 32);
+            ret = new Pxr24Compressor (hdr, tileLineSize, numTileLines);
+            break;
 
-      case PXR24_COMPRESSION:
+        case B44_COMPRESSION:
 
-	return new Pxr24Compressor (hdr, maxScanLineSize, 16);
+            ret = new B44Compressor (hdr, tileLineSize, numTileLines, false);
+            break;
 
-      case B44_COMPRESSION:
+        case B44A_COMPRESSION:
 
-	return new B44Compressor (hdr, maxScanLineSize, 32, false);
+            ret = new B44Compressor (hdr, tileLineSize, numTileLines, true);
+            break;
 
-      case B44A_COMPRESSION:
+        case DWAA_COMPRESSION:
 
-	return new B44Compressor (hdr, maxScanLineSize, 32, true);
+            ret = new DwaCompressor (
+                hdr,
+                static_cast<int> (tileLineSize),
+                static_cast<int> (numTileLines),
+                DwaCompressor::DEFLATE);
+            break;
 
-      case DWAA_COMPRESSION:
+        case DWAB_COMPRESSION:
 
-	return new DwaCompressor (hdr, maxScanLineSize, 32, 
-                               DwaCompressor::STATIC_HUFFMAN);
+            ret = new DwaCompressor (
+                hdr,
+                static_cast<int> (tileLineSize),
+                static_cast<int> (numTileLines),
+                DwaCompressor::STATIC_HUFFMAN);
+            break;
 
-      case DWAB_COMPRESSION:
+        case HTJ2K256_COMPRESSION:
+        case HTJ2K32_COMPRESSION:
+        case LJ2K_COMPRESSION:
 
-	return new DwaCompressor (hdr, maxScanLineSize, 256, 
-                               DwaCompressor::STATIC_HUFFMAN);
+            return new HTCompressor (
+                hdr,
+                static_cast<int> (tileLineSize),
+                static_cast<int> (numTileLines));
+        case ZSTD_COMPRESSION:
 
-      default:
+            ret = new ZstdCompressor (hdr, tileLineSize, numTileLines);
+            break;
 
-	return 0;
+        default: break;
     }
+    // clang-format on
+
+    if (ret && ret->storageType () == EXR_STORAGE_LAST_TYPE)
+        ret->setStorageType (EXR_STORAGE_TILED);
+
+    return ret;
 }
-
-
-Compressor *
-newTileCompressor (Compression c,
-		   size_t tileLineSize,
-		   size_t numTileLines,
-		   const Header &hdr)
-{
-    switch (c)
-    {
-      case RLE_COMPRESSION:
-
-	return new RleCompressor (hdr, uiMult (tileLineSize, numTileLines));
-
-      case ZIPS_COMPRESSION:
-      case ZIP_COMPRESSION:
-
-	return new ZipCompressor (hdr, tileLineSize, numTileLines);
-
-      case PIZ_COMPRESSION:
-
-	return new PizCompressor (hdr, tileLineSize, numTileLines);
-
-      case PXR24_COMPRESSION:
-
-	return new Pxr24Compressor (hdr, tileLineSize, numTileLines);
-
-      case B44_COMPRESSION:
-
-	return new B44Compressor (hdr, tileLineSize, numTileLines, false);
-
-      case B44A_COMPRESSION:
-
-	return new B44Compressor (hdr, tileLineSize, numTileLines, true);
-
-      case DWAA_COMPRESSION:
-      case DWAB_COMPRESSION:
-
-	return new DwaCompressor (hdr, tileLineSize, numTileLines, 
-                               DwaCompressor::DEFLATE);
-
-      default:
-
-	return 0;
-    }
-}
-
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT
-

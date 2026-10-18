@@ -1,114 +1,120 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2011, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////
 
 #include "ImfInputPart.h"
 #include "ImfNamespace.h"
 
+#include "ImfInputFile.h"
 #include "ImfMultiPartInputFile.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
-InputPart::InputPart(MultiPartInputFile& multiPartFile, int partNumber)
+InputPart::InputPart (MultiPartInputFile& multiPartFile, int partNumber)
 {
-    file = multiPartFile.getInputPart<InputFile>(partNumber);
+    file = multiPartFile.getInputPart<InputFile> (partNumber);
 }
 
-const char *
+const char*
 InputPart::fileName () const
 {
-    return file->fileName();
+    return file->fileName ();
 }
 
-const Header &
+const Header&
 InputPart::header () const
 {
-    return file->header();
+    return file->header ();
 }
 
 int
 InputPart::version () const
 {
-    return file->version();
+    return file->version ();
 }
 
 void
-InputPart::setFrameBuffer (const FrameBuffer &frameBuffer)
+InputPart::setFrameBuffer (const FrameBuffer& frameBuffer)
 {
-    file->setFrameBuffer(frameBuffer);
+    file->setFrameBuffer (frameBuffer);
 }
 
-const FrameBuffer &
+const FrameBuffer&
 InputPart::frameBuffer () const
 {
-    return file->frameBuffer();
+    return file->frameBuffer ();
 }
 
 bool
 InputPart::isComplete () const
 {
-    return file->isComplete();
+    return file->isComplete ();
 }
 
 bool
-InputPart::isOptimizationEnabled() const
+InputPart::isOptimizationEnabled () const
 {
-   return file->isOptimizationEnabled();
+#if defined(_MSC_VER)
+    __pragma(warning(push))
+    __pragma(warning(disable: 4996))
+#elif defined(__clang__) || defined(__GNUC__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
+    return file->isOptimizationEnabled ();
+
+#if defined(_MSC_VER)
+    __pragma(warning(pop))
+#elif defined(__clang__) || defined(__GNUC__)
+    #pragma GCC diagnostic pop
+#endif
 }
 
 void
 InputPart::readPixels (int scanLine1, int scanLine2)
 {
-    file->readPixels(scanLine1, scanLine2);
+    file->readPixels (scanLine1, scanLine2);
 }
 
 void
 InputPart::readPixels (int scanLine)
 {
-    file->readPixels(scanLine);
+    file->readPixels (scanLine);
 }
 
 void
-InputPart::rawPixelData (int firstScanLine, const char *&pixelData, int &pixelDataSize)
+InputPart::readPixels (
+    const FrameBuffer& frameBuffer, int scanLine1, int scanLine2)
 {
-    file->rawPixelData(firstScanLine, pixelData, pixelDataSize);
+    file->readPixels (frameBuffer, scanLine1, scanLine2);
 }
 
 void
-InputPart::rawTileData (int &dx, int &dy, int &lx, int &ly,
-             const char *&pixelData, int &pixelDataSize)
+InputPart::rawPixelData (
+    int firstScanLine, const char*& pixelData, int& pixelDataSize)
 {
-    file->rawTileData(dx, dy, lx, ly, pixelData, pixelDataSize);
+    file->rawPixelData (firstScanLine, pixelData, pixelDataSize);
+}
+
+void
+InputPart::rawPixelDataToBuffer (
+    int scanLine, char* pixelData, int& pixelDataSize) const
+{
+    file->rawPixelDataToBuffer (scanLine, pixelData, pixelDataSize);
+}
+
+void
+InputPart::rawTileData (
+    int&         dx,
+    int&         dy,
+    int&         lx,
+    int&         ly,
+    const char*& pixelData,
+    int&         pixelDataSize)
+{
+    file->rawTileData (dx, dy, lx, ly, pixelData, pixelDataSize);
 }
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT

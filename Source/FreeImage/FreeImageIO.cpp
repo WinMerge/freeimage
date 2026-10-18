@@ -6,6 +6,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
 // THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
@@ -136,7 +138,7 @@ _MemoryWriteProc(void *buffer, unsigned size, unsigned count, fi_handle handle) 
 			return 0;
 		}
 		mem_header->data = newdata;
-		mem_header->data_length = newdatalen;
+		mem_header->data_length = (int)newdatalen;
 	}
 
 	memcpy((char *)mem_header->data + mem_header->current_position, buffer, required_bytes);
@@ -180,7 +182,7 @@ _MemorySeekProc(fi_handle handle, long offset, int origin) {
 		case SEEK_SET: //can fseek() to 0-7FFFFFFF always
 			if ((offset >= 0) && (offset <= std::numeric_limits<int>::max())) {
 				// the 64-bit long offset may overflow when casted to int
-				mem_header->current_position = offset;
+				mem_header->current_position = (int)offset;
 				return 0;
 			}
 			break;
@@ -188,7 +190,7 @@ _MemorySeekProc(fi_handle handle, long offset, int origin) {
 		case SEEK_CUR:
 			if (((mem_header->current_position + offset) >= 0) && ((mem_header->current_position + offset) <= std::numeric_limits<int>::max())) {
 				// the 64-bit result may overflow when casted to int
-				mem_header->current_position += offset;
+				mem_header->current_position = (int)(mem_header->current_position + offset);
 				return 0;
 			}
 			break;
@@ -196,7 +198,7 @@ _MemorySeekProc(fi_handle handle, long offset, int origin) {
 		case SEEK_END:
 			if (((mem_header->file_length + offset) >= 0) && ((mem_header->file_length + offset) <= std::numeric_limits<int>::max())) {
 				// the 64-bit result may overflow when casted to int
-				mem_header->current_position = mem_header->file_length + offset;
+				mem_header->current_position = (int)(mem_header->file_length + offset);
 				return 0;
 			}
 			break;

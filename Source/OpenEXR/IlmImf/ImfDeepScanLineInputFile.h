@@ -1,37 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2011, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////
-
 
 #ifndef INCLUDED_IMF_DEEP_SCAN_LINE_INPUT_FILE_H
 #define INCLUDED_IMF_DEEP_SCAN_LINE_INPUT_FILE_H
@@ -40,62 +10,69 @@
 //
 //      class DeepScanLineInputFile
 //
+//      Constructors that open a file by path expect UTF-8; see ImfIO.h.
+//
 //-----------------------------------------------------------------------------
 
-#include "ImfThreading.h"
-#include "ImfGenericInputFile.h"
-#include "ImfNamespace.h"
 #include "ImfForward.h"
-#include "ImfExport.h"
+
+#include "ImfContext.h"
+
 #include "ImfDeepScanLineOutputFile.h"
+
+#include "ImfThreading.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
-
-class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
+class IMF_EXPORT_TYPE DeepScanLineInputFile
 {
-  public:
-
+public:
     //------------
     // Constructor
     //------------
 
-    DeepScanLineInputFile (const char fileName[],
-                           int numThreads = globalThreadCount());
+    IMF_EXPORT
+    DeepScanLineInputFile (
+        const char*               filename,
+        const ContextInitializer& ctxtinit,
+        int                       numThreads = globalThreadCount ());
 
-    DeepScanLineInputFile (const Header &header, OPENEXR_IMF_INTERNAL_NAMESPACE::IStream *is,
-                           int version, /*version field from file*/
-                           int numThreads = globalThreadCount());
+    IMF_EXPORT
+    DeepScanLineInputFile (
+        const char fileName[], int numThreads = globalThreadCount ());
 
+    IMF_EXPORT
+    DeepScanLineInputFile (
+        OPENEXR_IMF_INTERNAL_NAMESPACE::IStream& is,
+        int numThreads = globalThreadCount ());
 
-    //-----------------------------------------
-    // Destructor -- deallocates internal data
-    // structures, but does not close the file.
-    //-----------------------------------------
-
-    virtual ~DeepScanLineInputFile ();
-
+    IMF_EXPORT
+    DeepScanLineInputFile (
+        const Header&                            header,
+        OPENEXR_IMF_INTERNAL_NAMESPACE::IStream* is,
+        int version, /*version field from file*/
+        int numThreads = globalThreadCount ());
 
     //------------------------
     // Access to the file name
     //------------------------
 
-    const char *        fileName () const;
-
+    IMF_EXPORT
+    const char* fileName () const;
 
     //--------------------------
     // Access to the file header
     //--------------------------
 
-    const Header &      header () const;
-
+    IMF_EXPORT
+    const Header& header () const;
 
     //----------------------------------
     // Access to the file format version
     //----------------------------------
 
-    int                 version () const;
-
+    IMF_EXPORT
+    int version () const;
 
     //-----------------------------------------------------------
     // Set the current frame buffer -- copies the FrameBuffer
@@ -108,15 +85,15 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     // to readPixels().
     //-----------------------------------------------------------
 
-    void                setFrameBuffer (const DeepFrameBuffer &frameBuffer);
-
+    IMF_EXPORT
+    void setFrameBuffer (const DeepFrameBuffer& frameBuffer);
 
     //-----------------------------------
     // Access to the current frame buffer
     //-----------------------------------
 
-    const DeepFrameBuffer & frameBuffer () const;
-
+    IMF_EXPORT
+    const DeepFrameBuffer& frameBuffer () const;
 
     //---------------------------------------------------------------
     // Check if the file is complete:
@@ -127,8 +104,8 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     // writing may have been aborted prematurely.)
     //---------------------------------------------------------------
 
-    bool                isComplete () const;
-
+    IMF_EXPORT
+    bool isComplete () const;
 
     //---------------------------------------------------------------
     // Read pixel data:
@@ -152,11 +129,11 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     //
     //---------------------------------------------------------------
 
-    void                readPixels (int scanLine1, int scanLine2);
-    void                readPixels (int scanLine);
+    IMF_EXPORT
+    void readPixels (int scanLine1, int scanLine2);
+    IMF_EXPORT
+    void readPixels (int scanLine);
 
-    
-  
     //---------------------------------------------------------------
     // Extract pixel data from pre-read block
     //
@@ -181,11 +158,13 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     // readPixels(header().dataWindow().min.y, header.dataWindow().max.y)
     //
     //---------------------------------------------------------------
-    
-    void                readPixels (const char * rawPixelData,
-                                    const DeepFrameBuffer & frameBuffer,
-                                    int scanLine1,
-                                    int scanLine2) const;
+
+    IMF_EXPORT
+    void readPixels (
+        const char*            rawPixelData,
+        const DeepFrameBuffer& frameBuffer,
+        int                    scanLine1,
+        int                    scanLine2) const;
 
     //----------------------------------------------
     // Read a block of raw pixel data from the file,
@@ -195,14 +174,13 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     // including compressed and uncompressed sizes
     // on entry, if pixelDataSize is insufficiently large, no bytes are read (pixelData can safely be NULL)
     // on exit, pixelDataSize is the number of bytes required to read the chunk
-    // 
+    //
     //----------------------------------------------
 
-    void                rawPixelData (int firstScanLine,
-                                      char * pixelData,
-                                      Int64 &pixelDataSize);
+    IMF_EXPORT
+    void
+    rawPixelData (int firstScanLine, char* pixelData, uint64_t& pixelDataSize);
 
-                                      
     //-------------------------------------------------
     // firstScanLineInChunk() returns the row number of the first row that's stored in the
     // same chunk as scanline y. Depending on the compression mode, this may not be the same as y
@@ -212,9 +190,11 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     // The last chunk in the file may be smaller than all the others
     //
     //------------------------------------------------
-    int                 firstScanLineInChunk(int y) const;
-    int                 lastScanLineInChunk (int y) const;
-                                      
+    IMF_EXPORT
+    int firstScanLineInChunk (int y) const;
+    IMF_EXPORT
+    int lastScanLineInChunk (int y) const;
+
     //-----------------------------------------------------------
     // Read pixel sample counts into a slice in the frame buffer.
     //
@@ -227,20 +207,20 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     // [header().dataWindow().min.y, header.dataWindow().max.y]
     //
     // readPixelSampleCounts(s) calls readPixelSampleCounts(s,s).
-    // 
+    //
     //-----------------------------------------------------------
 
-    void                readPixelSampleCounts (int scanline1,
-                                               int scanline2);
-    void                readPixelSampleCounts (int scanline);
-    
-    
+    IMF_EXPORT
+    void readPixelSampleCounts (int scanline1, int scanline2);
+    IMF_EXPORT
+    void readPixelSampleCounts (int scanline);
+
     //----------------------------------------------------------
     // Read pixel sample counts into the provided frameBuffer
-    // using a block read of data read by rawPixelData    
+    // using a block read of data read by rawPixelData
     // for multi-scanline compression schemes, you must decode the entire block
     // so scanline1=firstScanLineInChunk(y) and scanline2=lastScanLineInChunk(y)
-    // 
+    //
     // This call does not block, and is thread safe for clients with an existing
     // threading model. The InputFile's frameBuffer is not used in this call.
     //
@@ -248,28 +228,25 @@ class IMF_EXPORT DeepScanLineInputFile : public GenericInputFile
     // readPixelSampleCounts(header().dataWindow().min.y, header.dataWindow().max.y)
     //
     //----------------------------------------------------------
-    void                readPixelSampleCounts (const char * rawdata , 
-                                               const DeepFrameBuffer & frameBuffer,
-                                               int scanLine1 , 
-                                               int scanLine2) const;
+    IMF_EXPORT
+    void readPixelSampleCounts (
+        const char*            rawdata,
+        const DeepFrameBuffer& frameBuffer,
+        int                    scanLine1,
+        int                    scanLine2) const;
 
-    struct Data;
+private:
+    Context _ctxt;
+    struct IMF_HIDDEN Data;
+    std::shared_ptr<Data> _data;
 
-  private:
+    IMF_HIDDEN DeepScanLineInputFile (InputPartData* part);
 
-    Data *              _data;
-
-    DeepScanLineInputFile   (InputPartData* part);
-
-    void                initialize(const Header& header);
-    void compatibilityInitialize(OPENEXR_IMF_INTERNAL_NAMESPACE::IStream & is);
-    void multiPartInitialize(InputPartData* part);
-
-    friend class         InputFile;
     friend class MultiPartInputFile;
-    friend void DeepScanLineOutputFile::copyPixels(DeepScanLineInputFile &);
-};
+    friend class InputFile;
 
+    friend void DeepScanLineOutputFile::copyPixels (DeepScanLineInputFile&);
+};
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 

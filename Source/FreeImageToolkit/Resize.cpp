@@ -2,11 +2,13 @@
 // Upsampling / downsampling classes
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Detlev Vendt (detlev.vendt@brillit.de)
 // - Carsten Klein (cklein05@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -1272,6 +1274,8 @@ void CResizeEngine::horizontalFilter(FIBITMAP *const src, unsigned height, unsig
 			}
 		}
 		break;
+		default:
+			break;
 	}
 }
 
@@ -2112,5 +2116,7 @@ void CResizeEngine::verticalFilter(FIBITMAP *const src, unsigned width, unsigned
 			}
 		}
 		break;
+		default:
+			break;
 	}
 }

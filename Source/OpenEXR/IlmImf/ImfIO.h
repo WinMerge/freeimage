@@ -1,37 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
 
 #ifndef INCLUDED_IMF_IO_H
 #define INCLUDED_IMF_IO_H
@@ -42,12 +12,20 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "ImfInt64.h"
-#include "ImfNamespace.h"
-#include "ImfExport.h"
+//
+// File path encoding: Any const char* string that names or opens a file,
+// including the strings passed to the protected IStream(const char*) and
+// OStream(const char*) constructors, and the value returned by fileName(),
+// is interpreted as UTF-8 on all platforms, including Microsoft
+// Windows. Callers must not pass legacy ANSI/code-page paths. This matches
+// StdIFStream/StdOFStream (via std::filesystem::u8path) and the OpenEXRCore
+// C API.
+//
 
+#include "ImfForward.h"
+
+#include <cstdint>
 #include <string>
-
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
@@ -55,17 +33,15 @@ OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 // class IStream -- an abstract base class for input streams.
 //-----------------------------------------------------------
 
-class IMF_EXPORT IStream
+class IMF_EXPORT_TYPE IStream
 {
-  public:
-
+public:
     //-----------
     // Destructor
     //-----------
 
-    virtual ~IStream ();
-    
-    
+    IMF_EXPORT virtual ~IStream ();
+
     //-------------------------------------------------
     // Does this input stream support memory-mapped IO?
     //
@@ -75,8 +51,7 @@ class IMF_EXPORT IStream
     // into a buffer supplied by the caller.
     //-------------------------------------------------
 
-    virtual bool        isMemoryMapped () const;
-
+    IMF_EXPORT virtual bool isMemoryMapped () const;
 
     //------------------------------------------------------
     // Read from the stream:
@@ -88,9 +63,8 @@ class IMF_EXPORT IStream
     // the file it returns false, otherwise it returns true.
     //------------------------------------------------------
 
-    virtual bool	read (char c[/*n*/], int n) = 0;
-    
-    
+    virtual bool read (char c[/*n*/], int n) = 0;
+
     //---------------------------------------------------
     // Read from a memory-mapped stream:
     //
@@ -99,11 +73,10 @@ class IMF_EXPORT IStream
     // returned pointer remains valid until the stream
     // is closed.  If there are less than n byte left to
     // read in the stream or if the stream is not memory-
-    // mapped, readMemoryMapped(n) throws an exception.  
+    // mapped, readMemoryMapped(n) throws an exception.
     //---------------------------------------------------
 
-    virtual char *	readMemoryMapped (int n);
-
+    IMF_EXPORT virtual char* readMemoryMapped (int n);
 
     //--------------------------------------------------------
     // Get the current reading position, in bytes from the
@@ -111,57 +84,99 @@ class IMF_EXPORT IStream
     // read the first byte in the file, tellg() returns 0.
     //--------------------------------------------------------
 
-    virtual Int64	tellg () = 0;
-
+    virtual uint64_t tellg () = 0;
 
     //-------------------------------------------
     // Set the current reading position.
     // After calling seekg(i), tellg() returns i.
     //-------------------------------------------
 
-    virtual void	seekg (Int64 pos) = 0;
-
+    virtual void seekg (uint64_t pos) = 0;
 
     //------------------------------------------------------
     // Clear error conditions after an operation has failed.
     //------------------------------------------------------
 
-    virtual void	clear ();
-
+    IMF_EXPORT virtual void clear ();
 
     //------------------------------------------------------
     // Get the name of the file associated with this stream.
     //------------------------------------------------------
 
-    const char *	fileName () const;
+    IMF_EXPORT const char* fileName () const;
 
-  protected:
+    //------------------------------------------------------
+    // Get the size of the file (or buffer) associated with
+    // this stream.
+    //
+    // by default, this will return -1. That value will skip a few
+    // safety checks. However, if you provide the size, it will apply
+    // a number of file consistency checks as the file is read.
+    // ------------------------------------------------------
 
-    IStream (const char fileName[]);
+    IMF_EXPORT virtual int64_t size ();
 
-  private:
+    //-------------------------------------------------
+    // Does this input stream support stateless reading?
+    //
+    // Stateless reading allows multiple threads to
+    // read from the stream concurrently from different
+    // locations in the file
+    //-------------------------------------------------
 
-    IStream (const IStream &);			// not implemented
-    IStream & operator = (const IStream &);	// not implemented
+    IMF_EXPORT virtual bool isStatelessRead () const;
 
-    std::string		_fileName;
+    //------------------------------------------------------
+    // Read from the stream with an offset:
+    //
+    // read(b,s,o) should read up to sz bytes from the
+    // stream using something like pread or ReadFileEx with
+    // overlapped data at the provided offset in the stream.
+    //
+    // for this function, the buffer size requested may be
+    // either larger than the file or request a read past
+    // the end of the file. This should NOT be treated as
+    // an error - the library will handle whether that is
+    // an error (if the offset is past the end, it should
+    // read 0)
+    //
+    // If there is an error, it should either return -1
+    // or throw an exception (an exception could provide
+    // a message).
+    //
+    // This will only be used if isStatelessRead returns true.
+    //
+    // NB: It is expected that this is thread safe such
+    // that multiple threads can be reading from the stream
+    // at the same time
+    //------------------------------------------------------
+
+    IMF_EXPORT virtual int64_t read (void *buf, uint64_t sz, uint64_t offset);
+
+protected:
+    IMF_EXPORT IStream (const char fileName[]);
+
+private:
+    IStream (const IStream&)            = delete;
+    IStream& operator= (const IStream&) = delete;
+    IStream (IStream&&)                 = delete;
+    IStream& operator= (IStream&&)      = delete;
+
+    std::string _fileName;
 };
-
 
 //-----------------------------------------------------------
 // class OStream -- an abstract base class for output streams
 //-----------------------------------------------------------
 
-class IMF_EXPORT OStream
+class IMF_EXPORT_TYPE OStream
 {
-  public:
-
+public:
     //-----------
     // Destructor
     //-----------
 
-    virtual ~OStream ();
-  
+    IMF_EXPORT virtual ~OStream ();
 
     //----------------------------------------------------------
     // Write to the stream:
@@ -171,8 +186,7 @@ class IMF_EXPORT OStream
     // an exception.
     //----------------------------------------------------------
 
-    virtual void	write (const char c[/*n*/], int n) = 0;
-
+    virtual void write (const char c[/*n*/], int n) = 0;
 
     //---------------------------------------------------------
     // Get the current writing position, in bytes from the
@@ -181,35 +195,32 @@ class IMF_EXPORT OStream
     // returns 0.
     //---------------------------------------------------------
 
-    virtual Int64	tellp () = 0;
-
+    virtual uint64_t tellp () = 0;
 
     //-------------------------------------------
     // Set the current writing position.
     // After calling seekp(i), tellp() returns i.
     //-------------------------------------------
 
-    virtual void	seekp (Int64 pos) = 0;
-
+    virtual void seekp (uint64_t pos) = 0;
 
     //------------------------------------------------------
     // Get the name of the file associated with this stream.
     //------------------------------------------------------
 
-    const char *	fileName () const;
+    IMF_EXPORT const char* fileName () const;
 
-  protected:
+protected:
+    IMF_EXPORT OStream (const char fileName[]);
 
-    OStream (const char fileName[]);
+private:
+    OStream (const OStream&)            = delete;
+    OStream& operator= (const OStream&) = delete;
+    OStream (OStream&&)                 = delete;
+    OStream& operator= (OStream&&)      = delete;
 
-  private:
-
-    OStream (const OStream &);			// not implemented
-    OStream & operator = (const OStream &);	// not implemented
-
-    std::string		_fileName;
+    std::string _fileName;
 };
-
 
 //-----------------------
 // Helper classes for Xdr
@@ -217,31 +228,26 @@ class IMF_EXPORT OStream
 
 struct StreamIO
 {
-    static void
-    writeChars (OStream &os, const char c[/*n*/], int n)
+    static inline void writeChars (OStream& os, const char c[/*n*/], int n)
     {
         os.write (c, n);
     }
 
-    static bool
-    readChars (IStream &is, char c[/*n*/], int n)
+    static inline bool readChars (IStream& is, char c[/*n*/], int n)
     {
         return is.read (c, n);
     }
 };
 
-
 struct CharPtrIO
 {
-    static void
-    writeChars (char *&op, const char c[/*n*/], int n)
+    static inline void writeChars (char*& op, const char c[/*n*/], int n)
     {
         while (n--)
             *op++ = *c++;
     }
 
-    static bool
-    readChars (const char *&ip, char c[/*n*/], int n)
+    static inline bool readChars (const char*& ip, char c[/*n*/], int n)
     {
         while (n--)
             *c++ = *ip++;

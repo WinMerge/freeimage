@@ -1,6 +1,8 @@
 #ifndef _TIF_CONFIG_H_
 #define _TIF_CONFIG_H_
 
+#include <inttypes.h>
+
 /* Define to 1 if you have the <assert.h> header file. */
 #define HAVE_ASSERT_H 1
 
@@ -27,10 +29,10 @@
 #define TIFF_UINT64_T uint64_t
 
 /* Unsigned size type formatter */
-#define TIFF_SIZE_FORMAT "%u"
+#define TIFF_SIZE_FORMAT "zu"
 
-/* Signed size type formatter */
-#define TIFF_SSIZE_FORMAT "%d"
+/* Signed size type formatter (TIFF_SSIZE_T is int64_t in tiffconf.h). */
+#define TIFF_SSIZE_FORMAT PRId64
 
 /* check for 32-bit or 64-bit CPU */
 #include <stdint.h>

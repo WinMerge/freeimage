@@ -3,9 +3,11 @@
 //
 // Design and implementation by
 // - Tanner Helland (tannerhelland@users.sf.net)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -239,6 +241,8 @@ FreeImage_ConvertToRGBAF(FIBITMAP *dib) {
 			}
 		}
 		break;
+		default:
+			break;
 	}
 
 	if(src != dib) {

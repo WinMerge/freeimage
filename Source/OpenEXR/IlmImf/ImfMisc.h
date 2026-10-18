@@ -1,38 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
-
 
 #ifndef INCLUDED_IMF_MISC_H
 #define INCLUDED_IMF_MISC_H
@@ -43,19 +12,16 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "ImfPixelType.h"
-#include "ImfCompressor.h"
-#include "ImfArray.h"
-#include "ImfNamespace.h"
-#include "ImfExport.h"
 #include "ImfForward.h"
+
+#include "ImfArray.h"
+#include "ImfCompressor.h"
+#include "ImfPixelType.h"
 
 #include <cstddef>
 #include <vector>
 
-
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
-
 
 //
 // Return the size of a single value of the indicated type,
@@ -63,8 +29,7 @@ OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 //
 
 IMF_EXPORT
-int	pixelTypeSize (PixelType type);
-
+int pixelTypeSize (PixelType type);
 
 //
 // Return the number of samples a channel with subsampling rate
@@ -75,8 +40,7 @@ int	pixelTypeSize (PixelType type);
 //
 
 IMF_EXPORT
-int	numSamples (int s, int a, int b);
-
+int numSamples (int s, int a, int b);
 
 //
 // Build a table that lists, for each scanline in a file's
@@ -86,23 +50,31 @@ int	numSamples (int s, int a, int b);
 //
 
 IMF_EXPORT
-size_t	bytesPerLineTable (const Header &header,
-		           std::vector<size_t> &bytesPerLine);
-
+size_t
+bytesPerLineTable (const Header& header, std::vector<size_t>& bytesPerLine);
 
 //
 // Get the sample count for pixel (x, y) using the array base
 // pointer, xStride and yStride.
 //
 
-IMF_EXPORT
-int&
-sampleCount(char* base, int xStride, int yStride, int x, int y);
+inline int&
+sampleCount (char* base, int xStride, int yStride, int x, int y)
+{
+    char* ptr    = base + y * ptrdiff_t (yStride) + x * ptrdiff_t (xStride);
+    int*  intPtr = (int*) ptr;
 
+    return *intPtr;
+}
 
-IMF_EXPORT
-const int&
-sampleCount(const char* base, int xStride, int yStride, int x, int y);
+inline const int&
+sampleCount (const char* base, int xStride, int yStride, int x, int y)
+{
+    const char* ptr = base + y * ptrdiff_t (yStride) + x * ptrdiff_t (xStride);
+    int*        intPtr = (int*) ptr;
+
+    return *intPtr;
+}
 
 //
 // Build a table that lists, for each scanline in a DEEP file's
@@ -112,13 +84,14 @@ sampleCount(const char* base, int xStride, int yStride, int x, int y);
 //
 
 IMF_EXPORT
-size_t bytesPerDeepLineTable (const Header &header,
-                              int minY, int maxY,
-                              const char* base,
-                              int xStride,
-                              int yStride,
-                              std::vector<size_t> &bytesPerLine);
-
+size_t bytesPerDeepLineTable (
+    const Header&        header,
+    int                  minY,
+    int                  maxY,
+    const char*          base,
+    int                  xStride,
+    int                  yStride,
+    std::vector<size_t>& bytesPerLine);
 
 //
 // Build a table that lists, for each scanline in a DEEP file's
@@ -128,12 +101,12 @@ size_t bytesPerDeepLineTable (const Header &header,
 //
 
 IMF_EXPORT
-size_t bytesPerDeepLineTable (const Header &header,
-                              char* base,
-                              int xStride,
-                              int yStride,
-                              std::vector<size_t> &bytesPerLine);
-
+size_t bytesPerDeepLineTable (
+    const Header&        header,
+    char*                base,
+    int                  xStride,
+    int                  yStride,
+    std::vector<size_t>& bytesPerLine);
 
 //
 // For scanline-based files, pixels are read or written in
@@ -149,15 +122,18 @@ size_t bytesPerDeepLineTable (const Header &header,
 //
 
 IMF_EXPORT
-void    offsetInLineBufferTable (const std::vector<size_t> &bytesPerLine,
-                                 int scanline1, int scanline2,
-                                 int linesInLineBuffer,
-                                 std::vector<size_t> &offsetInLineBuffer);
+void offsetInLineBufferTable (
+    const std::vector<size_t>& bytesPerLine,
+    int                        scanline1,
+    int                        scanline2,
+    int                        linesInLineBuffer,
+    std::vector<size_t>&       offsetInLineBuffer);
 
 IMF_EXPORT
-void	offsetInLineBufferTable (const std::vector<size_t> &bytesPerLine,
-				 int linesInLineBuffer,
-				 std::vector<size_t> &offsetInLineBuffer);
+void offsetInLineBufferTable (
+    const std::vector<size_t>& bytesPerLine,
+    int                        linesInLineBuffer,
+    std::vector<size_t>&       offsetInLineBuffer);
 
 //
 // For a scanline-based file, compute the range of scanlines
@@ -165,9 +141,8 @@ void	offsetInLineBufferTable (const std::vector<size_t> &bytesPerLine,
 // (minY is the minimum y coordinate of the file's data window.)
 //
 
-IMF_EXPORT int	lineBufferMinY (int y, int minY, int linesInLineBuffer);
-IMF_EXPORT int	lineBufferMaxY (int y, int minY, int linesInLineBuffer);
-
+IMF_EXPORT int lineBufferMinY (int y, int minY, int linesInLineBuffer);
+IMF_EXPORT int lineBufferMaxY (int y, int minY, int linesInLineBuffer);
 
 //
 // Return a compressor's data format (Compressor::NATIVE or Compressor::XDR).
@@ -175,8 +150,7 @@ IMF_EXPORT int	lineBufferMaxY (int y, int minY, int linesInLineBuffer);
 //
 
 IMF_EXPORT
-Compressor::Format defaultFormat (Compressor *compressor);
-
+Compressor::Format defaultFormat (Compressor* compressor);
 
 //
 // Return the number of scan lines a compressor wants to compress
@@ -184,8 +158,7 @@ Compressor::Format defaultFormat (Compressor *compressor);
 //
 
 IMF_EXPORT
-int     numLinesInBuffer (Compressor *compressor);
-
+int numLinesInBuffer (Compressor* compressor);
 
 //
 // Copy a single channel of a horizontal row of pixels from an
@@ -214,16 +187,16 @@ int     numLinesInBuffer (Compressor *compressor);
 //
 
 IMF_EXPORT
-void    copyIntoFrameBuffer (const char *&readPtr,
-			     char *writePtr,
-                             char *endPtr,
-			     size_t xStride,
-			     bool fill,
-                             double fillValue,
-			     Compressor::Format format,
-                             PixelType typeInFrameBuffer,
-                             PixelType typeInFile);
-
+void copyIntoFrameBuffer (
+    const char*&       readPtr,
+    char*              writePtr,
+    char*              endPtr,
+    size_t             xStride,
+    bool               fill,
+    double             fillValue,
+    Compressor::Format format,
+    PixelType          typeInFrameBuffer,
+    PixelType          typeInFile);
 
 //
 // Copy a single channel of a horizontal row of pixels from an
@@ -266,25 +239,27 @@ void    copyIntoFrameBuffer (const char *&readPtr,
 //
 
 IMF_EXPORT
-void    copyIntoDeepFrameBuffer (const char *& readPtr,
-                                 char * base,
-                                 const char* sampleCountBase,
-                                 ptrdiff_t sampleCountXStride,
-                                 ptrdiff_t sampleCountYStride,
-                                 int y, int minX, int maxX,
-                                 int xOffsetForSampleCount,
-                                 int yOffsetForSampleCount,
-                                 int xOffsetForData,
-                                 int yOffsetForData,
-                                 ptrdiff_t xStride,
-                                 ptrdiff_t xPointerStride,
-                                 ptrdiff_t yPointerStride,
-                                 bool fill,
-                                 double fillValue,
-                                 Compressor::Format format,
-                                 PixelType typeInFrameBuffer,
-                                 PixelType typeInFile);
-
+void copyIntoDeepFrameBuffer (
+    const char*&       readPtr,
+    char*              base,
+    const char*        sampleCountBase,
+    ptrdiff_t          sampleCountXStride,
+    ptrdiff_t          sampleCountYStride,
+    int                y,
+    int                minX,
+    int                maxX,
+    int                xOffsetForSampleCount,
+    int                yOffsetForSampleCount,
+    int                xOffsetForData,
+    int                yOffsetForData,
+    ptrdiff_t          xStride,
+    ptrdiff_t          xPointerStride,
+    ptrdiff_t          yPointerStride,
+    bool               fill,
+    double             fillValue,
+    Compressor::Format format,
+    PixelType          typeInFrameBuffer,
+    PixelType          typeInFile);
 
 //
 // Given a pointer into a an input file's line buffer or tile buffer,
@@ -295,9 +270,7 @@ void    copyIntoDeepFrameBuffer (const char *& readPtr,
 //
 
 IMF_EXPORT
-void    skipChannel (const char *&readPtr,
-		     PixelType typeInFile,
-		     size_t xSize);
+void skipChannel (const char*& readPtr, PixelType typeInFile, size_t xSize);
 
 //
 // Convert an array of pixel data from the machine's native
@@ -316,13 +289,11 @@ void    skipChannel (const char *&readPtr,
 //    type		the pixel data type
 //
 //    numPixels		number of pixels in the input and output arrays
-// 
+//
 
 IMF_EXPORT
-void    convertInPlace (char *&toPtr,
-			const char *&fromPtr,
-			PixelType type,
-                        size_t numPixels);
+void convertInPlace (
+    char*& toPtr, const char*& fromPtr, PixelType type, size_t numPixels);
 
 //
 // Copy a single channel of a horizontal row of pixels from a
@@ -351,12 +322,13 @@ void    convertInPlace (char *&toPtr,
 //
 
 IMF_EXPORT
-void    copyFromFrameBuffer (char *&writePtr,
-			     const char *&readPtr,
-                             const char *endPtr,
-			     size_t xStride,
-                             Compressor::Format format,
-			     PixelType type);
+void copyFromFrameBuffer (
+    char*&             writePtr,
+    const char*&       readPtr,
+    const char*        endPtr,
+    size_t             xStride,
+    Compressor::Format format,
+    PixelType          type);
 
 //
 // Copy a single channel of a horizontal row of pixels from a
@@ -405,21 +377,24 @@ void    copyFromFrameBuffer (char *&writePtr,
 //
 
 IMF_EXPORT
-void    copyFromDeepFrameBuffer (char *& writePtr,
-                                 const char * base,
-                                 char* sampleCountBase,
-                                 ptrdiff_t sampleCountXStride,
-                                 ptrdiff_t sampleCountYStride,
-                                 int y, int xMin, int xMax,
-                                 int xOffsetForSampleCount,
-                                 int yOffsetForSampleCount,
-                                 int xOffsetForData,
-                                 int yOffsetForData,
-                                 ptrdiff_t sampleStride,
-                                 ptrdiff_t xStrideForData,
-                                 ptrdiff_t yStrideForData,
-                                 Compressor::Format format,
-                                 PixelType type);
+void copyFromDeepFrameBuffer (
+    char*&             writePtr,
+    const char*        base,
+    char*              sampleCountBase,
+    ptrdiff_t          sampleCountXStride,
+    ptrdiff_t          sampleCountYStride,
+    int                y,
+    int                xMin,
+    int                xMax,
+    int                xOffsetForSampleCount,
+    int                yOffsetForSampleCount,
+    int                xOffsetForData,
+    int                yOffsetForData,
+    ptrdiff_t          sampleStride,
+    ptrdiff_t          xStrideForData,
+    ptrdiff_t          yStrideForData,
+    Compressor::Format format,
+    PixelType          type);
 
 //
 // Fill part of an output file's line buffer or tile buffer with
@@ -442,25 +417,37 @@ void    copyFromDeepFrameBuffer (char *& writePtr,
 //
 
 IMF_EXPORT
-void    fillChannelWithZeroes (char *&writePtr,
-			       Compressor::Format format,
-			       PixelType type,
-			       size_t xSize);
+void fillChannelWithZeroes (
+    char*& writePtr, Compressor::Format format, PixelType type, size_t xSize);
 
 IMF_EXPORT
-bool usesLongNames (const Header &header);
-
+bool usesLongNames (const Header& header);
 
 //
-// compute size of chunk offset table - if ignore_attribute set to true
-// will compute from the image size and layout, rather than the attribute
-// The default behaviour is to read the attribute
+// compute size of chunk offset table - for existing types, computes
+// the chunk size from the image size, compression type, and tile
+// description (for tiled types). If the type is not supported, uses
+// the chunkCount attribute if present, or throws an exception
+// otherwise
 //
 
 IMF_EXPORT
-int getChunkOffsetTableSize(const Header& header,bool ignore_attribute=false);
+int getChunkOffsetTableSize (const Header& header);
+
+//
+// Convert a UTF-8 filename to a wide string (for example for Windows APIs).
+//
+
+OPENEXR_DEPRECATED ("To be removed in future releases.")
+IMF_EXPORT
+std::wstring WidenFilename (const char* filename);
+
+//
+// Return the string that describes the major.minor.patch release version
+//
+
+IMF_EXPORT const char* getLibraryVersion ();
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
-
 
 #endif

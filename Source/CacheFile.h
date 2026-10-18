@@ -6,6 +6,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
 // THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
@@ -26,6 +28,7 @@
 
 #include "FreeImage.h"
 #include "Utilities.h"
+#include "MultiBitmapPath.h"
 
 // ----------------------------------------------------------
 
@@ -64,7 +67,7 @@ public :
 	CacheFile();
 	~CacheFile();
 	
-	BOOL open(const std::string& filename = "", BOOL keep_in_memory = TRUE);
+	BOOL open(const MultiBitmapPath& filename = MultiBitmapPath(), BOOL keep_in_memory = TRUE);
 	void close();
 
 	BOOL readFile(BYTE *data, int nr, int size);
@@ -80,7 +83,7 @@ private :
 
 private :
 	FILE *m_file;
-	std::string m_filename;
+	MultiBitmapPath m_filename;
 	std::list<int> m_free_pages;
 	PageCache m_page_cache_mem;
 	PageCache m_page_cache_disk;

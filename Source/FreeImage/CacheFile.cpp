@@ -8,6 +8,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
 // THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
@@ -45,7 +47,7 @@ CacheFile::~CacheFile() {
 }
 
 BOOL
-CacheFile::open(const std::string& filename, BOOL keep_in_memory) {
+CacheFile::open(const MultiBitmapPath& filename, BOOL keep_in_memory) {
 
   assert(!m_file);
 
@@ -53,7 +55,7 @@ CacheFile::open(const std::string& filename, BOOL keep_in_memory) {
   m_keep_in_memory = keep_in_memory;
 
 	if ((!m_filename.empty()) && (!m_keep_in_memory)) {
-		m_file = fopen(m_filename.c_str(), "w+b"); 
+		m_file = m_filename.open(true);
 		return (m_file != NULL);
 	}
 
@@ -83,7 +85,7 @@ CacheFile::close() {
 		m_file = NULL;
 		
 		// delete the file
-		remove(m_filename.c_str());
+		m_filename.remove();
 	}
 }
 

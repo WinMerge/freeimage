@@ -477,6 +477,7 @@
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">MaxSpeed</Optimization>
     </ClCompile>
     <ClCompile Include="function_list.c" />
+    <ClCompile Include="ht_dec.c" />
     <ClCompile Include="image.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Disabled</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">EnableFastChecks</BasicRuntimeChecks>
@@ -563,6 +564,7 @@
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">MaxSpeed</Optimization>
     </ClCompile>
     <ClCompile Include="opj_clock.c" />
+    <ClCompile Include="opj_malloc.c" />
     <ClCompile Include="pi.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Disabled</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">EnableFastChecks</BasicRuntimeChecks>
@@ -577,20 +579,7 @@
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">MaxSpeed</Optimization>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">MaxSpeed</Optimization>
     </ClCompile>
-    <ClCompile Include="raw.c">
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Disabled</Optimization>
-      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">EnableFastChecks</BasicRuntimeChecks>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Disabled</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">Disabled</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Disabled</Optimization>
-      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">EnableFastChecks</BasicRuntimeChecks>
-      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">EnableFastChecks</BasicRuntimeChecks>
-      <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">EnableFastChecks</BasicRuntimeChecks>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">MaxSpeed</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|x64'">MaxSpeed</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">MaxSpeed</Optimization>
-      <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">MaxSpeed</Optimization>
-    </ClCompile>
+    <ClCompile Include="sparse_array.c" />
     <ClCompile Include="t1.c">
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Disabled</Optimization>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">EnableFastChecks</BasicRuntimeChecks>
@@ -647,6 +636,7 @@
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">MaxSpeed</Optimization>
       <Optimization Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">MaxSpeed</Optimization>
     </ClCompile>
+    <ClCompile Include="thread.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="bio.h" />
@@ -671,7 +661,6 @@
     <ClInclude Include="opj_malloc.h" />
     <ClInclude Include="opj_stdint.h" />
     <ClInclude Include="pi.h" />
-    <ClInclude Include="raw.h" />
     <ClInclude Include="t1.h" />
     <ClInclude Include="t1_luts.h" />
     <ClInclude Include="t2.h" />

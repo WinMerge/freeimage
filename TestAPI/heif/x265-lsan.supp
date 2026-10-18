@@ -1,0 +1,2 @@
+# External libx265 encoder configuration allocation, Ubuntu 22.04.
+leak:x265_malloc

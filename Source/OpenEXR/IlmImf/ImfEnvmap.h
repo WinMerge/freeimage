@@ -1,37 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
 
 #ifndef INCLUDED_IMF_ENVMAP_H
 #define INCLUDED_IMF_ENVMAP_H
@@ -57,7 +27,7 @@
 //	values.
 //
 //	For each possible EnvmapAttribute value, this header file also
-//	defines a set of convienience functions to convert between 3D
+//	defines a set of convenience functions to convert between 3D
 //	directions and 2D pixel locations.
 //
 //	Most of the convenience functions defined below require a
@@ -72,10 +42,10 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "ImathBox.h"
-#include "ImfNamespace.h"
 #include "ImfExport.h"
+#include "ImfNamespace.h"
 
+#include <ImathBox.h>
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
@@ -83,14 +53,13 @@ OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 // Supported environment map types
 //--------------------------------
 
-enum Envmap
+enum IMF_EXPORT_ENUM Envmap : int
 {
-    ENVMAP_LATLONG = 0,		// Latitude-longitude environment map
-    ENVMAP_CUBE = 1,		// Cube map
+    ENVMAP_LATLONG = 0, // Latitude-longitude environment map
+    ENVMAP_CUBE    = 1, // Cube map
 
-    NUM_ENVMAPTYPES		// Number of different environment map types
+    NUM_ENVMAPTYPES // Number of different environment map types
 };
-
 
 //-------------------------------------------------------------------------
 // Latitude-Longitude Map:
@@ -113,58 +82,57 @@ enum Envmap
 
 namespace LatLongMap
 {
-    //----------------------------------------------------
-    // Convert a 3D direction to a 2D vector whose x and y
-    // components represent the corresponding latitude
-    // and longitude.
-    //----------------------------------------------------
+//----------------------------------------------------
+// Convert a 3D direction to a 2D vector whose x and y
+// components represent the corresponding latitude
+// and longitude.
+//----------------------------------------------------
 
-    IMF_EXPORT 
-    IMATH_NAMESPACE::V2f		latLong (const IMATH_NAMESPACE::V3f &direction);
+IMF_EXPORT
+IMATH_NAMESPACE::V2f latLong (const IMATH_NAMESPACE::V3f& direction);
 
+//--------------------------------------------------------
+// Convert the position of a pixel to a 2D vector whose
+// x and y components represent the corresponding latitude
+// and longitude.
+//--------------------------------------------------------
 
-    //--------------------------------------------------------
-    // Convert the position of a pixel to a 2D vector whose
-    // x and y components represent the corresponding latitude
-    // and longitude.
-    //--------------------------------------------------------
+IMF_EXPORT
+IMATH_NAMESPACE::V2f latLong (
+    const IMATH_NAMESPACE::Box2i& dataWindow,
+    const IMATH_NAMESPACE::V2f&   pixelPosition);
 
-    IMF_EXPORT 
-    IMATH_NAMESPACE::V2f		latLong (const IMATH_NAMESPACE::Box2i &dataWindow,
-				 const IMATH_NAMESPACE::V2f &pixelPosition);
+//-------------------------------------------------------------
+// Convert a 2D vector, whose x and y components represent
+// longitude and latitude, into a corresponding pixel position.
+//-------------------------------------------------------------
 
+IMF_EXPORT
+IMATH_NAMESPACE::V2f pixelPosition (
+    const IMATH_NAMESPACE::Box2i& dataWindow,
+    const IMATH_NAMESPACE::V2f&   latLong);
 
-    //-------------------------------------------------------------
-    // Convert a 2D vector, whose x and y components represent
-    // longitude and latitude, into a corresponding pixel position.
-    //-------------------------------------------------------------
+//-----------------------------------------------------
+// Convert a 3D direction vector into a corresponding
+// pixel position.  pixelPosition(dw,dir) is equivalent
+// to pixelPosition(dw,latLong(dw,dir)).
+//-----------------------------------------------------
 
-    IMF_EXPORT 
-    IMATH_NAMESPACE::V2f		pixelPosition (const IMATH_NAMESPACE::Box2i &dataWindow,
-				       const IMATH_NAMESPACE::V2f &latLong);
+IMF_EXPORT
+IMATH_NAMESPACE::V2f pixelPosition (
+    const IMATH_NAMESPACE::Box2i& dataWindow,
+    const IMATH_NAMESPACE::V3f&   direction);
 
+//--------------------------------------------------------
+// Convert the position of a pixel in a latitude-longitude
+// map into a corresponding 3D direction.
+//--------------------------------------------------------
 
-    //-----------------------------------------------------
-    // Convert a 3D direction vector into a corresponding
-    // pixel position.  pixelPosition(dw,dir) is equivalent
-    // to pixelPosition(dw,latLong(dw,dir)).
-    //-----------------------------------------------------
-
-    IMF_EXPORT 
-    IMATH_NAMESPACE::V2f		pixelPosition (const IMATH_NAMESPACE::Box2i &dataWindow,
-				       const IMATH_NAMESPACE::V3f &direction);
-
-
-    //--------------------------------------------------------
-    // Convert the position of a pixel in a latitude-longitude
-    // map into a corresponding 3D direction.
-    //--------------------------------------------------------
-
-    IMF_EXPORT 
-    IMATH_NAMESPACE::V3f		direction (const IMATH_NAMESPACE::Box2i &dataWindow,
-				   const IMATH_NAMESPACE::V2f &pixelPosition);
-}
-
+IMF_EXPORT
+IMATH_NAMESPACE::V3f direction (
+    const IMATH_NAMESPACE::Box2i& dataWindow,
+    const IMATH_NAMESPACE::V2f&   pixelPosition);
+} // namespace LatLongMap
 
 //--------------------------------------------------------------
 // Cube Map:
@@ -185,10 +153,10 @@ namespace LatLongMap
 //      |           | /       /
 //      |           |/       /
 //      4-----------5       Z
-// 
+//
 //   dataWindow.min
 //        /
-//       / 
+//       /
 //      +-----------+
 //      |3    Y    7|
 //      |     |     |
@@ -245,92 +213,89 @@ namespace LatLongMap
 // The size of the data window should be N by 6*N pixels
 // (width by height), where N can be any integer greater
 // than 0.
-// 
+//
 //--------------------------------------------------------------
 
 //------------------------------------
 // Names for the six faces of the cube
 //------------------------------------
 
-enum CubeMapFace
+enum IMF_EXPORT_ENUM CubeMapFace
 {
-    CUBEFACE_POS_X,	// +X face
-    CUBEFACE_NEG_X,	// -X face
-    CUBEFACE_POS_Y,	// +Y face
-    CUBEFACE_NEG_Y,	// -Y face
-    CUBEFACE_POS_Z,	// +Z face
-    CUBEFACE_NEG_Z 	// -Z face
+    CUBEFACE_POS_X, // +X face
+    CUBEFACE_NEG_X, // -X face
+    CUBEFACE_POS_Y, // +Y face
+    CUBEFACE_NEG_Y, // -Y face
+    CUBEFACE_POS_Z, // +Z face
+    CUBEFACE_NEG_Z  // -Z face
 };
 
 namespace CubeMap
 {
-    //---------------------------------------------
-    // Width and height of a cube's face, in pixels
-    //---------------------------------------------
+//---------------------------------------------
+// Width and height of a cube's face, in pixels
+//---------------------------------------------
 
-    IMF_EXPORT 
-    int			sizeOfFace (const IMATH_NAMESPACE::Box2i &dataWindow);
+IMF_EXPORT
+int sizeOfFace (const IMATH_NAMESPACE::Box2i& dataWindow);
 
+//------------------------------------------
+// Compute the region in the environment map
+// that is covered by the specified face.
+//------------------------------------------
 
-    //------------------------------------------
-    // Compute the region in the environment map
-    // that is covered by the specified face.
-    //------------------------------------------
+IMF_EXPORT
+IMATH_NAMESPACE::Box2i
+dataWindowForFace (CubeMapFace face, const IMATH_NAMESPACE::Box2i& dataWindow);
 
-    IMF_EXPORT 
-    IMATH_NAMESPACE::Box2i	dataWindowForFace (CubeMapFace face,
-					   const IMATH_NAMESPACE::Box2i &dataWindow);
+//----------------------------------------------------
+// Convert the coordinates of a pixel within a face
+// [in the range from (0,0) to (s-1,s-1), where
+// s == sizeOfFace(dataWindow)] to pixel coordinates
+// in the environment map.
+//----------------------------------------------------
 
+IMF_EXPORT
+IMATH_NAMESPACE::V2f pixelPosition (
+    CubeMapFace                   face,
+    const IMATH_NAMESPACE::Box2i& dataWindow,
+    IMATH_NAMESPACE::V2f          positionInFace);
 
-    //----------------------------------------------------
-    // Convert the coordinates of a pixel within a face
-    // [in the range from (0,0) to (s-1,s-1), where
-    // s == sizeOfFace(dataWindow)] to pixel coordinates
-    // in the environment map.
-    //----------------------------------------------------
+//--------------------------------------------------------------
+// Convert a 3D direction into a cube face, and a pixel position
+// within that face.
+//
+// If you have a 3D direction, dir, the following code fragment
+// finds the position, pos, of the corresponding pixel in an
+// environment map with data window dw:
+//
+// CubeMapFace f;
+// V2f pif, pos;
+//
+// faceAndPixelPosition (dir, dw, f, pif);
+// pos = pixelPosition (f, dw, pif);
+//
+//--------------------------------------------------------------
 
-    IMF_EXPORT 
-    IMATH_NAMESPACE::V2f		pixelPosition (CubeMapFace face,
-				       const IMATH_NAMESPACE::Box2i &dataWindow,
-				       IMATH_NAMESPACE::V2f positionInFace);
+IMF_EXPORT
+void faceAndPixelPosition (
+    const IMATH_NAMESPACE::V3f&   direction,
+    const IMATH_NAMESPACE::Box2i& dataWindow,
+    CubeMapFace&                  face,
+    IMATH_NAMESPACE::V2f&         positionInFace);
 
+// --------------------------------------------------------
+// Given a cube face and a pixel position within that face,
+// compute the corresponding 3D direction.
+// --------------------------------------------------------
 
-    //--------------------------------------------------------------
-    // Convert a 3D direction into a cube face, and a pixel position
-    // within that face.
-    //
-    // If you have a 3D direction, dir, the following code fragment
-    // finds the position, pos, of the corresponding pixel in an
-    // environment map with data window dw:
-    //
-    // CubeMapFace f;
-    // V2f pif, pos;
-    //
-    // faceAndPixelPosition (dir, dw, f, pif);
-    // pos = pixelPosition (f, dw, pif);
-    //
-    //--------------------------------------------------------------
-
-    IMF_EXPORT 
-    void		faceAndPixelPosition (const IMATH_NAMESPACE::V3f &direction,
-					      const IMATH_NAMESPACE::Box2i &dataWindow,
-					      CubeMapFace &face,
-					      IMATH_NAMESPACE::V2f &positionInFace);
-
-   
-    // --------------------------------------------------------
-    // Given a cube face and a pixel position within that face,
-    // compute the corresponding 3D direction.
-    // --------------------------------------------------------
-
-    IMF_EXPORT 
-    IMATH_NAMESPACE::V3f		direction (CubeMapFace face,
-				   const IMATH_NAMESPACE::Box2i &dataWindow,
-				   const IMATH_NAMESPACE::V2f &positionInFace);
-}
-
+IMF_EXPORT
+IMATH_NAMESPACE::V3f direction (
+    CubeMapFace                   face,
+    const IMATH_NAMESPACE::Box2i& dataWindow,
+    const IMATH_NAMESPACE::V2f&   positionInFace);
+} // namespace CubeMap
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
-
 
 #endif

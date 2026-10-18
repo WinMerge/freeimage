@@ -1,0 +1,16 @@
+# libjxl 0.12.0 probes optional tcmalloc on x86_64 even when FindPkgConfig
+# is disabled. Guard that probe; the bundled build explicitly disables tcmalloc.
+set(path "${SOURCE_DIR}/CMakeLists.txt")
+file(READ "${path}" source)
+set(before "if(NOT APPLE AND NOT WIN32 AND NOT HAIKU AND CMAKE_SYSTEM_PROCESSOR MATCHES \"x86_64\")")
+set(after "if(PkgConfig_FOUND AND NOT APPLE AND NOT WIN32 AND NOT HAIKU AND CMAKE_SYSTEM_PROCESSOR MATCHES \"x86_64\")")
+string(FIND "${source}" "${before}" position)
+if(NOT position EQUAL -1)
+    string(REPLACE "${before}" "${after}" source "${source}")
+    file(WRITE "${path}" "${source}")
+else()
+    string(FIND "${source}" "${after}" position)
+    if(position EQUAL -1)
+        message(FATAL_ERROR "libjxl pkg-config patch no longer matches; review the upstream build")
+    endif()
+endif()

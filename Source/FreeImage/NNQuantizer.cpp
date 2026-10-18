@@ -22,12 +22,12 @@
 // -------
 // January 2001: Adaptation of the Neural-Net Quantization Algorithm
 //               for the FreeImage 2 library
-//               Author: Hervé Drolon (drolon@infonie.fr)
+//               Author: HervÃ© Drolon (drolon@infonie.fr)
 // March 2004:   Adaptation for the FreeImage 3 library (port to big endian processors)
-//               Author: Hervé Drolon (drolon@infonie.fr)
+//               Author: HervÃ© Drolon (drolon@infonie.fr)
 // April 2004:   Algorithm rewritten as a C++ class. 
 //               Fixed a bug in the algorithm with handling of 4-byte boundary alignment.
-//               Author: Hervé Drolon (drolon@infonie.fr)
+//               Author: HervÃ© Drolon (drolon@infonie.fr)
 ///////////////////////////////////////////////////////////////////////
 
 #include "Quantizers.h"
@@ -338,7 +338,7 @@ void NNQuantizer::getSample(long pos, int *b, int *g, int *r) {
 	// get equivalent pixel coordinates 
 	// - assume it's a 24-bit image -
 	int x = pos % img_line;
-	int y = pos / img_line;
+	int y = (int)(pos / img_line);
 
 	BYTE *bits = FreeImage_GetScanLine(dib_ptr, y) + x;
 
@@ -357,7 +357,7 @@ void NNQuantizer::learn(int sampling_factor) {
 	lengthcount = img_width * img_height * 3;
 
 	// number of samples used for the learning phase
-	samplepixels = lengthcount / (3 * sampling_factor);
+	samplepixels = (int)(lengthcount / (3 * sampling_factor));
 
 	// decrease learning rate after delta pixel presentations
 	delta = samplepixels / ncycles;

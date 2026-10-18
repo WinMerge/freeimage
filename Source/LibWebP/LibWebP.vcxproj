@@ -380,6 +380,11 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="sharpyuv\sharpyuv.h" />
+    <ClInclude Include="sharpyuv\sharpyuv_cpu.h" />
+    <ClInclude Include="sharpyuv\sharpyuv_csp.h" />
+    <ClInclude Include="sharpyuv\sharpyuv_dsp.h" />
+    <ClInclude Include="sharpyuv\sharpyuv_gamma.h" />
     <ClInclude Include="src\dec\alphai_dec.h" />
     <ClInclude Include="src\dec\common_dec.h" />
     <ClInclude Include="src\dec\vp8i_dec.h" />
@@ -388,6 +393,7 @@
     <ClInclude Include="src\dec\webpi_dec.h" />
     <ClInclude Include="src\dsp\common_sse2.h" />
     <ClInclude Include="src\dsp\common_sse41.h" />
+    <ClInclude Include="src\dsp\cpu.h" />
     <ClInclude Include="src\dsp\dsp.h" />
     <ClInclude Include="src\dsp\lossless.h" />
     <ClInclude Include="src\dsp\lossless_common.h" />
@@ -412,6 +418,7 @@
     <ClInclude Include="src\utils\filters_utils.h" />
     <ClInclude Include="src\utils\huffman_encode_utils.h" />
     <ClInclude Include="src\utils\huffman_utils.h" />
+    <ClInclude Include="src\utils\palette.h" />
     <ClInclude Include="src\utils\quant_levels_dec_utils.h" />
     <ClInclude Include="src\utils\quant_levels_utils.h" />
     <ClInclude Include="src\utils\random_utils.h" />
@@ -427,6 +434,13 @@
     <ClInclude Include="src\webp\types.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="sharpyuv\sharpyuv.c" />
+    <ClCompile Include="sharpyuv\sharpyuv_cpu.c" />
+    <ClCompile Include="sharpyuv\sharpyuv_csp.c" />
+    <ClCompile Include="sharpyuv\sharpyuv_dsp.c" />
+    <ClCompile Include="sharpyuv\sharpyuv_gamma.c" />
+    <ClCompile Include="sharpyuv\sharpyuv_neon.c" />
+    <ClCompile Include="sharpyuv\sharpyuv_sse2.c" />
     <ClCompile Include="src\dec\alpha_dec.c" />
     <ClCompile Include="src\dec\buffer_dec.c" />
     <ClCompile Include="src\dec\frame_dec.c" />
@@ -459,7 +473,6 @@
     <ClCompile Include="src\dsp\dec_sse2.c" />
     <ClCompile Include="src\dsp\dec_sse41.c" />
     <ClCompile Include="src\dsp\enc.c" />
-    <ClCompile Include="src\dsp\enc_avx2.c" />
     <ClCompile Include="src\dsp\enc_mips32.c" />
     <ClCompile Include="src\dsp\enc_mips_dsp_r2.c" />
     <ClCompile Include="src\dsp\enc_msa.c" />
@@ -472,7 +485,9 @@
     <ClCompile Include="src\dsp\filters_neon.c" />
     <ClCompile Include="src\dsp\filters_sse2.c" />
     <ClCompile Include="src\dsp\lossless.c" />
+    <ClCompile Include="src\dsp\lossless_avx2.c" />
     <ClCompile Include="src\dsp\lossless_enc.c" />
+    <ClCompile Include="src\dsp\lossless_enc_avx2.c" />
     <ClCompile Include="src\dsp\lossless_enc_mips32.c" />
     <ClCompile Include="src\dsp\lossless_enc_mips_dsp_r2.c" />
     <ClCompile Include="src\dsp\lossless_enc_msa.c" />
@@ -537,6 +552,7 @@
     <ClCompile Include="src\utils\filters_utils.c" />
     <ClCompile Include="src\utils\huffman_encode_utils.c" />
     <ClCompile Include="src\utils\huffman_utils.c" />
+    <ClCompile Include="src\utils\palette.c" />
     <ClCompile Include="src\utils\quant_levels_dec_utils.c" />
     <ClCompile Include="src\utils\quant_levels_utils.c" />
     <ClCompile Include="src\utils\random_utils.c" />

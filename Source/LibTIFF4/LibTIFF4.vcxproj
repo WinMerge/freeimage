@@ -468,6 +468,7 @@
     <ClCompile Include="tif_version.c" />
     <ClCompile Include="tif_warning.c" />
     <ClCompile Include="tif_webp.c" />
+    <ClCompile Include="tif_win32.c" />
     <ClCompile Include="tif_write.c" />
     <ClCompile Include="tif_zip.c" />
   </ItemGroup>

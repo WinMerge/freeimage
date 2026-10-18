@@ -6,6 +6,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
 // THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
@@ -574,7 +576,7 @@ FreeImage_LookupX11Color(const char *szColor, BYTE *nRed, BYTE *nGreen, BYTE *nB
          (szColor[3] == 'y' || szColor[3] == 'Y' ) )  {
 
         // grey<num>, or gray<num>, num 1...100
-        i = strtol(szColor+4, NULL, 10);
+        i = (int)strtol(szColor+4, NULL, 10);
         *nRed   = (BYTE)(255.0/100.0 * i);
         *nGreen = *nRed;
         *nBlue  = *nRed;
@@ -768,7 +770,7 @@ FreeImage_LookupSVGColor(const char *szColor, BYTE *nRed, BYTE *nGreen, BYTE *nB
          (szColor[3] == 'y' || szColor[3] == 'Y' ) )  {
 
         // grey<num>, or gray<num>, num 1...100
-        i = strtol(szColor+4, NULL, 10);
+        i = (int)strtol(szColor+4, NULL, 10);
         *nRed   = (BYTE)(255.0/100.0 * i);
         *nGreen = *nRed;
         *nBlue  = *nRed;

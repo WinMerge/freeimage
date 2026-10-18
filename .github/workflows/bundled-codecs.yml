@@ -1,0 +1,81 @@
+name: Bundled modern codecs
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-latest, windows-latest]
+        static: ["ON", "OFF"]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure without external codec SDKs
+        run: >-
+          cmake -S . -B build
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=11
+          -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=${{ matrix.static }}
+          -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+          -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
+          -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+      - name: Build from bundled archives
+        run: cmake --build build --config Release --parallel 4
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Install and test consumer
+        run: |
+          $prefix = "$env:RUNNER_TEMP/freeimage-codecs"
+          cmake --install build --config Release --prefix "$prefix"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake -S packaging/tests/codec-consumer -B consumer "-DCMAKE_PREFIX_PATH=$prefix" -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build consumer --config Release --parallel 2
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if ($IsWindows) {
+            $env:PATH = "$prefix/bin;$env:PATH"
+            & ./consumer/Release/CodecConsumer.exe
+          } else {
+            & ./consumer/CodecConsumer
+          }
+  linux-x86:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y gcc-multilib g++-multilib ninja-build
+      - name: Configure 32-bit codecs
+        run: >-
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32
+          -DCMAKE_CXX_STANDARD=11 -DBUILD_TESTS=ON
+          -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+          -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+      - run: cmake --build build --parallel 4
+      - run: ctest --test-dir build --output-on-failure
+  android-api25:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [arm64-v8a, armeabi-v7a, x86]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Android NDK
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108"'
+      - name: Cross-compile bundled codecs for API 25
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/28.0.13004108/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=${{ matrix.abi }} -DANDROID_PLATFORM=android-25 \
+            -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=11 \
+            -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON -DBUILD_TESTS=OFF \
+            -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+          cmake --build build --parallel 4

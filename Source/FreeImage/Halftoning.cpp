@@ -2,13 +2,15 @@
 // Bitmap conversion routines
 // Thresholding and halftoning functions
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Dennis Lim (dlkj@users.sourceforge.net)
 // - Thomas Chmielewski (Chmielewski.Thomas@oce.de)
 //
 // Main reference : Ulichney, R., Digital Halftoning, The MIT Press, Cambridge, MA, 1987
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES

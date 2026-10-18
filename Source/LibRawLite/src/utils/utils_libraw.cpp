@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
 
  LibRaw is free software; you can redistribute it and/or modify
@@ -14,19 +14,20 @@
  */
 
 #include "../../internal/libraw_cxx_defs.h"
+#include "../../internal/libraw_checked_buffer.h"
 
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
-  void default_data_callback(void *, const char *file, const int offset)
+  void default_data_callback(void *, const char *file, const INT64 offset)
   {
     if (offset < 0)
       fprintf(stderr, "%s: Unexpected end of file\n",
               file ? file : "unknown file");
     else
-      fprintf(stderr, "%s: data corrupted at %d\n",
+      fprintf(stderr, "%s: data corrupted at %lld\n",
               file ? file : "unknown file", offset);
   }
   const char *libraw_strerror(int e)
@@ -229,7 +230,8 @@ unsigned LibRaw::capabilities()
 int LibRaw::is_sraw()
 {
   return load_raw == &LibRaw::canon_sraw_load_raw ||
-         load_raw == &LibRaw::nikon_load_sraw;
+         load_raw == &LibRaw::nikon_load_sraw ||
+		  load_raw == &LibRaw::sony_ycbcr_load_raw;
 }
 int LibRaw::is_coolscan_nef()
 {
@@ -245,6 +247,8 @@ int LibRaw::sraw_midpoint()
 {
   if (load_raw == &LibRaw::canon_sraw_load_raw)
     return 8192;
+  else if (load_raw == &LibRaw::sony_ycbcr_load_raw)
+    return 8192; // adjusted as in canon sRAW
   else if (load_raw == &LibRaw::nikon_load_sraw)
     return 2048;
   else
@@ -577,7 +581,7 @@ int LibRaw::stread(char *buf, size_t len, LibRaw_abstract_datastream *fp)
     return 0;
 }
 
-int LibRaw::find_ifd_by_offset(int o)
+int LibRaw::find_ifd_by_offset(INT64 o)
 {
     for(unsigned i = 0; i < libraw_internal_data.identify_data.tiff_nifds && i < LIBRAW_IFD_MAXCOUNT; i++)
         if(tiff_ifd[i].offset == o)
@@ -613,8 +617,8 @@ int LibRaw::adjust_to_raw_inset_crop(unsigned mask, float maxcrop)
 
 {
     int adjindex = -1;
-	int limwidth = S.width * maxcrop;
-	int limheight = S.height * maxcrop;
+	int limwidth = int(S.width * maxcrop);
+	int limheight = int(S.height * maxcrop);
 
     for(int i = 1; i >= 0; i--)
         if (mask & (1<<i))
@@ -643,7 +647,7 @@ char** LibRaw::malloc_omp_buffers(int buffer_count, size_t buffer_size)
 
     for (int i = 0; i < buffer_count; i++)
     {
-        buffers[i] = (char*)malloc(buffer_size);
+        buffers[i] = (char*)calloc(buffer_size,1);
     }
     return buffers;
 }
@@ -656,11 +660,11 @@ void LibRaw::free_omp_buffers(char** buffers, int buffer_count)
     free(buffers);
 }
 
-void 	LibRaw::libraw_swab(void *arr, size_t len)
+void 	LibRaw::libraw_swab(void *arr, int len)
 {
 #ifdef LIBRAW_OWN_SWAB
 	uint16_t *array = (uint16_t*)arr;
-	size_t bytes = len/2;
+	int bytes = len/2;
 	for(; bytes; --bytes)
 	{
 		*array = ((*array << 8) & 0xff00) | ((*array >> 8) & 0xff);
@@ -671,3 +675,71 @@ void 	LibRaw::libraw_swab(void *arr, size_t len)
 #endif
 
 }
+
+checked_buffer_t::checked_buffer_t(short ord, int size) : _order(ord), storage(size + 64)
+{
+  _data = storage.data();
+  _len = size;
+}
+checked_buffer_t::checked_buffer_t(short ord, unsigned char *dd, int ss) : _order(ord), _data(dd), _len(ss) {}
+
+ushort checked_buffer_t::sget2(int offset)
+{
+  checkoffset(offset);
+  checkoffset(offset + 2);
+  return libraw_sget2_static(_order, _data + offset);
+}
+void checked_buffer_t::checkoffset(int off)
+{
+  if (off >= _len || off < 0)
+    throw LIBRAW_EXCEPTION_IO_EOF;
+}
+unsigned char checked_buffer_t::operator[](int idx)
+{
+  checkoffset(idx);
+  return _data[idx];
+}
+unsigned checked_buffer_t::sget4(int offset)
+{
+  checkoffset(offset);
+  checkoffset(offset + 4);
+  return libraw_sget4_static(_order, _data + offset);
+}
+
+double checked_buffer_t::sgetreal(int type, int offset)
+{
+  checkoffset(offset);
+  int sz = libraw_tagtype_dataunit_bytes(type);
+  checkoffset(offset + sz);
+  return libraw_sgetreal_static(_order, type, _data + offset);
+}
+
+int checked_buffer_t::tiff_sget(unsigned save, INT64 *tag_offset, unsigned *tag_id, unsigned *tag_type, INT64 *tag_dataoffset,
+              unsigned *tag_datalen, int *tag_dataunitlen)
+{
+  if ((((*tag_offset) + 12) > _len) || (*tag_offset < 0))
+  { // abnormal, tag buffer overrun
+    return -1;
+  }
+  int pos = int(*tag_offset);
+  *tag_id = sget2(pos);
+  pos += 2;
+  *tag_type = sget2(pos);
+  pos += 2;
+  *tag_datalen = sget4(pos);
+  pos += 4;
+  *tag_dataunitlen = libraw_tagtype_dataunit_bytes(*tag_type);
+  if ((*tag_datalen * (*tag_dataunitlen)) > 4)
+  {
+    *tag_dataoffset = sget4(pos) - save;
+    if ((*tag_dataoffset + *tag_datalen) > _len)
+    { // abnormal, tag data buffer overrun
+      return -2;
+    }
+  }
+  else
+    *tag_dataoffset = *tag_offset + 8;
+  *tag_offset += 12;
+  return 0;
+}
+

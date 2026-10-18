@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw uses code from dcraw.c -- Dave Coffin's raw photo decoder,
  dcraw.c is copyright 1997-2018 by Dave Coffin, dcoffin a cybercom o net.
@@ -57,7 +57,7 @@ void LibRaw::ciff_block_1030()
 /*
    Parse a CIFF file, better known as Canon CRW format.
  */
-void LibRaw::parse_ciff(int offset, int length, int depth)
+void LibRaw::parse_ciff(INT64 offset, int length, int depth)
 {
   int nrecs, c, type, len, wbi = -1;
   INT64 save, tboff;
@@ -118,12 +118,15 @@ void LibRaw::parse_ciff(int offset, int length, int depth)
     else if (type == 0x0810)
     {
       fread(artist, 64, 1, ifp);
+      artist[63] = 0;
     }
     else if (type == 0x080a)
     {
       fread(make, 64, 1, ifp);
+      make[63] = 0;
       fseek(ifp, strbuflen(make) - 63, SEEK_CUR);
       fread(model, 64, 1, ifp);
+      model[63] = 0;
 
     } else if (type == 0x080b) {
       stmread(imCommon.firmware, (unsigned)len, ifp);

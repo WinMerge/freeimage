@@ -12,6 +12,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
 // THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
@@ -29,7 +31,11 @@
 #pragma warning (disable : 4786) // identifier was truncated to 'number' characters
 #endif
 
+#ifdef FREEIMAGE_SYSTEM_LIBTIFF
+#include <tiffio.h>
+#else
 #include "../LibTIFF4/tiffiop.h"
+#endif
 
 #include "FreeImage.h"
 #include "Utilities.h"
@@ -39,6 +45,38 @@
 // ----------------------------------------------------------
 //   Extended TIFF Directory GEO Tag Support
 // ----------------------------------------------------------
+
+#ifdef FREEIMAGE_SYSTEM_LIBTIFF
+// System libtiff doesn't expose the private TIFFDirectory struct (tif_dir,
+// tif_fields, tif_nfields) that tiff_read_exif_tags/tiff_write_exif_tags
+// below use to walk every registered core tag, so fall back to probing this
+// fixed list of known EXIF tags through the public TIFFFieldWithTag() API.
+static const uint32_t xtiff_known_exif_tags[] = {
+	EXIFTAG_EXPOSURETIME, EXIFTAG_FNUMBER, EXIFTAG_EXPOSUREPROGRAM,
+	EXIFTAG_SPECTRALSENSITIVITY, EXIFTAG_ISOSPEEDRATINGS, EXIFTAG_OECF,
+	EXIFTAG_EXIFVERSION, EXIFTAG_DATETIMEORIGINAL, EXIFTAG_DATETIMEDIGITIZED,
+	EXIFTAG_COMPONENTSCONFIGURATION, EXIFTAG_COMPRESSEDBITSPERPIXEL,
+	EXIFTAG_SHUTTERSPEEDVALUE, EXIFTAG_APERTUREVALUE,
+	EXIFTAG_BRIGHTNESSVALUE, EXIFTAG_EXPOSUREBIASVALUE,
+	EXIFTAG_MAXAPERTUREVALUE, EXIFTAG_SUBJECTDISTANCE, EXIFTAG_METERINGMODE,
+	EXIFTAG_LIGHTSOURCE, EXIFTAG_FLASH, EXIFTAG_FOCALLENGTH,
+	EXIFTAG_SUBJECTAREA, EXIFTAG_MAKERNOTE, EXIFTAG_USERCOMMENT,
+	EXIFTAG_SUBSECTIME, EXIFTAG_SUBSECTIMEORIGINAL,
+	EXIFTAG_SUBSECTIMEDIGITIZED, EXIFTAG_FLASHPIXVERSION, EXIFTAG_COLORSPACE,
+	EXIFTAG_PIXELXDIMENSION, EXIFTAG_PIXELYDIMENSION,
+	EXIFTAG_RELATEDSOUNDFILE, EXIFTAG_FLASHENERGY,
+	EXIFTAG_SPATIALFREQUENCYRESPONSE, EXIFTAG_FOCALPLANEXRESOLUTION,
+	EXIFTAG_FOCALPLANEYRESOLUTION, EXIFTAG_FOCALPLANERESOLUTIONUNIT,
+	EXIFTAG_SUBJECTLOCATION, EXIFTAG_EXPOSUREINDEX, EXIFTAG_SENSINGMETHOD,
+	EXIFTAG_FILESOURCE, EXIFTAG_SCENETYPE, EXIFTAG_CFAPATTERN,
+	EXIFTAG_CUSTOMRENDERED, EXIFTAG_EXPOSUREMODE, EXIFTAG_WHITEBALANCE,
+	EXIFTAG_DIGITALZOOMRATIO, EXIFTAG_FOCALLENGTHIN35MMFILM,
+	EXIFTAG_SCENECAPTURETYPE, EXIFTAG_GAINCONTROL, EXIFTAG_CONTRAST,
+	EXIFTAG_SATURATION, EXIFTAG_SHARPNESS, EXIFTAG_DEVICESETTINGDESCRIPTION,
+	EXIFTAG_SUBJECTDISTANCERANGE, EXIFTAG_IMAGEUNIQUEID
+};
+static const size_t xtiff_known_exif_tags_count = sizeof(xtiff_known_exif_tags) / sizeof(xtiff_known_exif_tags[0]);
+#endif // FREEIMAGE_SYSTEM_LIBTIFF
 
 /**
   Tiff info structure.
@@ -258,7 +296,10 @@ tiff_read_exif_tag(TIFF *tif, uint32_t tag_id, FIBITMAP *dib, TagLib::MDMODEL md
 		return TRUE;
 	}
 
-	const TIFFField *fip = TIFFFieldWithTag(tif, tag_id);
+	// TIFFFindField() is the silent lookup (TIFFFieldWithTag() would emit a
+	// warning for tags absent from this TIFF's field set - expected here
+	// since not every tag_id we're asked about is registered on every file).
+	const TIFFField *fip = TIFFFindField(tif, tag_id, TIFF_ANY);
 	if(fip == NULL) {
 		return TRUE;
 	}
@@ -573,6 +614,15 @@ tiff_read_exif_tags(TIFF *tif, TagLib::MDMODEL md_model, FIBITMAP *dib) {
 
 	// we want to know values of standard tags too!!
 
+#ifdef FREEIMAGE_SYSTEM_LIBTIFF
+	// System libtiff: no private struct access available, probe the fixed
+	// known-tag list instead (see xtiff_known_exif_tags above).
+	if(md_model == TagLib::EXIF_MAIN) {
+		for(size_t i = 0; i < xtiff_known_exif_tags_count; i++) {
+			tiff_read_exif_tag(tif, xtiff_known_exif_tags[i], dib, md_model);
+		}
+	}
+#else
 	// loop over all Core Directory Tags
 	// ### uses private data, but there is no other way
 	if(md_model == TagLib::EXIF_MAIN) {
@@ -615,6 +665,7 @@ tiff_read_exif_tags(TIFF *tif, TagLib::MDMODEL md_model, FIBITMAP *dib) {
 		}
 
 	}
+#endif // FREEIMAGE_SYSTEM_LIBTIFF
 
 	return TRUE;
 }
@@ -722,13 +773,26 @@ tiff_write_exif_tags(TIFF *tif, TagLib::MDMODEL md_model, FIBITMAP *dib) {
 	}
 	
 	TagLib& tag_lib = TagLib::instance();
-	
+
+#ifdef FREEIMAGE_SYSTEM_LIBTIFF
+	// System libtiff: no private struct access available, probe the fixed
+	// known-tag list instead (see xtiff_known_exif_tags above).
+	for(size_t fi = 0; fi < xtiff_known_exif_tags_count; fi++) {
+		const uint32_t tag_id = xtiff_known_exif_tags[fi];
+		const TIFFField *fld = TIFFFindField(tif, tag_id, TIFF_ANY);
+		if(fld == NULL) {
+			continue;
+		}
+
+		if(skip_write_field(tif, tag_id)) {
+#else
 	for (int fi = 0, nfi = (int)tif->tif_nfields; nfi > 0; nfi--, fi++) {
 		const TIFFField *fld = tif->tif_fields[fi];
-		
+
 		const uint32_t tag_id = TIFFFieldTag(fld);
 
 		if(skip_write_field(tif, tag_id)) {
+#endif // FREEIMAGE_SYSTEM_LIBTIFF
 			// skip tags that are already handled by the LibTIFF writing process
 			continue;
 		}

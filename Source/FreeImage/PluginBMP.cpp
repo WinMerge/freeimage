@@ -5,11 +5,13 @@
 // - Floris van den Berg (flvdberg@wxs.nl)
 // - Markus Loibl (markus.loibl@epost.de)
 // - Martin Weber (martweb@gmx.net)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Michal Novotny (michal@etc.cz)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -144,19 +146,21 @@ Check if a BITMAPINFOHEADER is valid
 */
 static BOOL
 CheckBitmapInfoHeader(BITMAPINFOHEADER *bih) {
-	if (bih->biSize != sizeof(BITMAPINFOHEADER)) {
-		// The size, in bytes, of the image.This may be set to zero for BI_RGB bitmaps.
-		// If biCompression is BI_JPEG or BI_PNG, biSizeImage indicates the size of the JPEG or PNG image buffer, respectively.
-		if ((bih->biSize == 0) && (bih->biCompression != BI_RGB)) {
+	// Load() dispatches on the DWORD at the start of the info header, which
+	// is exactly biSize, so only the header sizes handled there can reach
+	// this function. Note that this includes the extended headers (V2/V3/V4/
+	// V5 and the OS/2 2.x header), which are larger than BITMAPINFOHEADER.
+	switch (bih->biSize) {
+		case 40:	// BITMAPINFOHEADER - all Windows versions since Windows 3.0
+		case 52:	// BITMAPV2INFOHEADER (undocumented)
+		case 56:	// BITMAPV3INFOHEADER (undocumented)
+		case 64:	// BITMAPINFOHEADER2 - OS/2 2.x
+		case 108:	// BITMAPV4HEADER - all Windows versions since Windows 95/NT4
+		case 124:	// BITMAPV5HEADER - Windows 98/2000 and newer
+			break;
+		default:
+			// Unknown or unsupported info header size
 			return FALSE;
-		}
-		else if ((bih->biCompression == BI_JPEG) || (bih->biCompression == BI_PNG)) {
-			// JPEG or PNG is not yet supported
-			return FALSE;
-		}
-		else {
-			return FALSE;
-		}
 	}
 	if (bih->biWidth < 0) {
 		return FALSE;
@@ -1224,18 +1228,18 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 		switch(type) {
 			case 12:
 				// OS/2 and also all Windows versions since Windows 3.0
-				return LoadOS21XBMP(io, handle, flags, offset_in_file + bitmapfileheader.bfOffBits);
+				return LoadOS21XBMP(io, handle, flags, (unsigned)(offset_in_file + bitmapfileheader.bfOffBits));
 
 			case 64:
 				// OS/2
-				return LoadOS22XBMP(io, handle, flags, offset_in_file + bitmapfileheader.bfOffBits);
+				return LoadOS22XBMP(io, handle, flags, (unsigned)(offset_in_file + bitmapfileheader.bfOffBits));
 
 			case 40:	// BITMAPINFOHEADER - all Windows versions since Windows 3.0
 			case 52:	// BITMAPV2INFOHEADER (undocumented, partially supported)
 			case 56:	// BITMAPV3INFOHEADER (undocumented, partially supported)
 			case 108:	// BITMAPV4HEADER - all Windows versions since Windows 95/NT4 (partially supported)
 			case 124:	// BITMAPV5HEADER - Windows 98/2000 and newer (partially supported)
-				return LoadWindowsBMP(io, handle, flags, offset_in_file + bitmapfileheader.bfOffBits, type);
+				return LoadWindowsBMP(io, handle, flags, (unsigned)(offset_in_file + bitmapfileheader.bfOffBits), type);
 
 			default:
 				break;

@@ -1,0 +1,28 @@
+Source: freeimage-maintained
+Section: libs
+Priority: optional
+Maintainer: FreeImage Packaging Contributors <noreply@github.com>
+Build-Depends: debhelper-compat (= 13), cmake, ninja-build, pkg-config,
+ libjpeg-dev, libpng-dev, libtiff-dev, libopenjp2-7-dev, libwebp-dev,
+ libraw-dev, libopenexr-dev, zlib1g-dev
+Standards-Version: 4.7.0
+Homepage: https://github.com/danoli3/FreeImage
+Rules-Requires-Root: no
+
+Package: libfreeimage-maintained3
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Conflicts: libfreeimage3
+Replaces: libfreeimage3
+Description: maintained FreeImage image codec library
+ Image loading, saving, conversion and bitmap manipulation using system
+ codec libraries. This package contains the danoli3 maintained fork.
+
+Package: libfreeimage-maintained-dev
+Section: libdevel
+Architecture: any
+Depends: libfreeimage-maintained3 (= ${binary:Version}), ${misc:Depends}
+Conflicts: libfreeimage-dev
+Replaces: libfreeimage-dev
+Description: development files for the maintained FreeImage library
+ Headers, linker symlink, pkg-config metadata and CMake package configuration.

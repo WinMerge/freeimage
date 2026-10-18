@@ -1,0 +1,33 @@
+name: HEIF and AVIF
+permissions:
+  contents: read
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  libheif:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        enabled: ["ON", "OFF"]
+        static: ["ON", "OFF"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install libheif and build tools
+        run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config libheif-dev
+      - name: Configure GCC AddressSanitizer build
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DBUILD_LIBHEIF=${{ matrix.enabled }} -DUSE_SYSTEM_LIBHEIF=ON -DBUILD_TESTS=ON
+          -DFREEIMAGE_STATIC=${{ matrix.static }} -DCMAKE_CXX_STANDARD=11
+          -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_C_FLAGS="-fsanitize=address -g"
+          -DCMAKE_CXX_FLAGS="-fsanitize=address -g"
+          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address
+      - name: Build
+        run: cmake --build build --parallel 4
+      - name: Test
+        run: ctest --test-dir build --output-on-failure

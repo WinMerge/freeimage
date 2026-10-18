@@ -2,9 +2,11 @@
 // Tone mapping operator (Drago, 2003)
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -40,7 +42,7 @@ biasFunction(const double b, const double x) {
 }
 
 /**
-Padé approximation of log(x + 1)
+PadÃ© approximation of log(x + 1)
 x(6+x)/(6+4x) good if x < 1
 x*(6 + 0.7662x)/(5.9897 + 3.7658x) between 1 and 2
 See http://www.nezumi.demon.co.uk/consult/logx.htm
@@ -94,7 +96,7 @@ ToneMappingDrago03(FIBITMAP *dib, const float maxLum, const float avgLum, float 
 
 	/**
 	Normal tone mapping of every pixel
-	further acceleration is obtained by a Padé approximation of log(x + 1)
+	further acceleration is obtained by a PadÃ© approximation of log(x + 1)
 	*/
 	BYTE *bits = (BYTE*)FreeImage_GetBits(dib);
 	for(y = 0; y < height; y++) {
@@ -121,7 +123,7 @@ ToneMappingDrago03(FIBITMAP *dib, const float maxLum, const float avgLum, float 
 	/**
 	fast tone mapping
 	split the image into 3x3 pixel tiles and perform the computation for each group of 9 pixels
-	further acceleration is obtained by a Padé approximation of log(x + 1)
+	further acceleration is obtained by a PadÃ© approximation of log(x + 1)
 	=> produce artifacts and not so faster, so the code has been disabled
 	*/
 #define PIXEL(x, y)	image[y*fpitch + x].red

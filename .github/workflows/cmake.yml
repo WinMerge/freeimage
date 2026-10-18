@@ -2,6 +2,13 @@ name: "CMake build"
 
 on:
   push:
+    # unscoped push: would also fire for every push to an open PR's branch,
+    # duplicating the pull_request run below for the same commit. Scoping
+    # to master keeps a post-merge signal without doubling PR CI - the
+    # pull_request run below is the more useful of the two for PR branches
+    # anyway, since it tests the merge commit against current master.
+    branches:
+      - master
   pull_request:
   workflow_dispatch:
 
@@ -51,7 +58,15 @@ jobs:
           if [ "${{ matrix.compiler }}" == "msvc" ]; then
             cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_CXX_STANDARD=${{ matrix.cppstandard }} -DUNICODE=ON -D_UNICODE=ON -DCMAKE_C_STANDARD=${{ matrix.cstandard }}
           elif [ "${{ matrix.compiler }}" == "mingw" ]; then
-            cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DUNICODE=ON -D_UNICODE=ON -DCMAKE_CXX_STANDARD=${{ matrix.cppstandard }} -DCMAKE_C_STANDARD=${{ matrix.cstandard }} -G "MinGW Makefiles"
+            # BUILD_OPENEXR=ON (the default for C++17+ since #85) hangs the
+            # test binary before main() even runs on this job's preinstalled
+            # mingw toolchain - reproduces on master, narrowed down to some
+            # static/module-load-time initializer in the OpenEXR dependency
+            # chain, not yet root-caused. windows-msys2 below (current MSYS2
+            # toolchains, not whatever ships on windows-latest) doesn't hit
+            # this, so it's specific to this toolchain rather than mingw/GCC
+            # in general. Force it off here until root-caused.
+            cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DUNICODE=ON -D_UNICODE=ON -DCMAKE_CXX_STANDARD=${{ matrix.cppstandard }} -DCMAKE_C_STANDARD=${{ matrix.cstandard }} -DBUILD_OPENEXR=OFF -G "MinGW Makefiles"
           else
             cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DUNICODE=ON -D_UNICODE=ON -DCMAKE_CXX_STANDARD=${{ matrix.cppstandard }} -DCMAKE_C_STANDARD=${{ matrix.cstandard }}
           fi
@@ -65,3 +80,420 @@ jobs:
       - name: Test
         run: |
           ctest --test-dir build --build-config ${{ matrix.configuration }} --verbose
+
+  shared-linux:
+    # Keep at least one Linux shared-library build in CI. The main matrix
+    # uses the static default, so new public APIs can otherwise miss shared
+    # symbol/linkage problems until a downstream consumer builds a .so.
+    name: shared library (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Configure shared library and API tests
+        run: >-
+          cmake -S . -B build-shared -DCMAKE_BUILD_TYPE=Debug
+          -DCMAKE_CXX_STANDARD=17 -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=OFF
+      - name: Build
+        run: cmake --build build-shared -j2
+      - name: Test
+        run: ctest --test-dir build-shared --output-on-failure --verbose
+
+  shared-windows:
+    # A Windows DLL build also checks that public APIs are exported and that
+    # TestAPI executables can link and run against the shared library.
+    name: shared library (Windows DLL)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Configure shared library and API tests
+        run: >-
+          cmake -S . -B build-shared -DBUILD_TESTS=ON
+          -DFREEIMAGE_STATIC=OFF -DCMAKE_CXX_STANDARD=17
+          -DUNICODE=ON -D_UNICODE=ON
+      - name: Build
+        run: cmake --build build-shared --config Debug --parallel 2
+      - name: Test
+        run: ctest --test-dir build-shared --build-config Debug --output-on-failure --verbose
+
+  windows-msys2:
+    # Dedicated job (rather than another `build` matrix entry) because it
+    # needs the msys2 shell and an explicitly installed, current mingw-w64
+    # toolchain - closer to what a Windows 10 user following winlibs.com
+    # (see issue #48) or MSYS2's own docs actually builds with than whatever
+    # mingw happens to be preinstalled on the windows-latest runner for the
+    # `windows-mingw` entry above. Covers the three MSYS2 environments
+    # people actually build FreeImage with on x86_64 (see issue #29 for the
+    # clang ones): MINGW64 (legacy GCC/msvcrt), UCRT64 (GCC/UCRT, MSYS2's
+    # current default), CLANG64 (Clang/UCRT). CLANGARM64 is deliberately not
+    # covered here: its own toolchain binaries are native ARM64, so they
+    # can't even execute on this x86_64 runner ("Exec format error") - it
+    # would need a real ARM64 Windows runner, not a cross-compile setup.
+    name: windows-msys2 (${{ matrix.msystem }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - msystem: MINGW64
+            prefix: mingw-w64-x86_64
+          - msystem: UCRT64
+            prefix: mingw-w64-ucrt-x86_64
+          - msystem: CLANG64
+            prefix: mingw-w64-clang-x86_64
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up MSYS2 (${{ matrix.msystem }})
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            ${{ matrix.prefix }}-toolchain
+            ${{ matrix.prefix }}-cmake
+            ${{ matrix.prefix }}-ninja
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DUNICODE=ON -D_UNICODE=ON
+      - name: Build
+        run: |
+          cmake --build build
+      - name: Test
+        run: |
+          ctest --test-dir build --build-config Debug --verbose
+
+  windows-mingw32:
+    name: Windows MinGW32 (static=${{ matrix.static }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        static: ["ON", "OFF"]
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up 32-bit GCC
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          install: >-
+            mingw-w64-i686-toolchain
+            mingw-w64-i686-cmake
+            mingw-w64-i686-ninja
+      - name: Check SSE kernel without SSE2
+        run: >-
+          g++ -msse -mno-sse2 -DFREEIMAGE_OPENJPH_SIMD=1
+          -I Source/OpenEXR/OpenJPH/openjph
+          -c Source/OpenEXR/OpenJPH/codestream/ojph_codestream_sse.cpp
+          -o sse-only.o
+      - name: Configure bundled codecs
+        run: >-
+          cmake -S . -B build-mingw32 -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_STANDARD=17
+          -DFREEIMAGE_STATIC=${{ matrix.static }} -DBUILD_OPENEXR=ON
+          -DFREEIMAGE_OPENJPH_SIMD=ON -DBUILD_TESTS=ON
+      - name: Build library and tests
+        run: cmake --build build-mingw32 -j2
+      - name: Run test suites
+        run: ctest --test-dir build-mingw32 --output-on-failure --verbose
+
+  windows-clang-cl:
+    # Issue #29: build with Clang on Windows via clang-cl, the MSVC-ABI-compatible
+    # driver windows-latest ships preinstalled as a VS toolset. Same generator as
+    # the windows-msvc entry above, just switching the toolset with -T ClangCL.
+    name: windows-clang-cl
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Configure
+        run: |
+          cmake -S . -B build -T ClangCL -DBUILD_TESTS=ON -DCMAKE_CXX_STANDARD=17 -DUNICODE=ON -D_UNICODE=ON
+      - name: Build
+        run: |
+          cmake --build build --config Debug
+      - name: Test
+        run: |
+          ctest --test-dir build --build-config Debug --verbose
+
+  windows-clang-cl-ninja:
+    # Issue #29 also asks for clang-cl driven directly via Ninja (not just
+    # the VS-generator toolset switch above), which needs the MSVC dev
+    # environment (INCLUDE/LIB/PATH) set up explicitly since Ninja has no
+    # equivalent of the VS generator's own toolset detection.
+    name: windows-clang-cl (Ninja)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Configure
+        run: |
+          cmake -S . -B build -G Ninja -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_STANDARD=17 -DUNICODE=ON -D_UNICODE=ON -DCMAKE_C_COMPILER=clang-cl -DCMAKE_CXX_COMPILER=clang-cl
+      - name: Build
+        run: |
+          cmake --build build
+      - name: Test
+        run: |
+          ctest --test-dir build --build-config Debug --verbose
+
+  windows-win32:
+    # Pin VS 2022: its x86 Debug compiler hit OpenJPH's AVX2 encoder ICE.
+    name: Windows Win32 (${{ matrix.toolset }}, ${{ matrix.config }})
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        toolset: [v143, ClangCL]
+        config: [Debug, Release]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Windows inspection tools
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - name: Configure 32-bit bundled codecs
+        run: >-
+          cmake -S . -B build-win32 -G "Visual Studio 17 2022"
+          -A Win32 -T ${{ matrix.toolset }}
+          -DCMAKE_CXX_STANDARD=17 -DFREEIMAGE_STATIC=ON
+          -DCMAKE_C_FLAGS_INIT="-D_WIN32_WINNT=0x0A00"
+          -DCMAKE_CXX_FLAGS_INIT="-D_WIN32_WINNT=0x0A00"
+          -DBUILD_OPENEXR=ON -DFREEIMAGE_OPENJPH_SIMD=ON -DBUILD_TESTS=ON
+      - name: Build 32-bit library and tests
+        run: cmake --build build-win32 --config ${{ matrix.config }} --parallel 2
+      - name: Run 32-bit test suites
+        run: ctest --test-dir build-win32 --build-config ${{ matrix.config }} --output-on-failure --verbose
+      - name: Check OpenEXR Windows API imports
+        run: |
+          $exe = "build-win32/TestAPI/${{ matrix.config }}/VendorCodecTest.exe"
+          $imports = & dumpbin /imports $exe
+          if ($LASTEXITCODE -ne 0) { throw "Cannot inspect codec test imports" }
+          if ($imports -match '\bCreateFile2\b') { throw "OpenEXR imports Windows 8-only CreateFile2" }
+          if (-not ($imports -match '\bCreateFileW\b')) { throw "Expected CreateFileW import is missing" }
+
+  windows-arm-cross:
+    # Cross-compile from the x64 windows-latest runner with the installed
+    # MSVC ARM64 and ARM64EC toolsets. The produced test binaries cannot
+    # execute on this host, so the job stops after the build. Native ARM64
+    # execution needs a windows-11-arm runner; MSYS2 CLANGARM64 cannot run
+    # here either (its cmake and ninja are ARM64 binaries).
+    name: windows-msvc cross (${{ matrix.arch }})
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [ARM64, ARM64EC]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Configure (${{ matrix.arch }})
+        run: |
+          cmake -S . -B build -A ${{ matrix.arch }} -DBUILD_TESTS=ON -DCMAKE_CXX_STANDARD=17 -DUNICODE=ON -D_UNICODE=ON -DCMAKE_C_STANDARD=17
+      - name: Build
+        run: cmake --build build --config Debug
+
+  windows-vs-presets:
+    # Verifies the vs2022/vs2026 CMakePresets.json entries actually generate
+    # a working Visual Studio solution - can't be tested from a non-Windows
+    # host at all (the VS generators don't exist in a macOS/Linux CMake
+    # build), so this is the only real signal for that workflow.
+    name: Visual Studio project generation (CMakePresets)
+    runs-on: windows-latest
+    defaults:
+      run:
+        # Not bash (the workflow-level default): Git Bash can't represent
+        # env var names with parentheses, so ProgramFiles(x86) gets dropped
+        # - which is what CMake's VS-instance detection reads, causing
+        # "could not find any instance of Visual Studio" even though it's
+        # actually installed.
+        shell: pwsh
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: cmake --version
+        run: cmake --version
+      - name: Generate and build vs2022 preset
+        run: |
+          cmake --preset vs2022
+          cmake --build build-vs2022 --config Debug
+          ctest --test-dir build-vs2022 --build-config Debug --verbose
+      - name: Generate and build vs2026 preset (best-effort)
+        # VS2026/a new-enough CMake for the "Visual Studio 18 2026" generator
+        # may not be on the runner image yet - report status without failing
+        # the job over it.
+        continue-on-error: true
+        run: |
+          cmake --preset vs2026
+          cmake --build build-vs2026 --config Debug
+          ctest --test-dir build-vs2026 --build-config Debug --verbose
+      - name: Set up MSVC developer environment
+        # Only needed for the Ninja preset below - unlike the VS generator
+        # above, Ninja doesn't do its own VS-instance detection.
+        uses: ilammy/msvc-dev-cmd@v1
+      - name: Generate and build ninja-msvc preset
+        run: |
+          cmake --preset ninja-msvc
+          cmake --build build-ninja-msvc
+          ctest --test-dir build-ninja-msvc --build-config Debug --verbose
+
+  openframeworks-tests:
+    # Builds this FreeImage checkout and drops it into a real openFrameworks
+    # checkout in place of oF's own prebuilt copy, then runs oF's
+    # tests/graphics/imageFormats suite (save/load/pixel-verify round trip
+    # through ofImage for several formats) against it. Catches regressions
+    # that only show up when FreeImage is actually linked into a consuming
+    # application rather than exercised through FreeImage's own TestAPI.
+    name: openFrameworks image format tests (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout FreeImage
+        uses: actions/checkout@v4
+        with:
+          path: freeimage
+      - name: Checkout openFrameworks
+        uses: actions/checkout@v4
+        with:
+          repository: openFrameworks/openFrameworks
+          ref: master
+          path: openFrameworks
+          submodules: true
+      - name: Download openFrameworks prebuilt dependencies
+        run: openFrameworks/scripts/macos/download_libs.sh
+      - name: Build FreeImage against oF's own zlib/libpng
+        # oF's core already links its own zlib.a/libpng.a; bundling FreeImage's
+        # copies too would duplicate-symbol at final link time, so build
+        # against oF's copies instead, matching how oF's apothecary formula
+        # builds FreeImage for its own releases.
+        run: |
+          LIBPNG_DIR="$GITHUB_WORKSPACE/openFrameworks/libs/libpng"
+          ZLIB_DIR="$GITHUB_WORKSPACE/openFrameworks/libs/zlib"
+          cmake -S freeimage -B build-of \
+            -DBUILD_SHARED_LIBS=OFF -DBUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.15 \
+            -DBUILD_LIBPNG=OFF -DPNG_INCLUDE_DIR="$LIBPNG_DIR/include" -DPNG_LIBRARY="$LIBPNG_DIR/lib/macos/libpng.xcframework/macos-arm64_x86_64/libpng.a" \
+            -DBUILD_ZLIB=OFF -DZLIB_ROOT="$ZLIB_DIR" -DZLIB_INCLUDE_DIRS="$ZLIB_DIR/include" -DZLIB_LIBRARY="$ZLIB_DIR/lib/macos/zlib.xcframework/macos-arm64_x86_64/zlib.a"
+          cmake --build build-of -j"$(sysctl -n hw.ncpu)"
+      - name: Swap this FreeImage build into the openFrameworks checkout
+        run: |
+          OF_ARCH_DIR="$GITHUB_WORKSPACE/openFrameworks/libs/FreeImage/lib/macos/FreeImage.xcframework/macos-arm64_x86_64"
+          cp freeimage/Source/FreeImage.h openFrameworks/libs/FreeImage/include/FreeImage.h
+          cp freeimage/Source/FreeImage.h "$OF_ARCH_DIR/Headers/FreeImage.h"
+          cp build-of/libFreeImage.a "$OF_ARCH_DIR/FreeImage.a"
+      - name: Build and run the FreeImage image format test
+        working-directory: openFrameworks/tests/graphics/imageFormats
+        run: |
+          # Makefile/config.make are gitignored in oF's test dirs - the test
+          # harness is expected to supply them, same as oF's own run_tests.sh
+          cp ../../../scripts/templates/macos/Makefile .
+          cp ../../../scripts/templates/macos/config.make .
+          make -j"$(sysctl -n hw.ncpu)" Debug
+          make RunDebug
+
+  openjph-simd:
+    name: OpenJPH SIMD ${{ matrix.simd }} (Linux ASan)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        simd: ["ON", "OFF"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Configure bundled codecs
+        run: >-
+          cmake -S . -B build-simd -DBUILD_TESTS=ON
+          -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+          -DBUILD_OPENEXR=ON -DFREEIMAGE_STATIC=ON -DCMAKE_CXX_STANDARD=17
+          -DCMAKE_BUILD_TYPE=Release -DFREEIMAGE_OPENJPH_SIMD=${{ matrix.simd }}
+          "-DCMAKE_C_FLAGS=-fsanitize=address -g"
+          "-DCMAKE_CXX_FLAGS=-fsanitize=address -g"
+          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address
+      - name: Build codec and PBM RLE regression tests
+        run: cmake --build build-simd --target VendorCodecTest IffPbmRleTest -j2
+      - name: Verify runtime dispatch and codec round trips
+        run: ctest --test-dir build-simd -R 'VendorCodecTest|IffPbmRleTest' --output-on-failure --verbose
+
+  android-api25:
+    name: Android API 25 (${{ matrix.abi }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        abi: [armeabi-v7a, arm64-v8a]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install Android NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108"
+      - name: Configure bundled codecs
+        run: >-
+          cmake -S . -B build-android
+          -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/28.0.13004108/build/cmake/android.toolchain.cmake"
+          -DANDROID_ABI=${{ matrix.abi }} -DANDROID_PLATFORM=android-25
+          -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17
+          -DFREEIMAGE_STATIC=ON -DBUILD_OPENEXR=ON -DBUILD_TESTS=ON
+      - name: Build Android library and test executables
+        run: cmake --build build-android -j2
+
+  linux-arm64-cross:
+    name: Linux ARM64 cross build (libdeflate C11)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Install ARM64 cross compiler
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
+      - name: Configure bundled codecs
+        run: >-
+          cmake -S . -B build-arm64 -DCMAKE_SYSTEM_NAME=Linux
+          -DCMAKE_SYSTEM_PROCESSOR=aarch64
+          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc
+          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
+          -DCMAKE_C_STANDARD=17 -DCMAKE_C_EXTENSIONS=ON
+          -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release
+          -DFREEIMAGE_STATIC=ON -DBUILD_TESTS=OFF
+      - name: Build ARM64 library
+        run: cmake --build build-arm64 -j2
+
+  make-build:
+    # Plain `make` (Makefile.gnu, via the top-level Makefile dispatcher) is
+    # a separate build path from CMake with its own hand-maintained file
+    # list in Makefile.srcs - nothing else in this workflow exercises it, so
+    # it can silently drift out of sync with the source tree (see #33, and
+    # the OpenEXR/openjpeg bump breaking it entirely) without any CI signal.
+    name: make build (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Build
+        run: make -j"$(nproc)"
+      - name: Verify build artifacts exist
+        run: |
+          test -f "libfreeimage.a"
+          test -f "libfreeimage-3.19.0.so"

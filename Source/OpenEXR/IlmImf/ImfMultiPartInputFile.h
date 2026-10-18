@@ -1,109 +1,113 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2011, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////
 
 #ifndef IMFMULTIPARTINPUTFILE_H_
 #define IMFMULTIPARTINPUTFILE_H_
 
-#include "ImfGenericInputFile.h"
-#include "ImfNamespace.h"
 #include "ImfForward.h"
+
 #include "ImfThreading.h"
-#include "ImfExport.h"
+
+#include "ImfContext.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
+//
+// Constructors that open a file by path expect UTF-8; see ImfIO.h.
+//
 
-class IMF_EXPORT MultiPartInputFile : public GenericInputFile
+/// \brief
+///
+/// TODO: Document this
+class IMF_EXPORT_TYPE MultiPartInputFile
 {
-  public:
-    MultiPartInputFile(const char fileName[],
-                       int numThreads = globalThreadCount(),
-                       bool reconstructChunkOffsetTable = true);
+public:
+    IMF_EXPORT
+    MultiPartInputFile (
+        const char fileName[],
+        int        numThreads                  = globalThreadCount (),
+        bool       reconstructChunkOffsetTable = true);
 
-    MultiPartInputFile(IStream& is,
-                       int numThreads = globalThreadCount(),
-                       bool reconstructChunkOffsetTable = true);
+    IMF_EXPORT
+    MultiPartInputFile (
+        IStream& is,
+        int      numThreads                  = globalThreadCount (),
+        bool     reconstructChunkOffsetTable = true);
 
-    virtual ~MultiPartInputFile();
+    //-----------------------------------------------------------
+    // A constructor that opens the file with the specified name
+    // and context initialization routines
+    // Destroying the InputFile object will close the file.
+    //-----------------------------------------------------------
+    IMF_EXPORT
+    MultiPartInputFile (
+        const char*               filename,
+        const ContextInitializer& ctxtinit,
+        int                       numThreads  = globalThreadCount (),
+        bool                      autoAddType = true);
 
-    // ----------------------
-    // Count of number of parts in file
-    // ---------------------
-    int parts() const;
-    
-    
-    //----------------------
-    // Access to the headers
-    //----------------------
+    //------------------------
+    // Access to the file name
+    //------------------------
 
-    const Header &  header(int n) const;
-    
+    IMF_EXPORT
+    const char* fileName () const;
 
     //----------------------------------
     // Access to the file format version
     //----------------------------------
 
-    int			    version () const;
+    IMF_EXPORT
+    int version () const;
 
+    // ----------------------
+    // Count of number of parts in file
+    // ---------------------
+    IMF_EXPORT
+    int parts () const;
+
+    //----------------------
+    // Access to the headers
+    //----------------------
+
+    IMF_EXPORT
+    const Header& header (int partNumber) const;
 
     // =----------------------------------------
     // Check whether the entire chunk offset
     // table for the part is written correctly
     // -----------------------------------------
-    bool partComplete(int part) const;
+    IMF_EXPORT
+    bool partComplete (int partNumber) const;
 
+    // ----------------------------------------
+    // Flush internal part cache
+    // Invalidates all 'Part' types previously
+    // constructed from this file
+    // Intended for test purposes, but can be
+    // used to temporarily reduce memory overhead,
+    // or to switch between types (e.g. TiledInputPart
+    // or DeepScanLineInputPart to InputPart)
+    // ----------------------------------------
 
+    IMF_EXPORT
+    void              flushPartCache ();
 
+private:
+    Context _ctxt;
     struct Data;
+    std::shared_ptr<Data> _data;
 
-
-  private:
-    Data*                           _data;
-
-    MultiPartInputFile(const MultiPartInputFile &); // not implemented
-
-    
     //
     // used internally by 'Part' types to access individual parts of the multipart file
     //
-    template<class T> T*    getInputPart(int partNumber);
-    InputPartData*          getPart(int);
-    
-    void                    initialize();
+    // TODO: change these to value / reference semantics (smart ptr)
+    template <class T> IMF_HIDDEN T* getInputPart (int partNumber);
+    IMF_HIDDEN InputPartData*  getPart (int) const;
 
-
-    
+    IMF_HIDDEN void initialize ();
 
     friend class InputPart;
     friend class ScanLineInputPart;
@@ -121,7 +125,6 @@ class IMF_EXPORT MultiPartInputFile : public GenericInputFile
     friend class DeepScanLineInputFile;
     friend class DeepTiledInputFile;
 };
-
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 

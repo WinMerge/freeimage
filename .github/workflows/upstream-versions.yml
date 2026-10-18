@@ -1,0 +1,24 @@
+name: Upstream version check
+
+on:
+  schedule:
+    # Monday 08:00 UTC. Compares vendored Source/ versions with upstream
+    # releases and opens one issue when any library is behind.
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Compare vendored versions and file an issue if any are behind
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: bash .github/scripts/check_upstream_versions.sh --file-issue

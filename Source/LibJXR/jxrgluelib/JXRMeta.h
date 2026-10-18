@@ -106,9 +106,22 @@
 #define WMP_valWMPhotoID WMP_valCompression
 
 
-#if defined(WIN32) && !defined(__MINGW32__)
-#define __in_win    __in
-#define __out_win   __out
+/* Current Windows SDKs still provide __in_ecount/__out_ecount but no longer
+   define the SAL1 tokens __in and __out. Aliasing __in_win to a missing __in
+   makes `const __in_win U16` a bare identifier, which C++ rejects
+   (C4430/C3646). NO_WINDOWS also skips the bundled wmspecstring.h shim, so
+   MinGW has none of these either. They are analysis-only. */
+#ifndef __in_win
+#define __in_win
+#endif
+#ifndef __out_win
+#define __out_win
+#endif
+#ifndef __in_ecount
+#define __in_ecount(x)
+#endif
+#ifndef __out_ecount
+#define __out_ecount(x)
 #endif
 
 

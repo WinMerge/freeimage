@@ -1,38 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2002, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
-
 
 #ifndef INCLUDED_IMF_FRAME_BUFFER_H
 #define INCLUDED_IMF_FRAME_BUFFER_H
@@ -44,17 +13,18 @@
 //
 //-----------------------------------------------------------------------------
 
+#include "ImfForward.h"
+
 #include "ImfName.h"
 #include "ImfPixelType.h"
-#include "ImfExport.h"
-#include "ImfNamespace.h"
 
+#include <ImathBox.h>
+
+#include <cstdint>
 #include <map>
 #include <string>
 
-
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
-
 
 //-------------------------------------------------------
 // Description of a single slice of the frame buffer:
@@ -65,14 +35,13 @@ OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 // component is called a "slice".
 //-------------------------------------------------------
 
-struct IMF_EXPORT Slice
+struct IMF_EXPORT_TYPE Slice
 {
     //------------------------------
     // Data type; see ImfPixelType.h
     //------------------------------
 
-    PixelType           type;
-
+    PixelType type;
 
     //---------------------------------------------------------------------
     // Memory layout:  The address of pixel (x, y) is
@@ -93,30 +62,27 @@ struct IMF_EXPORT Slice
     //
     //---------------------------------------------------------------------
 
-    char *              base;
-    size_t              xStride;
-    size_t              yStride;
-
+    char*  base;
+    size_t xStride;
+    size_t yStride;
 
     //--------------------------------------------
     // Subsampling: pixel (x, y) is present in the
-    // slice only if 
+    // slice only if
     //
     //  x % xSampling == 0 && y % ySampling == 0
     //
     //--------------------------------------------
 
-    int                 xSampling;
-    int                 ySampling;
-
+    int xSampling;
+    int ySampling;
 
     //----------------------------------------------------------
     // Default value, used to fill the slice when a file without
     // a channel that corresponds to this slice is read.
     //----------------------------------------------------------
 
-    double              fillValue;
-    
+    double fillValue;
 
     //-------------------------------------------------------
     // For tiled files, the xTileCoords and yTileCoords flags
@@ -130,39 +96,72 @@ struct IMF_EXPORT Slice
     // coordinates.
     //-------------------------------------------------------
 
-    bool                xTileCoords;
-    bool                yTileCoords;
-
+    bool xTileCoords;
+    bool yTileCoords;
 
     //------------
     // Constructor
     //------------
 
-    Slice (PixelType type = HALF,
-           char * base = 0,
-           size_t xStride = 0,
-           size_t yStride = 0,
-           int xSampling = 1,
-           int ySampling = 1,
-           double fillValue = 0.0,
-           bool xTileCoords = false,
-           bool yTileCoords = false);
+    IMF_EXPORT
+    Slice (
+        PixelType type        = HALF,
+        char*     base        = 0,
+        size_t    xStride     = 0,
+        size_t    yStride     = 0,
+        int       xSampling   = 1,
+        int       ySampling   = 1,
+        double    fillValue   = 0.0,
+        bool      xTileCoords = false,
+        bool      yTileCoords = false);
+
+    // Does the heavy lifting of computing the base pointer for a slice,
+    // avoiding overflow issues with large origin offsets
+    //
+    // if xStride == 0, assumes sizeof(pixeltype)
+    // if yStride == 0, assumes xStride * ( w / xSampling )
+    IMF_EXPORT
+    static Slice Make (
+        PixelType                   type,
+        const void*                 ptr,
+        const IMATH_NAMESPACE::V2i& origin,
+        int64_t                     w,
+        int64_t                     h,
+        size_t                      xStride     = 0,
+        size_t                      yStride     = 0,
+        int                         xSampling   = 1,
+        int                         ySampling   = 1,
+        double                      fillValue   = 0.0,
+        bool                        xTileCoords = false,
+        bool                        yTileCoords = false);
+    // same as above, just computes w and h for you
+    // from a data window
+    IMF_EXPORT
+    static Slice Make (
+        PixelType                     type,
+        const void*                   ptr,
+        const IMATH_NAMESPACE::Box2i& dataWindow,
+        size_t                        xStride     = 0,
+        size_t                        yStride     = 0,
+        int                           xSampling   = 1,
+        int                           ySampling   = 1,
+        double                        fillValue   = 0.0,
+        bool                          xTileCoords = false,
+        bool                          yTileCoords = false);
 };
 
-
-class IMF_EXPORT FrameBuffer
+class IMF_EXPORT_TYPE FrameBuffer
 {
-  public:
-
+public:
     //------------
     // Add a slice
     //------------
 
-    void                        insert (const char name[],
-                                        const Slice &slice);
+    IMF_EXPORT
+    void insert (const char name[], const Slice& slice);
 
-    void                        insert (const std::string &name,
-                                        const Slice &slice);
+    IMF_EXPORT
+    void insert (const std::string& name, const Slice& slice);
 
     //----------------------------------------------------------------
     // Access to existing slices:
@@ -176,210 +175,216 @@ class IMF_EXPORT FrameBuffer
     //
     //----------------------------------------------------------------
 
-    Slice &                     operator [] (const char name[]);
-    const Slice &               operator [] (const char name[]) const;
+    IMF_EXPORT
+    Slice& operator[] (const char name[]);
+    IMF_EXPORT
+    const Slice& operator[] (const char name[]) const;
 
-    Slice &                     operator [] (const std::string &name);
-    const Slice &               operator [] (const std::string &name) const;
+    IMF_EXPORT
+    Slice& operator[] (const std::string& name);
+    IMF_EXPORT
+    const Slice& operator[] (const std::string& name) const;
 
-    Slice *                     findSlice (const char name[]);
-    const Slice *               findSlice (const char name[]) const;
+    IMF_EXPORT
+    Slice* findSlice (const char name[]);
+    IMF_EXPORT
+    const Slice* findSlice (const char name[]) const;
 
-    Slice *                     findSlice (const std::string &name);
-    const Slice *               findSlice (const std::string &name) const;
-
+    IMF_EXPORT
+    Slice* findSlice (const std::string& name);
+    IMF_EXPORT
+    const Slice* findSlice (const std::string& name) const;
 
     //-----------------------------------------
     // Iterator-style access to existing slices
     //-----------------------------------------
 
-    typedef std::map <Name, Slice> SliceMap;
+    typedef std::map<Name, Slice> SliceMap;
 
     class Iterator;
     class ConstIterator;
 
-    Iterator                    begin ();
-    ConstIterator               begin () const;
+    IMF_EXPORT
+    Iterator begin ();
+    IMF_EXPORT
+    ConstIterator begin () const;
 
-    Iterator                    end ();
-    ConstIterator               end () const;
+    IMF_EXPORT
+    Iterator end ();
+    IMF_EXPORT
+    ConstIterator end () const;
 
-    Iterator                    find (const char name[]);
-    ConstIterator               find (const char name[]) const;
+    IMF_EXPORT
+    Iterator find (const char name[]);
+    IMF_EXPORT
+    ConstIterator find (const char name[]) const;
 
-    Iterator                    find (const std::string &name);
-    ConstIterator               find (const std::string &name) const;
+    IMF_EXPORT
+    Iterator find (const std::string& name);
+    IMF_EXPORT
+    ConstIterator find (const std::string& name) const;
 
-  private:
-
-    SliceMap                    _map;
+private:
+    SliceMap _map;
 };
-
 
 //----------
 // Iterators
 //----------
 
-class FrameBuffer::Iterator
+class IMF_EXPORT_TYPE FrameBuffer::Iterator
 {
-  public:
-
+public:
+    IMF_EXPORT
     Iterator ();
-    Iterator (const FrameBuffer::SliceMap::iterator &i);
+    IMF_EXPORT
+    Iterator (const FrameBuffer::SliceMap::iterator& i);
 
-    Iterator &                  operator ++ ();
-    Iterator                    operator ++ (int);
+    IMF_EXPORT
+    Iterator& operator++ ();
+    IMF_EXPORT
+    Iterator operator++ (int);
 
-    const char *                name () const;
-    Slice &                     slice () const;
+    IMF_EXPORT
+    const char* name () const;
+    IMF_EXPORT
+    Slice& slice () const;
 
-  private:
-
+private:
     friend class FrameBuffer::ConstIterator;
 
     FrameBuffer::SliceMap::iterator _i;
 };
 
-
-class FrameBuffer::ConstIterator
+class IMF_EXPORT_TYPE FrameBuffer::ConstIterator
 {
-  public:
-
+public:
+    IMF_EXPORT
     ConstIterator ();
-    ConstIterator (const FrameBuffer::SliceMap::const_iterator &i);
-    ConstIterator (const FrameBuffer::Iterator &other);
+    IMF_EXPORT
+    ConstIterator (const FrameBuffer::SliceMap::const_iterator& i);
+    IMF_EXPORT
+    ConstIterator (const FrameBuffer::Iterator& other);
 
-    ConstIterator &             operator ++ ();
-    ConstIterator               operator ++ (int);
+    IMF_EXPORT
+    ConstIterator& operator++ ();
+    IMF_EXPORT
+    ConstIterator operator++ (int);
 
-    const char *                name () const;
-    const Slice &               slice () const;
+    IMF_EXPORT
+    const char* name () const;
+    IMF_EXPORT
+    const Slice& slice () const;
 
-  private:
-
-    friend bool operator == (const ConstIterator &, const ConstIterator &);
-    friend bool operator != (const ConstIterator &, const ConstIterator &);
+private:
+    friend bool operator== (const ConstIterator&, const ConstIterator&);
+    friend bool operator!= (const ConstIterator&, const ConstIterator&);
 
     FrameBuffer::SliceMap::const_iterator _i;
 };
-
 
 //-----------------
 // Inline Functions
 //-----------------
 
-inline
-FrameBuffer::Iterator::Iterator (): _i()
+inline FrameBuffer::Iterator::Iterator () : _i ()
 {
     // empty
 }
 
-
-inline
-FrameBuffer::Iterator::Iterator (const FrameBuffer::SliceMap::iterator &i):
-    _i (i)
+inline FrameBuffer::Iterator::Iterator (
+    const FrameBuffer::SliceMap::iterator& i)
+    : _i (i)
 {
     // empty
 }
 
-
-inline FrameBuffer::Iterator &
-FrameBuffer::Iterator::operator ++ ()
+inline FrameBuffer::Iterator&
+FrameBuffer::Iterator::operator++ ()
 {
     ++_i;
     return *this;
 }
 
-
 inline FrameBuffer::Iterator
-FrameBuffer::Iterator::operator ++ (int)
+FrameBuffer::Iterator::operator++ (int)
 {
     Iterator tmp = *this;
     ++_i;
     return tmp;
 }
 
-
-inline const char *
+inline const char*
 FrameBuffer::Iterator::name () const
 {
     return *_i->first;
 }
 
-
-inline Slice &
+inline Slice&
 FrameBuffer::Iterator::slice () const
 {
     return _i->second;
 }
 
-
-inline
-FrameBuffer::ConstIterator::ConstIterator (): _i()
+inline FrameBuffer::ConstIterator::ConstIterator () : _i ()
 {
     // empty
 }
 
-inline
-FrameBuffer::ConstIterator::ConstIterator
-    (const FrameBuffer::SliceMap::const_iterator &i): _i (i)
+inline FrameBuffer::ConstIterator::ConstIterator (
+    const FrameBuffer::SliceMap::const_iterator& i)
+    : _i (i)
 {
     // empty
 }
 
-
-inline
-FrameBuffer::ConstIterator::ConstIterator (const FrameBuffer::Iterator &other):
-    _i (other._i)
+inline FrameBuffer::ConstIterator::ConstIterator (
+    const FrameBuffer::Iterator& other)
+    : _i (other._i)
 {
     // empty
 }
 
-inline FrameBuffer::ConstIterator &
-FrameBuffer::ConstIterator::operator ++ ()
+inline FrameBuffer::ConstIterator&
+FrameBuffer::ConstIterator::operator++ ()
 {
     ++_i;
     return *this;
 }
 
-
 inline FrameBuffer::ConstIterator
-FrameBuffer::ConstIterator::operator ++ (int)
+FrameBuffer::ConstIterator::operator++ (int)
 {
     ConstIterator tmp = *this;
     ++_i;
     return tmp;
 }
 
-
-inline const char *
+inline const char*
 FrameBuffer::ConstIterator::name () const
 {
     return *_i->first;
 }
 
-inline const Slice &
+inline const Slice&
 FrameBuffer::ConstIterator::slice () const
 {
     return _i->second;
 }
 
-
 inline bool
-operator == (const FrameBuffer::ConstIterator &x,
-             const FrameBuffer::ConstIterator &y)
+operator== (
+    const FrameBuffer::ConstIterator& x, const FrameBuffer::ConstIterator& y)
 {
     return x._i == y._i;
 }
 
-
 inline bool
-operator != (const FrameBuffer::ConstIterator &x,
-             const FrameBuffer::ConstIterator &y)
+operator!= (
+    const FrameBuffer::ConstIterator& x, const FrameBuffer::ConstIterator& y)
 {
     return !(x == y);
 }
-
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 

@@ -2,10 +2,12 @@
 // EXR Loader and writer
 //
 // Design and implementation by 
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -30,6 +32,22 @@
 #pragma warning (disable : 4800) // ImfVersion.h - 'const int' : forcing value to bool 'true' or 'false' (performance warning)
 #endif 
 
+#ifdef FREEIMAGE_SYSTEM_OPENEXR
+// The bundled Source/OpenEXR/Half type isn't binary-compatible with a system
+// OpenEXR build's own Imath::half (which its Imf* API surface is built
+// against), so this file - unlike PluginTIFF.cpp's standalone LogLuv use of
+// half.h - must switch to the matching system Imath header too.
+#include <OpenEXR/ImfIO.h>
+#include <OpenEXR/Iex.h>
+#include <OpenEXR/ImfOutputFile.h>
+#include <OpenEXR/ImfInputFile.h>
+#include <OpenEXR/ImfRgbaFile.h>
+#include <OpenEXR/ImfChannelList.h>
+#include <OpenEXR/ImfRgba.h>
+#include <OpenEXR/ImfArray.h>
+#include <OpenEXR/ImfPreviewImage.h>
+#include <Imath/half.h>
+#else
 #include "../OpenEXR/IlmImf/ImfIO.h"
 #include "../OpenEXR/Iex/Iex.h"
 #include "../OpenEXR/IlmImf/ImfOutputFile.h"
@@ -40,6 +58,7 @@
 #include "../OpenEXR/IlmImf/ImfArray.h"
 #include "../OpenEXR/IlmImf/ImfPreviewImage.h"
 #include "../OpenEXR/Half/half.h"
+#endif
 
 
 // ==========================================================
@@ -47,6 +66,12 @@
 // ==========================================================
 
 static int s_format_id;
+
+// IStream/OStream's tellg/seekg/tellp/seekp used Imath::Int64 in OpenEXR
+// 2.x-era headers, but that type was removed from Imath 3.x in favor of
+// plain uint64_t - both the bundled copy (now OpenEXR 3.x) and a system
+// OpenEXR 3.x agree on uint64_t.
+typedef uint64_t exr_offset_t;
 
 // ----------------------------------------------------------
 
@@ -68,11 +93,11 @@ public:
 		return ((unsigned)n != _io->read_proc(c, 1, n, _handle));
 	}
 
-	virtual Imath::Int64 tellg() {
+	virtual exr_offset_t tellg() {
 		return _io->tell_proc(_handle);
 	}
 
-	virtual void seekg(Imath::Int64 pos) {
+	virtual void seekg(exr_offset_t pos) {
 		_io->seek_proc(_handle, (unsigned)pos, SEEK_SET);
 	}
 
@@ -102,11 +127,11 @@ public:
 		}
 	}
 
-	virtual Imath::Int64 tellp() {
+	virtual exr_offset_t tellp() {
 		return _io->tell_proc(_handle);
 	}
 
-	virtual void seekp(Imath::Int64 pos) {
+	virtual void seekp(exr_offset_t pos) {
 		_io->seek_proc(_handle, (unsigned)pos, SEEK_SET);
 	}
 };
@@ -774,4 +799,52 @@ InitEXR(Plugin *plugin, int format_id) {
 	plugin->supports_no_pixels_proc = SupportsNoPixels;
 }
 
-#endif
+#else // !INCLUDE_LIB_OPENEXR
+
+#include "FreeImage.h"
+
+// This build was compiled without OpenEXR support (BUILD_OPENEXR=OFF).
+// Still register the EXR format so its slot in the FREE_IMAGE_FORMAT
+// enum stays occupied - otherwise every plugin registered after it
+// would silently shift down one runtime index while FreeImage.h's
+// compile-time FIF_* constants stay fixed, breaking whichever plugin
+// happens to land on the now-mismatched index (see issue #38). All
+// procs other than format/description/extension are left NULL, which
+// the rest of Plugin.cpp already treats as "unsupported" everywhere.
+
+static const char * DLL_CALLCONV
+Format() {
+	return "EXR";
+}
+
+static const char * DLL_CALLCONV
+Description() {
+	return "ILM OpenEXR (not compiled in this build)";
+}
+
+static const char * DLL_CALLCONV
+Extension() {
+	return "exr";
+}
+
+void DLL_CALLCONV
+InitEXR(Plugin *plugin, int format_id) {
+	plugin->format_proc = Format;
+	plugin->description_proc = Description;
+	plugin->extension_proc = Extension;
+	plugin->regexpr_proc = NULL;
+	plugin->open_proc = NULL;
+	plugin->close_proc = NULL;
+	plugin->pagecount_proc = NULL;
+	plugin->pagecapability_proc = NULL;
+	plugin->load_proc = NULL;
+	plugin->save_proc = NULL;
+	plugin->validate_proc = NULL;
+	plugin->mime_proc = NULL;
+	plugin->supports_export_bpp_proc = NULL;
+	plugin->supports_export_type_proc = NULL;
+	plugin->supports_icc_profiles_proc = NULL;
+	plugin->supports_no_pixels_proc = NULL;
+}
+
+#endif // INCLUDE_LIB_OPENEXR

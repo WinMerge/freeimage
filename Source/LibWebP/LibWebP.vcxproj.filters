@@ -45,6 +45,12 @@
     <Filter Include="Header Files\mux">
       <UniqueIdentifier>{d494e420-63fe-4350-80fa-44e7c4786e1a}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\sharpyuv">
+      <UniqueIdentifier>{c97b6fe6-03de-47ab-b7cc-9cd60c3f0a73}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\sharpyuv">
+      <UniqueIdentifier>{4d92e477-009e-43bc-aa93-77729495728f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\dec\alphai_dec.h">
@@ -178,6 +184,30 @@
     </ClInclude>
     <ClInclude Include="src\dsp\yuv.h">
       <Filter>Header Files\dsp</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dsp\quant.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\utils\palette.h">
+      <Filter>Header Files\utils</Filter>
+    </ClInclude>
+    <ClInclude Include="src\dsp\cpu.h">
+      <Filter>Header Files\dsp</Filter>
+    </ClInclude>
+    <ClInclude Include="sharpyuv\sharpyuv.h">
+      <Filter>Header Files\sharpyuv</Filter>
+    </ClInclude>
+    <ClInclude Include="sharpyuv\sharpyuv_cpu.h">
+      <Filter>Header Files\sharpyuv</Filter>
+    </ClInclude>
+    <ClInclude Include="sharpyuv\sharpyuv_csp.h">
+      <Filter>Header Files\sharpyuv</Filter>
+    </ClInclude>
+    <ClInclude Include="sharpyuv\sharpyuv_dsp.h">
+      <Filter>Header Files\sharpyuv</Filter>
+    </ClInclude>
+    <ClInclude Include="sharpyuv\sharpyuv_gamma.h">
+      <Filter>Header Files\sharpyuv</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -320,9 +350,6 @@
       <Filter>Source Files\dsp</Filter>
     </ClCompile>
     <ClCompile Include="src\dsp\enc.c">
-      <Filter>Source Files\dsp</Filter>
-    </ClCompile>
-    <ClCompile Include="src\dsp\enc_avx2.c">
       <Filter>Source Files\dsp</Filter>
     </ClCompile>
     <ClCompile Include="src\dsp\enc_mips_dsp_r2.c">
@@ -522,6 +549,42 @@
     </ClCompile>
     <ClCompile Include="src\enc\webp_enc.c">
       <Filter>Source Files\enc</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dsp\cost_neon.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dsp\lossless_sse41.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utils\palette.c">
+      <Filter>Source Files\utils</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dsp\lossless_avx2.c">
+      <Filter>Source Files\dsp</Filter>
+    </ClCompile>
+    <ClCompile Include="src\dsp\lossless_enc_avx2.c">
+      <Filter>Source Files\dsp</Filter>
+    </ClCompile>
+    <ClCompile Include="sharpyuv\sharpyuv.c">
+      <Filter>Source Files\sharpyuv</Filter>
+    </ClCompile>
+    <ClCompile Include="sharpyuv\sharpyuv_cpu.c">
+      <Filter>Source Files\sharpyuv</Filter>
+    </ClCompile>
+    <ClCompile Include="sharpyuv\sharpyuv_csp.c">
+      <Filter>Source Files\sharpyuv</Filter>
+    </ClCompile>
+    <ClCompile Include="sharpyuv\sharpyuv_dsp.c">
+      <Filter>Source Files\sharpyuv</Filter>
+    </ClCompile>
+    <ClCompile Include="sharpyuv\sharpyuv_gamma.c">
+      <Filter>Source Files\sharpyuv</Filter>
+    </ClCompile>
+    <ClCompile Include="sharpyuv\sharpyuv_neon.c">
+      <Filter>Source Files\sharpyuv</Filter>
+    </ClCompile>
+    <ClCompile Include="sharpyuv\sharpyuv_sse2.c">
+      <Filter>Source Files\sharpyuv</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

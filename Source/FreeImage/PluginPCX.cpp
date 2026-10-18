@@ -5,10 +5,12 @@
 // - Floris van den Berg (flvdberg@wxs.nl)
 // - Jani Kajala (janik@remedy.fi)
 // - Markus Loibl (markus.loibl@epost.de)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Juergen Riecker (j.riecker@gmx.de)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES

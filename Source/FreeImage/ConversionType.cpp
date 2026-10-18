@@ -2,10 +2,12 @@
 // Bitmap conversion routines
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Tanner Helland (tannerhelland@users.sf.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -285,6 +287,8 @@ FreeImage_ConvertToStandardType(FIBITMAP *src, BOOL scale_linear) {
 			break;
 		case FIT_RGBAF:		// 128-bit RGBA float image: 4 x 32-bit IEEE floating point
 			break;
+		default:
+			break;
 	}
 
 	if(NULL == dst) {
@@ -355,6 +359,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBAF:
 					dst = FreeImage_ConvertToRGBAF(src);
 					break;
+				default:
+					break;
 			}
 			break;
 		case FIT_UINT16:
@@ -389,6 +395,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBAF:
 					dst = FreeImage_ConvertToRGBAF(src);
 					break;
+				default:
+					break;
 			}
 			break;
 		case FIT_INT16:
@@ -418,6 +426,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBF:
 					break;
 				case FIT_RGBAF:
+					break;
+				default:
 					break;
 			}
 			break;
@@ -449,6 +459,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 					break;
 				case FIT_RGBAF:
 					break;
+				default:
+					break;
 			}
 			break;
 		case FIT_INT32:
@@ -478,6 +490,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBF:
 					break;
 				case FIT_RGBAF:
+					break;
+				default:
 					break;
 			}
 			break;
@@ -510,6 +524,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBAF:
 					dst = FreeImage_ConvertToRGBAF(src);
 					break;
+				default:
+					break;
 			}
 			break;
 		case FIT_DOUBLE:
@@ -538,6 +554,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 					break;
 				case FIT_RGBAF:
 					break;
+				default:
+					break;
 			}
 			break;
 		case FIT_COMPLEX:
@@ -563,6 +581,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBF:
 					break;
 				case FIT_RGBAF:
+					break;
+				default:
 					break;
 			}
 			break;
@@ -596,6 +616,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBAF:
 					dst = FreeImage_ConvertToRGBAF(src);
 					break;
+				default:
+					break;
 			}
 			break;
 		case FIT_RGBA16:
@@ -628,6 +650,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBAF:
 					dst = FreeImage_ConvertToRGBAF(src);
 					break;
+				default:
+					break;
 			}
 			break;
 		case FIT_RGBF:
@@ -655,6 +679,8 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 					break;
 				case FIT_RGBAF:
 					dst = FreeImage_ConvertToRGBAF(src);
+					break;
+				default:
 					break;
 			}
 			break;
@@ -684,7 +710,11 @@ FreeImage_ConvertToType(FIBITMAP *src, FREE_IMAGE_TYPE dst_type, BOOL scale_line
 				case FIT_RGBF:
 					dst = FreeImage_ConvertToRGBF(src);
 					break;
+				default:
+					break;
 			}
+			break;
+		default:
 			break;
 	}
 

@@ -2,11 +2,13 @@
 // Bitmap rotation by means of 3 shears.
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // - Thorsten Radde (support@IdealSoftware.com)
 // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -168,6 +170,8 @@ HorizontalSkew(FIBITMAP *src, FIBITMAP *dst, int row, int iOffset, double dWeigh
 		case FIT_RGBAF:
 			HorizontalSkewT<float>(src, dst, row, iOffset, dWeight, bkcolor);
 			break;
+		default:
+			break;
 	}
 }
 
@@ -307,6 +311,8 @@ VerticalSkew(FIBITMAP *src, FIBITMAP *dst, int col, int iOffset, double dWeight,
 			case FIT_RGBAF:
 				VerticalSkewT<float>(src, dst, col, iOffset, dWeight, bkcolor);
 				break;
+		default:
+			break;
 	}
 } 
 
@@ -429,6 +435,8 @@ Rotate90(FIBITMAP *src) {
 			}
 		}
 		break;
+		default:
+			break;
 	}
 
 	return dst;
@@ -496,6 +504,8 @@ Rotate180(FIBITMAP *src) {
 			}
 		}
 		break;
+		default:
+			break;
 	}
 
 	return dst;
@@ -621,6 +631,8 @@ Rotate270(FIBITMAP *src) {
 			}
 		}
 		break;
+		default:
+			break;
 	}
 
 	return dst;
@@ -906,6 +918,8 @@ FreeImage_Rotate(FIBITMAP *dib, double angle, const void *bkcolor) {
 				return dst;
 			}
 			break;
+			default:
+				break;
 		}
 
 	} catch(int) {

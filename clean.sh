@@ -1,4 +1,13 @@
 #!/bin/sh
+# CMake build directories (cmake-build*/, cmake-build-debug/, build/,
+# build-vs2022/, build-vs2026/, etc. - matches .gitignore's build*/ and
+# cmake-build-*/ patterns) and their caches.
+find . -maxdepth 1 -type d \( -name 'build*' -o -name 'cmake-build*' \) -exec rm -rf {} +
+find . -name 'CMakeCache.txt' -exec rm -f {} ";"
+find . -name 'CMakeFiles' -type d -exec rm -rf {} +
+find . -name 'cmake_install.cmake' -exec rm -f {} ";"
+find . -name 'CTestTestfile.cmake' -exec rm -f {} ";"
+
 rm -rf Release
 rm -rf Debug
 rm -rf Source/FreeImageLib/Debug
@@ -29,6 +38,7 @@ rm -rf Source/LibJXR/Debug
 rm -rf Source/LibJXR/Release
 rm -rf TestAPI/Debug
 rm -rf TestAPI/Release
+
 find . -name '*.pch' -exec rm -f {} ";"
 find . -name '*.ncb' -exec rm -f {} ";"
 find . -name '*.opt' -exec rm -f {} ";"

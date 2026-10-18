@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw uses code from dcraw.c -- Dave Coffin's raw photo decoder,
  dcraw.c is copyright 1997-2018 by Dave Coffin, dcoffin a cybercom o net.
@@ -159,10 +159,10 @@ double libraw_sgetreal_static(short _order, int type, uchar *s)
   case LIBRAW_EXIFTAG_TYPE_DOUBLE:
     rev = 7 * ((_order == 0x4949) == (ntohs(0x1234) == 0x1234));
     for (i = 0; i < 8; i++)
-      u.c[i ^ rev] = *(s+1);
+      u.c[i ^ rev] = *(s+i);
     return u.d;
   default:
-    return *(s+1);
+    return *s;
   }
 }
 

@@ -5,6 +5,8 @@
 //
 // This file is part of FreeImage 3
 //
+// Copyright (C) 2003-2026 The FreeImage Project
+//
 // Use at own risk!
 // ==========================================================
 //

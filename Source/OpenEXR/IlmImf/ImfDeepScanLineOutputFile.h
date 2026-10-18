@@ -1,38 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2011, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-///////////////////////////////////////////////////////////////////////////
-
-
 
 #ifndef INCLUDED_IMF_DEEP_SCAN_LINE_OUTPUT_FILE_H
 #define INCLUDED_IMF_DEEP_SCAN_LINE_OUTPUT_FILE_H
@@ -41,25 +10,25 @@
 //
 //      class DeepScanLineOutputFile
 //
+//      Constructors that open a file by path expect UTF-8; see ImfIO.h.
+//
 //-----------------------------------------------------------------------------
 
-#include "ImfHeader.h"
-#include "ImfFrameBuffer.h"
-#include "ImfThreading.h"
-#include "ImfGenericOutputFile.h"
-#include "ImfNamespace.h"
-#include "ImfForward.h"
 #include "ImfExport.h"
+#include "ImfForward.h"
+#include "ImfFrameBuffer.h"
+#include "ImfGenericOutputFile.h"
+#include "ImfHeader.h"
+#include "ImfNamespace.h"
+#include "ImfThreading.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
-
 struct PreviewRgba;
 
-class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
+class DeepScanLineOutputFile : public GenericOutputFile
 {
-  public:
-
+public:
     //-----------------------------------------------------------
     // Constructor -- opens the file and writes the file header.
     // The file header is also copied into the DeepScanLineOutputFile
@@ -71,9 +40,11 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     // used to write the file (see ImfThreading.h).
     //-----------------------------------------------------------
 
-    DeepScanLineOutputFile (const char fileName[], const Header &header,
-                int numThreads = globalThreadCount());
-
+    IMF_EXPORT
+    DeepScanLineOutputFile (
+        const char    fileName[],
+        const Header& header,
+        int           numThreads = globalThreadCount ());
 
     //------------------------------------------------------------
     // Constructor -- attaches the new DeepScanLineOutputFile object
@@ -87,9 +58,11 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     // used to write the file (see ImfThreading.h).
     //------------------------------------------------------------
 
-    DeepScanLineOutputFile (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os, const Header &header,
-                int numThreads = globalThreadCount());
-
+    IMF_EXPORT
+    DeepScanLineOutputFile (
+        OPENEXR_IMF_INTERNAL_NAMESPACE::OStream& os,
+        const Header&                            header,
+        int numThreads = globalThreadCount ());
 
     //-------------------------------------------------
     // Destructor
@@ -99,22 +72,22 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     // window results in an incomplete file.
     //-------------------------------------------------
 
+    IMF_EXPORT
     virtual ~DeepScanLineOutputFile ();
-
 
     //------------------------
     // Access to the file name
     //------------------------
 
-    const char *        fileName () const;
-
+    IMF_EXPORT
+    const char* fileName () const;
 
     //--------------------------
     // Access to the file header
     //--------------------------
 
-    const Header &      header () const;
-
+    IMF_EXPORT
+    const Header& header () const;
 
     //-------------------------------------------------------
     // Set the current frame buffer -- copies the FrameBuffer
@@ -127,15 +100,15 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     // after each call to writePixels.
     //-------------------------------------------------------
 
-    void                setFrameBuffer (const DeepFrameBuffer &frameBuffer);
-
+    IMF_EXPORT
+    void setFrameBuffer (const DeepFrameBuffer& frameBuffer);
 
     //-----------------------------------
     // Access to the current frame buffer
     //-----------------------------------
 
-    const DeepFrameBuffer & frameBuffer () const;
-
+    IMF_EXPORT
+    const DeepFrameBuffer& frameBuffer () const;
 
     //-------------------------------------------------------------------
     // Write pixel data:
@@ -150,8 +123,8 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     // header().dataWindow().max.y - header().dataWindow().min.y + 1.
     //-------------------------------------------------------------------
 
-    void                writePixels (int numScanLines = 1);
-
+    IMF_EXPORT
+    void writePixels (int numScanLines = 1);
 
     //------------------------------------------------------------------
     // Access to the current scan line:
@@ -174,8 +147,8 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     //
     //------------------------------------------------------------------
 
-    int                 currentScanLine () const;
-
+    IMF_EXPORT
+    int currentScanLine () const;
 
     //--------------------------------------------------------------
     // Shortcut to copy all pixels from an InputFile into this file,
@@ -185,13 +158,14 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     // "lineOrder" and "channels" attributes must be the same.
     //--------------------------------------------------------------
 
-    void                copyPixels (DeepScanLineInputFile &in);
-    
+    IMF_EXPORT
+    void copyPixels (DeepScanLineInputFile& in);
+
     // --------------------------------------------------------------
     // Shortcut to copy pixels from a given part of a multipart file
     // --------------------------------------------------------------
-    void                copyPixels (DeepScanLineInputPart &in);
-
+    IMF_EXPORT
+    void copyPixels (DeepScanLineInputPart& in);
 
     //--------------------------------------------------------------
     // Updating the preview image:
@@ -211,13 +185,12 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     //
     //--------------------------------------------------------------
 
-    void                updatePreviewImage (const PreviewRgba newPixels[]);
-
+    IMF_EXPORT
+    void updatePreviewImage (const PreviewRgba newPixels[]);
 
     struct Data;
 
-  private:
-
+private:
     //------------------------------------------------------------
     // Constructor -- attaches the OutputStreamMutex to the
     // given one from MultiPartOutputFile. Set the previewPosition
@@ -226,15 +199,15 @@ class IMF_EXPORT DeepScanLineOutputFile : public GenericOutputFile
     //------------------------------------------------------------
     DeepScanLineOutputFile (const OutputPartData* part);
 
-    DeepScanLineOutputFile (const DeepScanLineOutputFile &);                    // not implemented
-    DeepScanLineOutputFile & operator = (const DeepScanLineOutputFile &);       // not implemented
+    DeepScanLineOutputFile (const DeepScanLineOutputFile&)            = delete;
+    DeepScanLineOutputFile& operator= (const DeepScanLineOutputFile&) = delete;
+    DeepScanLineOutputFile (DeepScanLineOutputFile&&)                 = delete;
+    DeepScanLineOutputFile& operator= (DeepScanLineOutputFile&&)      = delete;
 
-    void                initialize (const Header &header);
-    void                initializeLineBuffer();
+    void initialize (const Header& header);
+    void initializeLineBuffer ();
 
-    Data *              _data;
-
-
+    Data* _data;
 
     friend class MultiPartOutputFile;
 };

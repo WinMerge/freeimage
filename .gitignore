@@ -13,6 +13,8 @@
 *.la
 *.a
 *.d
+__pycache__/
+*.pyc
 
 # Make #
 ########
@@ -97,6 +99,17 @@ bin/
 bin64/
 lib/
 lib64/
+# LibDeflate's real sources live under Source/LibDeflate/lib/ - not a build
+# output directory, just an unfortunate name collision with the ignore
+# rules above.
+!Source/LibDeflate/lib/
+# same collision for the openFrameworks example's checked-in test images
+# and its (source, not generated) config.make
+!Examples/openFrameworksImageTest/bin/
+Examples/openFrameworksImageTest/bin/*
+!Examples/openFrameworksImageTest/bin/data/
+!Examples/openFrameworksImageTest/bin/data/*
+!Examples/openFrameworksImageTest/config.make
 pocomsg.h
 
 # Eclipse generated files #
@@ -119,6 +132,9 @@ build*/
 cmake-build-*/
 Testing/
 
+# Pinned source bundles for optional offline CMake codec builds.
+!Source/ThirdParty/*.tar.gz
+!Source/ThirdParty/*.zip
 
 **/.vs/*
 

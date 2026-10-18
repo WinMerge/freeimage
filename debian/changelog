@@ -1,0 +1,40 @@
+freeimage-maintained (3.19.25-1) unstable; urgency=high
+
+  * Bundle offline HEIF/AVIF and JPEG XL codecs with pinned dependencies.
+  * Add the image channel-count query API.
+  * Clip GIF playback frames to prevent out-of-bounds writes.
+  * Prepare tagged Linux package builds for FreeImage 3.19.25.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Sat, 17 Oct 2026 15:21:05 +1300
+
+freeimage-maintained (3.19.24-1) unstable; urgency=medium
+
+  * Add Windows Unicode multipage paths, including disk caches and spool files.
+  * Fix native HEIF/AVIF and JPEG XL SDK discovery without pkg-config.
+  * Prepare tagged Linux package builds for FreeImage 3.19.24.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Fri, 16 Oct 2026 00:00:00 +0000
+
+freeimage-maintained (3.19.23-1) unstable; urgency=medium
+
+  * Include safer staged file saving and double-to-RGBF conversion.
+  * Include optional HEIF/AVIF and JPEG XL codec integrations.
+  * Include dependency diagnostics, image analysis and optional Python bindings.
+  * Prepare tagged Linux package builds for FreeImage 3.19.23.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Thu, 15 Oct 2026 00:00:00 +0000
+
+freeimage-maintained (3.19.22-1) unstable; urgency=high
+
+  * Include IFF PBM RLE overflow and truncated-input/no-op hardening.
+  * Include 32-bit OpenJPH and MSVC type compatibility fixes.
+  * Prepare tagged Linux package builds for FreeImage 3.19.22.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Thu, 15 Oct 2026 00:00:00 +0000
+
+freeimage-maintained (3.19.21+packaging1-1) unstable; urgency=medium
+
+  * Initial installable packages for the danoli3 maintained fork.
+  * Use system codecs, versioned shared library and multiarch paths.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Tue, 13 Oct 2026 00:00:00 +0000

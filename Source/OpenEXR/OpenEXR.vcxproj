@@ -39,7 +39,7 @@
     <ProjectGuid>{17A4874B-0606-4687-90B6-F91F8CB3B8AF}</ProjectGuid>
     <RootNamespace>OpenEXR</RootNamespace>
     <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)' == '15'">10.0.17763.0</WindowsTargetPlatformVersion>
-    <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)' &gt;= '16'">$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion Condition="'$(VisualStudioVersion)' &gt;= '16'">10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -188,7 +188,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -201,6 +201,7 @@
       <CompileAs>Default</CompileAs>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <DebugInformationFormat>None</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -227,7 +228,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -241,6 +242,7 @@
       <DisableSpecificWarnings>4800;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <DebugInformationFormat>None</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -263,7 +265,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -277,6 +279,7 @@
       <DisableSpecificWarnings>4800;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <DebugInformationFormat>None</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -299,7 +302,7 @@
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -313,6 +316,7 @@
       <DisableSpecificWarnings>4800;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <UseUnicodeForAssemblerListing>false</UseUnicodeForAssemblerListing>
       <DebugInformationFormat>None</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -330,7 +334,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -347,6 +351,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <StringPooling>true</StringPooling>
       <AdditionalOptions>/source-charset:Windows-1252 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -364,7 +369,7 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -380,6 +385,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <AdditionalOptions>/source-charset:Windows-1252 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -394,7 +400,7 @@
     <Midl />
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -410,6 +416,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <AdditionalOptions>/source-charset:Windows-1252 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -424,7 +431,7 @@
     <Midl />
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>./;./IlmImf;./Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>./;./OpenEXRCore;./OpenJPH;./OpenJPH/openjph;./OpenJPH/shared;./IlmImf;./../Imath;./IexMath;./Iex;./Half;./IlmThread;../ZLib;../LibDeflate;./Zstd/lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -440,6 +447,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <AdditionalOptions>/source-charset:Windows-1252 %(AdditionalOptions)</AdditionalOptions>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <ResourceCompile>
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -451,19 +459,22 @@
     </Lib>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="IexMath\IexMathFpu.cpp" />
-    <ClCompile Include="IlmImf\b44ExpLogTable.cpp" />
     <ClCompile Include="IlmImf\ImfAcesFile.cpp" />
     <ClCompile Include="IlmImf\ImfAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfB44Compressor.cpp" />
     <ClCompile Include="IlmImf\ImfBoxAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfBytesAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfChannelList.cpp" />
     <ClCompile Include="IlmImf\ImfChannelListAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfChromaticities.cpp" />
     <ClCompile Include="IlmImf\ImfChromaticitiesAttribute.cpp" />
+    <ClCompile Include="IlmImf\ImfColorMetadata.cpp" />
     <ClCompile Include="IlmImf\ImfCompositeDeepScanLine.cpp" />
+    <ClCompile Include="IlmImf\ImfCompression.cpp" />
     <ClCompile Include="IlmImf\ImfCompressionAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfCompressor.cpp" />
+    <ClCompile Include="IlmImf\ImfContext.cpp" />
+    <ClCompile Include="IlmImf\ImfContextInit.cpp" />
     <ClCompile Include="IlmImf\ImfConvert.cpp" />
     <ClCompile Include="IlmImf\ImfCRgbaFile.cpp" />
     <ClCompile Include="IlmImf\ImfDeepCompositing.cpp" />
@@ -489,7 +500,10 @@
     <ClCompile Include="IlmImf\ImfGenericInputFile.cpp" />
     <ClCompile Include="IlmImf\ImfGenericOutputFile.cpp" />
     <ClCompile Include="IlmImf\ImfHeader.cpp" />
+    <ClCompile Include="IlmImf\ImfHTCompressor.cpp" />
     <ClCompile Include="IlmImf\ImfHuf.cpp" />
+    <ClCompile Include="IlmImf\ImfIDManifest.cpp" />
+    <ClCompile Include="IlmImf\ImfIDManifestAttribute.cpp" />
     <ClCompile Include="IlmImf\ImfInputFile.cpp" />
     <ClCompile Include="IlmImf\ImfInputPart.cpp" />
     <ClCompile Include="IlmImf\ImfInputPartData.cpp" />
@@ -542,24 +556,130 @@
     <ClCompile Include="IlmImf\ImfWav.cpp" />
     <ClCompile Include="IlmImf\ImfZip.cpp" />
     <ClCompile Include="IlmImf\ImfZipCompressor.cpp" />
-    <ClCompile Include="Imath\ImathBox.cpp" />
-    <ClCompile Include="Imath\ImathColorAlgo.cpp" />
-    <ClCompile Include="Imath\ImathFun.cpp" />
-    <ClCompile Include="Imath\ImathMatrixAlgo.cpp" />
-    <ClCompile Include="Imath\ImathRandom.cpp" />
-    <ClCompile Include="Imath\ImathShear.cpp" />
-    <ClCompile Include="Imath\ImathVec.cpp" />
+    <ClCompile Include="..\Imath\ImathColorAlgo.cpp" />
+    <ClCompile Include="..\Imath\ImathFun.cpp" />
+    <ClCompile Include="..\Imath\ImathMatrixAlgo.cpp" />
+    <ClCompile Include="..\Imath\ImathRandom.cpp" />
     <ClCompile Include="Iex\IexBaseExc.cpp" />
     <ClCompile Include="Iex\IexThrowErrnoExc.cpp" />
     <ClCompile Include="Half\half.cpp" />
+    <ClCompile Include="IlmImf\ImfZstdCompressor.cpp" />
     <ClCompile Include="IlmThread\IlmThread.cpp" />
-    <ClCompile Include="IlmThread\IlmThreadMutex.cpp" />
     <ClCompile Include="IlmThread\IlmThreadPool.cpp" />
     <ClCompile Include="IlmThread\IlmThreadSemaphore.cpp" />
-    <ClCompile Include="IexMath\IexMathFloatExc.cpp" />
+    <ClCompile Include="IlmThread\IlmThreadSemaphoreWin32.cpp" />
+    <ClCompile Include="OpenEXRCore\attributes.c" />
+    <ClCompile Include="OpenEXRCore\base.c" />
+    <ClCompile Include="OpenEXRCore\bytes.c" />
+    <ClCompile Include="OpenEXRCore\channel_list.c" />
+    <ClCompile Include="OpenEXRCore\chunk.c" />
+    <ClCompile Include="OpenEXRCore\coding.c" />
+    <ClCompile Include="OpenEXRCore\color_metadata.c" />
+    <ClCompile Include="OpenEXRCore\compression.c" />
+    <ClCompile Include="OpenEXRCore\context.c" />
+    <ClCompile Include="OpenEXRCore\debug.c" />
+    <ClCompile Include="OpenEXRCore\decoding.c" />
+    <ClCompile Include="OpenEXRCore\encoding.c" />
+    <ClCompile Include="OpenEXRCore\float_vector.c" />
+    <ClCompile Include="OpenEXRCore\internal_b44.c" />
+    <ClCompile Include="OpenEXRCore\internal_b44_table.c" />
+    <ClCompile Include="OpenEXRCore\internal_b44_table_init.c" />
+    <ClCompile Include="OpenEXRCore\internal_dwa.c" />
+    <ClCompile Include="OpenEXRCore\internal_dwa_table.c" />
+    <ClCompile Include="OpenEXRCore\internal_dwa_table_init.c" />
+    <ClCompile Include="OpenEXRCore\internal_ht.cpp" />
+    <ClCompile Include="OpenEXRCore\internal_ht_common.cpp" />
+    <ClCompile Include="OpenEXRCore\internal_huf.c" />
+    <ClCompile Include="OpenEXRCore\internal_piz.c" />
+    <ClCompile Include="OpenEXRCore\internal_pxr24.c" />
+    <ClCompile Include="OpenEXRCore\internal_rle.c" />
+    <ClCompile Include="OpenEXRCore\internal_structs.c" />
+    <ClCompile Include="OpenEXRCore\internal_zip.c" />
+    <ClCompile Include="OpenEXRCore\internal_zstd.c" />
+    <ClCompile Include="OpenEXRCore\internal_zstd_delta.c" />
+    <ClCompile Include="OpenEXRCore\internal_zstd_shuffle.c" />
+    <ClCompile Include="OpenEXRCore\memory.c" />
+    <ClCompile Include="OpenEXRCore\opaque.c" />
+    <ClCompile Include="OpenEXRCore\pack.c" />
+    <ClCompile Include="OpenEXRCore\parse_header.c" />
+    <ClCompile Include="OpenEXRCore\part.c" />
+    <ClCompile Include="OpenEXRCore\part_attr.c" />
+    <ClCompile Include="OpenEXRCore\preview.c" />
+    <ClCompile Include="OpenEXRCore\std_attr.c" />
+    <ClCompile Include="OpenEXRCore\string.c" />
+    <ClCompile Include="OpenEXRCore\string_vector.c" />
+    <ClCompile Include="OpenEXRCore\unpack.c" />
+    <ClCompile Include="OpenEXRCore\validation.c" />
+    <ClCompile Include="OpenEXRCore\write_header.c" />
+    <ClCompile Include="OpenJPH\codestream\ojph_codeblock.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_codeblock_fun.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_codestream.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_codestream_gen.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_codestream_local.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_params.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_precinct.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_resolution.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_subband.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_tile.cpp" />
+    <ClCompile Include="OpenJPH\codestream\ojph_tile_comp.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_common.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder32.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder64.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder_avx2.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_decoder_ssse3.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_encoder.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_encoder_avx2.cpp" />
+    <ClCompile Include="OpenJPH\coding\ojph_block_encoder_avx512.cpp" />
+    <ClCompile Include="OpenJPH\others\ojph_arch.cpp" />
+    <ClCompile Include="OpenJPH\others\ojph_file.cpp" />
+    <ClCompile Include="OpenJPH\others\ojph_mem.cpp" />
+    <ClCompile Include="OpenJPH\others\ojph_mem_c.c" />
+    <ClCompile Include="OpenJPH\others\ojph_message.cpp" />
+    <ClCompile Include="OpenJPH\transform\ojph_colour.cpp" />
+    <ClCompile Include="OpenJPH\transform\ojph_colour_avx.cpp" />
+    <ClCompile Include="OpenJPH\transform\ojph_colour_avx2.cpp" />
+    <ClCompile Include="OpenJPH\transform\ojph_transform.cpp" />
+    <ClCompile Include="OpenJPH\transform\ojph_transform_avx.cpp" />
+    <ClCompile Include="OpenJPH\transform\ojph_transform_avx2.cpp" />
+    <ClCompile Include="OpenJPH\transform\ojph_transform_avx512.cpp" />
+    <ClCompile Include="Zstd\lib\common\debug.c" />
+    <ClCompile Include="Zstd\lib\common\entropy_common.c" />
+    <ClCompile Include="Zstd\lib\common\error_private.c" />
+    <ClCompile Include="Zstd\lib\common\fse_decompress.c" />
+    <ClCompile Include="Zstd\lib\common\pool.c" />
+    <ClCompile Include="Zstd\lib\common\threading.c" />
+    <ClCompile Include="Zstd\lib\common\xxhash.c" />
+    <ClCompile Include="Zstd\lib\common\zstd_common.c" />
+    <ClCompile Include="Zstd\lib\compress\fse_compress.c" />
+    <ClCompile Include="Zstd\lib\compress\hist.c" />
+    <ClCompile Include="Zstd\lib\compress\huf_compress.c" />
+    <ClCompile Include="Zstd\lib\compress\zstdmt_compress.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_compress.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_compress_literals.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_compress_sequences.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_compress_superblock.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_double_fast.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_fast.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_lazy.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_ldm.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_opt.c" />
+    <ClCompile Include="Zstd\lib\compress\zstd_preSplit.c" />
+    <ClCompile Include="Zstd\lib\decompress\huf_decompress.c" />
+    <ClCompile Include="Zstd\lib\decompress\zstd_ddict.c" />
+    <ClCompile Include="Zstd\lib\decompress\zstd_decompress.c" />
+    <ClCompile Include="Zstd\lib\decompress\zstd_decompress_block.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="IlmBaseConfig.h" />
+    <ClInclude Include="IlmImf\ImfBytesAttribute.h" />
+    <ClInclude Include="IlmImf\ImfColorMetadata.h" />
+    <ClInclude Include="IlmImf\ImfCompressorDeepInternal.h" />
+    <ClInclude Include="IlmImf\ImfContext.h" />
+    <ClInclude Include="IlmImf\ImfContextInit.h" />
+    <ClInclude Include="IlmImf\ImfHTCompressor.h" />
+    <ClInclude Include="IlmImf\ImfIDManifest.h" />
+    <ClInclude Include="IlmImf\ImfIDManifestAttribute.h" />
+    <ClInclude Include="IlmImf\ImfZstdCompressor.h" />
     <ClInclude Include="OpenEXRConfig.h" />
     <ClInclude Include="IlmImf\b44ExpLogTable.h" />
     <ClInclude Include="IlmImf\dwaLookups.h" />
@@ -673,39 +793,39 @@
     <ClInclude Include="IlmImf\ImfXdr.h" />
     <ClInclude Include="IlmImf\ImfZip.h" />
     <ClInclude Include="IlmImf\ImfZipCompressor.h" />
-    <ClInclude Include="Imath\ImathBox.h" />
-    <ClInclude Include="Imath\ImathBoxAlgo.h" />
-    <ClInclude Include="Imath\ImathColor.h" />
-    <ClInclude Include="Imath\ImathColorAlgo.h" />
-    <ClInclude Include="Imath\ImathEuler.h" />
-    <ClInclude Include="Imath\ImathExc.h" />
-    <ClInclude Include="Imath\ImathExport.h" />
-    <ClInclude Include="Imath\ImathForward.h" />
-    <ClInclude Include="Imath\ImathFrame.h" />
-    <ClInclude Include="Imath\ImathFrustum.h" />
-    <ClInclude Include="Imath\ImathFrustumTest.h" />
-    <ClInclude Include="Imath\ImathFun.h" />
-    <ClInclude Include="Imath\ImathGL.h" />
-    <ClInclude Include="Imath\ImathGLU.h" />
-    <ClInclude Include="Imath\ImathHalfLimits.h" />
-    <ClInclude Include="Imath\ImathInt64.h" />
-    <ClInclude Include="Imath\ImathInterval.h" />
-    <ClInclude Include="Imath\ImathLimits.h" />
-    <ClInclude Include="Imath\ImathLine.h" />
-    <ClInclude Include="Imath\ImathLineAlgo.h" />
-    <ClInclude Include="Imath\ImathMath.h" />
-    <ClInclude Include="Imath\ImathMatrix.h" />
-    <ClInclude Include="Imath\ImathMatrixAlgo.h" />
-    <ClInclude Include="Imath\ImathNamespace.h" />
-    <ClInclude Include="Imath\ImathPlane.h" />
-    <ClInclude Include="Imath\ImathPlatform.h" />
-    <ClInclude Include="Imath\ImathQuat.h" />
-    <ClInclude Include="Imath\ImathRandom.h" />
-    <ClInclude Include="Imath\ImathRoots.h" />
-    <ClInclude Include="Imath\ImathShear.h" />
-    <ClInclude Include="Imath\ImathSphere.h" />
-    <ClInclude Include="Imath\ImathVec.h" />
-    <ClInclude Include="Imath\ImathVecAlgo.h" />
+    <ClInclude Include="..\Imath\ImathBox.h" />
+    <ClInclude Include="..\Imath\ImathBoxAlgo.h" />
+    <ClInclude Include="..\Imath\ImathColor.h" />
+    <ClInclude Include="..\Imath\ImathColorAlgo.h" />
+    <ClInclude Include="..\Imath\ImathEuler.h" />
+    <ClInclude Include="..\Imath\ImathExc.h" />
+    <ClInclude Include="..\Imath\ImathExport.h" />
+    <ClInclude Include="..\Imath\ImathForward.h" />
+    <ClInclude Include="..\Imath\ImathFrame.h" />
+    <ClInclude Include="..\Imath\ImathFrustum.h" />
+    <ClInclude Include="..\Imath\ImathFrustumTest.h" />
+    <ClInclude Include="..\Imath\ImathFun.h" />
+    <ClInclude Include="..\Imath\ImathGL.h" />
+    <ClInclude Include="..\Imath\ImathGLU.h" />
+    <ClInclude Include="..\Imath\ImathHalfLimits.h" />
+    <ClInclude Include="..\Imath\ImathInt64.h" />
+    <ClInclude Include="..\Imath\ImathInterval.h" />
+    <ClInclude Include="..\Imath\ImathLimits.h" />
+    <ClInclude Include="..\Imath\ImathLine.h" />
+    <ClInclude Include="..\Imath\ImathLineAlgo.h" />
+    <ClInclude Include="..\Imath\ImathMath.h" />
+    <ClInclude Include="..\Imath\ImathMatrix.h" />
+    <ClInclude Include="..\Imath\ImathMatrixAlgo.h" />
+    <ClInclude Include="..\Imath\ImathNamespace.h" />
+    <ClInclude Include="..\Imath\ImathPlane.h" />
+    <ClInclude Include="..\Imath\ImathPlatform.h" />
+    <ClInclude Include="..\Imath\ImathQuat.h" />
+    <ClInclude Include="..\Imath\ImathRandom.h" />
+    <ClInclude Include="..\Imath\ImathRoots.h" />
+    <ClInclude Include="..\Imath\ImathShear.h" />
+    <ClInclude Include="..\Imath\ImathSphere.h" />
+    <ClInclude Include="..\Imath\ImathVec.h" />
+    <ClInclude Include="..\Imath\ImathVecAlgo.h" />
     <ClInclude Include="Iex\Iex.h" />
     <ClInclude Include="Iex\IexBaseExc.h" />
     <ClInclude Include="Iex\IexErrnoExc.h" />
@@ -727,10 +847,70 @@
     <ClInclude Include="IlmThread\IlmThreadNamespace.h" />
     <ClInclude Include="IlmThread\IlmThreadPool.h" />
     <ClInclude Include="IlmThread\IlmThreadSemaphore.h" />
-    <ClInclude Include="IexMath\IexMathFloatExc.h" />
-    <ClInclude Include="IexMath\IexMathIeeeExc.h" />
+    <ClInclude Include="OpenEXRCore\backward_compatibility.h" />
+    <ClInclude Include="OpenEXRCore\internal_attr.h" />
+    <ClInclude Include="OpenEXRCore\internal_bytes.h" />
+    <ClInclude Include="OpenEXRCore\internal_channel_list.h" />
+    <ClInclude Include="OpenEXRCore\internal_coding.h" />
+    <ClInclude Include="OpenEXRCore\internal_compress.h" />
+    <ClInclude Include="OpenEXRCore\internal_constants.h" />
+    <ClInclude Include="OpenEXRCore\internal_cpuid.h" />
+    <ClInclude Include="OpenEXRCore\internal_decompress.h" />
+    <ClInclude Include="OpenEXRCore\internal_dwa_channeldata.h" />
+    <ClInclude Include="OpenEXRCore\internal_dwa_classifier.h" />
+    <ClInclude Include="OpenEXRCore\internal_dwa_compressor.h" />
+    <ClInclude Include="OpenEXRCore\internal_dwa_decoder.h" />
+    <ClInclude Include="OpenEXRCore\internal_dwa_encoder.h" />
+    <ClInclude Include="OpenEXRCore\internal_dwa_helpers.h" />
+    <ClInclude Include="OpenEXRCore\internal_dwa_simd.h" />
+    <ClInclude Include="OpenEXRCore\internal_file.h" />
+    <ClInclude Include="OpenEXRCore\internal_float_vector.h" />
+    <ClInclude Include="OpenEXRCore\internal_ht_common.h" />
+    <ClInclude Include="OpenEXRCore\internal_ht_quality.h" />
+    <ClInclude Include="OpenEXRCore\internal_huf.h" />
+    <ClInclude Include="OpenEXRCore\internal_legacy_structs.h" />
+    <ClInclude Include="OpenEXRCore\internal_memory.h" />
+    <ClInclude Include="OpenEXRCore\internal_opaque.h" />
+    <ClInclude Include="OpenEXRCore\internal_posix_file_impl.h" />
+    <ClInclude Include="OpenEXRCore\internal_preview.h" />
+    <ClInclude Include="OpenEXRCore\internal_string.h" />
+    <ClInclude Include="OpenEXRCore\internal_string_vector.h" />
+    <ClInclude Include="OpenEXRCore\internal_structs.h" />
+    <ClInclude Include="OpenEXRCore\internal_thread.h" />
+    <ClInclude Include="OpenEXRCore\internal_util.h" />
+    <ClInclude Include="OpenEXRCore\internal_win32_file_impl.h" />
+    <ClInclude Include="OpenEXRCore\internal_xdr.h" />
+    <ClInclude Include="OpenEXRCore\openexr.h" />
+    <ClInclude Include="OpenEXRCore\openexr_attr.h" />
+    <ClInclude Include="OpenEXRCore\openexr_base.h" />
+    <ClInclude Include="OpenEXRCore\openexr_chunkio.h" />
+    <ClInclude Include="OpenEXRCore\openexr_coding.h" />
+    <ClInclude Include="OpenEXRCore\openexr_color_metadata.h" />
+    <ClInclude Include="OpenEXRCore\openexr_compression.h" />
+    <ClInclude Include="OpenEXRCore\openexr_config.h" />
+    <ClInclude Include="OpenEXRCore\openexr_context.h" />
+    <ClInclude Include="OpenEXRCore\openexr_debug.h" />
+    <ClInclude Include="OpenEXRCore\openexr_decode.h" />
+    <ClInclude Include="OpenEXRCore\openexr_encode.h" />
+    <ClInclude Include="OpenEXRCore\openexr_errors.h" />
+    <ClInclude Include="OpenEXRCore\openexr_part.h" />
+    <ClInclude Include="OpenEXRCore\openexr_std_attr.h" />
+    <ClInclude Include="OpenEXRCore\openexr_version.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_arch.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_arg.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_base.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_codestream.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_defs.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_file.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_mem.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_message.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_params.h" />
+    <ClInclude Include="OpenJPH\openjph\ojph_version.h" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\LibDeflate\LibDeflate.vcxproj">
+      <Project>{5f82f6e8-be52-41b1-ae55-fcd29c5dac21}</Project>
+    </ProjectReference>
     <ProjectReference Include="..\ZLib\ZLib.vcxproj">
       <Project>{33134f61-c1ad-4b6f-9cea-503a9f140c52}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>

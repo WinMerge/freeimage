@@ -1,5 +1,5 @@
 /* -*- C++ -*-
- * Copyright 2019-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2019-2025 LibRaw LLC (info@libraw.org)
  *
  LibRaw uses code from dcraw.c -- Dave Coffin's raw photo decoder,
  dcraw.c is copyright 1997-2018 by Dave Coffin, dcoffin a cybercom o net.
@@ -24,6 +24,8 @@ short LibRaw::guess_byte_order(int words)
   int t = 2, msb;
   double diff, sum[2] = {0, 0};
 
+  memset(test,0,sizeof(test));
+
   fread(test[0], 2, 2, ifp);
   for (words -= 2; words--;)
   {
@@ -43,8 +45,8 @@ float LibRaw::find_green(int bps, int bite, int off0, int off1)
 {
   UINT64 bitbuf = 0;
   int vbits, col, i, c;
-  ushort img[2][2064];
-  double sum[] = {0, 0};
+  ushort img[2][2065];
+  float sum[] = {0, 0};
   if (width > 2064)
     return 0.f; // too wide
 
@@ -59,7 +61,7 @@ float LibRaw::find_green(int bps, int bite, int off0, int off1)
         for (i = 0; i < bite; i += 8)
           bitbuf |= (unsigned)(fgetc(ifp) << i);
       }
-      img[c][col] = bitbuf << (64 - bps - vbits) >> (64 - bps);
+      img[c][col] = ushort((bitbuf << (64 - bps - vbits) >> (64 - bps)) & 0xffff);
     }
   }
   FORC(width - 1)
@@ -68,7 +70,7 @@ float LibRaw::find_green(int bps, int bite, int off0, int off1)
     sum[~c & 1] += ABS(img[1][c] - img[0][c + 1]);
   }
   if (sum[0] >= 1.0 && sum[1] >= 1.0)
-    return 100 * log(sum[0] / sum[1]);
+    return 100.f * logf(sum[0] / sum[1]);
   else
     return 0.f;
 }
@@ -77,12 +79,19 @@ void LibRaw::trimSpaces(char *s)
 {
   char *p = s;
   int l = int(strlen(p));
-  if (!l)
+  if (l<1)
     return;
-  while (isspace(p[l - 1]))
+  while (l > 0 && isspace(p[l - 1]))
     p[--l] = 0; /* trim trailing spaces */
-  while (*p && isspace(*p))
+  if (l < 1)
+	  return; // only spaces in the input string, all wiped out;
+  while (*p && isspace(*p) && l > 0)
     ++p, --l;   /* trim leading spaces */
+  if (l < 1)  // should not happen, but safety belt
+  {
+	  *s = 0;
+	  return;
+  }
   memmove(s, p, l + 1);
 }
 
@@ -94,7 +103,7 @@ void LibRaw::remove_trailing_spaces(char *string, size_t len)
   if (len < 3)
     return; // also not needed
   len = strnlen(string, len - 1);
-  for (size_t i = len - 1; i >= 0; i--)
+  for (int i = int(len) - 1; i >= 0; i--)
   {
     if (isspace((unsigned char)string[i]))
       string[i] = 0;
@@ -109,7 +118,7 @@ void LibRaw::remove_caseSubstr(char *string, char *subStr) // replace a substrin
   while ((found = strcasestr(string,subStr))) {
     if (!found) return;
     int fill_len = int(strlen(subStr));
-    int p = found - string;
+    int p = int(found - string);
     for (int i=p; i<p+fill_len; i++) {
       string[i] = 32;
     }
@@ -120,6 +129,8 @@ void LibRaw::remove_caseSubstr(char *string, char *subStr) // replace a substrin
 void LibRaw::removeExcessiveSpaces(char *string) // replace repeating spaces with one space
 {
 	int orig_len = int(strlen(string));
+	if (orig_len < 1)
+		return;
 	int i = 0;   // counter for resulting string
 	int j = -1;
 	bool prev_char_is_space = false;
@@ -135,6 +146,8 @@ void LibRaw::removeExcessiveSpaces(char *string) // replace repeating spaces wit
 			}
 		}
 	}
-	if (string[i-1] == ' ')
-    string[i-1] = 0;
+    if (i > 0 && string[i - 1] == ' ')
+		string[i-1] = 0;
+	if(i < orig_len)
+		string[i] = 0; 
 }

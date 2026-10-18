@@ -1,10 +1,12 @@
 // ==========================================================
 // RAW camera image loader
 //
-// Design and implementation by 
-// - Hervé Drolon (drolon@infonie.fr)
+// Design and implementation by
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -21,7 +23,20 @@
 
 #if INCLUDE_LIB_RAW
 
-#include "../LibRawLite/libraw/libraw.h"
+#include <libraw/libraw.h>
+
+// libraw_types.h just typedef'd INT64/UINT64 as real C++ types (long long /
+// unsigned long long). FreeImage.h's own #ifndef INT64 guard only detects a
+// prior macro, not a typedef, so without this it would go on to #define
+// INT64 int64_t - on platforms where int64_t isn't long long (e.g. Linux,
+// where it's long), that turns LibRaw_freeimage_datastream's overrides
+// below into a different type than the LibRaw_abstract_datastream virtuals
+// they're meant to override. Pre-defining these as self-referential (a
+// same-name object-like macro expands to itself, i.e. a no-op) satisfies
+// the guard while leaving every "INT64"/"UINT64" token to resolve via the
+// real typedef instead.
+#define INT64 INT64
+#define UINT64 UINT64
 
 // libraw_types.h just typedef'd INT64/UINT64 as real C++ types (long long /
 // unsigned long long). FreeImage.h's own #ifndef INT64 guard only detects a
@@ -517,6 +532,7 @@ Extension() {
 		"cap,"   // Phase One Digital Camera Raw Image Format.
 		"cine,"  // Phantom Software Raw Image File.
 		"cr2,"   // Canon Digital Camera RAW Image Format version 2.0. These images are based on the TIFF image standard.
+		"cr3,"
 		"crw,"   // Canon Digital Camera RAW Image Format version 1.0. 
 		"cs1,"   // Sinar Capture Shop Raw Image File.
 		"dc2,"   // Kodak DC25 Digital Camera File.
@@ -814,4 +830,53 @@ InitRAW(Plugin *plugin, int format_id) {
 	plugin->supports_no_pixels_proc = SupportsNoPixels;
 }
 
-#endif
+#else // !INCLUDE_LIB_RAW
+
+#include "FreeImage.h"
+#include "Utilities.h"
+
+// This build was compiled without LibRaw support (BUILD_LIBRAWLITE=OFF).
+// Still register the RAW format so its slot in the FREE_IMAGE_FORMAT
+// enum stays occupied - otherwise every plugin registered after it
+// would silently shift down one runtime index while FreeImage.h's
+// compile-time FIF_* constants stay fixed, breaking whichever plugin
+// happens to land on the now-mismatched index (see issue #38). All
+// procs other than format/description/extension are left NULL, which
+// the rest of Plugin.cpp already treats as "unsupported" everywhere.
+
+static const char * DLL_CALLCONV
+Format() {
+	return "RAW";
+}
+
+static const char * DLL_CALLCONV
+Description() {
+	return "RAW camera image (not compiled in this build)";
+}
+
+static const char * DLL_CALLCONV
+Extension() {
+	return "raw";
+}
+
+void DLL_CALLCONV
+InitRAW(Plugin *plugin, int format_id) {
+	plugin->format_proc = Format;
+	plugin->description_proc = Description;
+	plugin->extension_proc = Extension;
+	plugin->regexpr_proc = NULL;
+	plugin->open_proc = NULL;
+	plugin->close_proc = NULL;
+	plugin->pagecount_proc = NULL;
+	plugin->pagecapability_proc = NULL;
+	plugin->load_proc = NULL;
+	plugin->save_proc = NULL;
+	plugin->validate_proc = NULL;
+	plugin->mime_proc = NULL;
+	plugin->supports_export_bpp_proc = NULL;
+	plugin->supports_export_type_proc = NULL;
+	plugin->supports_icc_profiles_proc = NULL;
+	plugin->supports_no_pixels_proc = NULL;
+}
+
+#endif // INCLUDE_LIB_RAW

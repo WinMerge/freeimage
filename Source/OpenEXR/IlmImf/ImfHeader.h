@@ -1,38 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2004, Industrial Light & Magic, a division of Lucas
-// Digital Ltd. LLC
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Industrial Light & Magic nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
-
-
 
 #ifndef INCLUDED_IMF_HEADER_H
 #define INCLUDED_IMF_HEADER_H
@@ -43,96 +12,104 @@
 //
 //-----------------------------------------------------------------------------
 
-#include "ImfLineOrder.h"
+#include "ImfForward.h"
+
+#include "IexBaseExc.h"
 #include "ImfCompression.h"
+#include "ImfLineOrder.h"
 #include "ImfName.h"
 #include "ImfTileDescription.h"
-#include "ImfInt64.h"
-#include "ImathVec.h"
-#include "ImathBox.h"
-#include "IexBaseExc.h"
 
-#include "ImfForward.h"
-#include "ImfNamespace.h"
-#include "ImfExport.h"
+#include "ImfAttribute.h"
 
-#include <map>
+#include <ImathBox.h>
+#include <ImathVec.h>
+
+#include <cstdint>
 #include <iosfwd>
+#include <map>
 #include <string>
-
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_ENTER
 
 using std::string;
 
-
-class IMF_EXPORT Header
+class IMF_EXPORT_TYPE Header
 {
-  public:
-    
+public:
     //----------------------------------------------------------------
     // Default constructor -- the display window and the data window
     // are both set to Box2i (V2i (0, 0), V2i (width-1, height-1).
     //----------------------------------------------------------------
 
-    Header (int width = 64,
-	    int height = 64,
-	    float pixelAspectRatio = 1,
-	    const IMATH_NAMESPACE::V2f &screenWindowCenter = IMATH_NAMESPACE::V2f (0, 0),
-	    float screenWindowWidth = 1,
-	    LineOrder lineOrder = INCREASING_Y,
-	    Compression = ZIP_COMPRESSION);
-
+    IMF_EXPORT
+    Header (
+        int                         width            = 64,
+        int                         height           = 64,
+        float                       pixelAspectRatio = 1,
+        const IMATH_NAMESPACE::V2f& screenWindowCenter =
+            IMATH_NAMESPACE::V2f (0, 0),
+        float     screenWindowWidth = 1,
+        LineOrder lineOrder         = INCREASING_Y,
+        Compression                 = ZIP_COMPRESSION);
 
     //--------------------------------------------------------------------
     // Constructor -- the data window is specified explicitly; the display
     // window is set to Box2i (V2i (0, 0), V2i (width-1, height-1).
     //--------------------------------------------------------------------
 
-    Header (int width,
-	    int height,
-	    const IMATH_NAMESPACE::Box2i &dataWindow,
-	    float pixelAspectRatio = 1,
-	    const IMATH_NAMESPACE::V2f &screenWindowCenter = IMATH_NAMESPACE::V2f (0, 0),
-	    float screenWindowWidth = 1,
-	    LineOrder lineOrder = INCREASING_Y,
-	    Compression = ZIP_COMPRESSION);
-
+    IMF_EXPORT
+    Header (
+        int                           width,
+        int                           height,
+        const IMATH_NAMESPACE::Box2i& dataWindow,
+        float                         pixelAspectRatio = 1,
+        const IMATH_NAMESPACE::V2f&   screenWindowCenter =
+            IMATH_NAMESPACE::V2f (0, 0),
+        float     screenWindowWidth = 1,
+        LineOrder lineOrder         = INCREASING_Y,
+        Compression                 = ZIP_COMPRESSION);
 
     //----------------------------------------------------------
     // Constructor -- the display window and the data window are
     // both specified explicitly.
     //----------------------------------------------------------
 
-    Header (const IMATH_NAMESPACE::Box2i &displayWindow,
-	    const IMATH_NAMESPACE::Box2i &dataWindow,
-	    float pixelAspectRatio = 1,
-	    const IMATH_NAMESPACE::V2f &screenWindowCenter = IMATH_NAMESPACE::V2f (0, 0),
-	    float screenWindowWidth = 1,
-	    LineOrder lineOrder = INCREASING_Y,
-	    Compression = ZIP_COMPRESSION);
-
+    IMF_EXPORT
+    Header (
+        const IMATH_NAMESPACE::Box2i& displayWindow,
+        const IMATH_NAMESPACE::Box2i& dataWindow,
+        float                         pixelAspectRatio = 1,
+        const IMATH_NAMESPACE::V2f&   screenWindowCenter =
+            IMATH_NAMESPACE::V2f (0, 0),
+        float     screenWindowWidth = 1,
+        LineOrder lineOrder         = INCREASING_Y,
+        Compression                 = ZIP_COMPRESSION);
 
     //-----------------
     // Copy constructor
     //-----------------
 
-    Header (const Header &other);
-
+    IMF_EXPORT
+    Header (const Header& other);
+    IMF_EXPORT
+    Header (Header&& other);
 
     //-----------
     // Destructor
     //-----------
 
+    IMF_EXPORT
     ~Header ();
-
 
     //-----------
     // Assignment
     //-----------
 
-    Header &			operator = (const Header &other);
-
+    IMF_EXPORT
+    Header& operator= (const Header& other);
+    IMF_EXPORT
+    Header& operator= (Header&& other);
 
     //---------------------------------------------------------------
     // Add an attribute:
@@ -152,11 +129,11 @@ class IMF_EXPORT Header
     //
     //---------------------------------------------------------------
 
-    void			insert (const char name[],
-				        const Attribute &attribute);
+    IMF_EXPORT
+    void insert (const char name[], const Attribute& attribute);
 
-    void			insert (const std::string &name,
-				        const Attribute &attribute);
+    IMF_EXPORT
+    void insert (const std::string& name, const Attribute& attribute);
 
     //---------------------------------------------------------------
     // Remove an attribute:
@@ -168,11 +145,12 @@ class IMF_EXPORT Header
     //                 functions becomes a 'no-op'
     //
     //---------------------------------------------------------------
-    void                        erase (const char name[]);
-    void                        erase (const std::string &name);
 
-    
-    
+    IMF_EXPORT
+    void erase (const char name[]);
+    IMF_EXPORT
+    void erase (const std::string& name);
+
     //------------------------------------------------------------------
     // Access to existing attributes:
     //
@@ -193,121 +171,196 @@ class IMF_EXPORT Header
     //
     //------------------------------------------------------------------
 
-    Attribute &			operator [] (const char name[]);
-    const Attribute &		operator [] (const char name[]) const;
+    IMF_EXPORT
+    Attribute& operator[] (const char name[]);
+    IMF_EXPORT
+    const Attribute& operator[] (const char name[]) const;
 
-    Attribute &			operator [] (const std::string &name);
-    const Attribute &		operator [] (const std::string &name) const;
+    IMF_EXPORT
+    Attribute& operator[] (const std::string& name);
+    IMF_EXPORT
+    const Attribute& operator[] (const std::string& name) const;
 
-    template <class T> T&	typedAttribute (const char name[]);
-    template <class T> const T&	typedAttribute (const char name[]) const;
+    template <class T> T&       typedAttribute (const char name[]);
+    template <class T> const T& typedAttribute (const char name[]) const;
 
-    template <class T> T&	typedAttribute (const std::string &name);
-    template <class T> const T&	typedAttribute (const std::string &name) const;
+    template <class T> T&       typedAttribute (const std::string& name);
+    template <class T> const T& typedAttribute (const std::string& name) const;
 
-    template <class T> T*	findTypedAttribute (const char name[]);
-    template <class T> const T*	findTypedAttribute (const char name[]) const;
+    template <class T> T*       findTypedAttribute (const char name[]);
+    template <class T> const T* findTypedAttribute (const char name[]) const;
 
-    template <class T> T*	findTypedAttribute (const std::string &name);
-    template <class T> const T*	findTypedAttribute (const std::string &name)
-								       const;
+    template <class T> T* findTypedAttribute (const std::string& name);
+    template <class T>
+    const T* findTypedAttribute (const std::string& name) const;
 
     //---------------------------------------------
     // Iterator-style access to existing attributes
     //---------------------------------------------
 
-    typedef std::map <Name, Attribute *> AttributeMap;
+    typedef std::map<Name, Attribute*> AttributeMap;
 
     class Iterator;
     class ConstIterator;
 
-    Iterator			begin ();
-    ConstIterator		begin () const;
+    IMF_EXPORT
+    Iterator begin ();
+    IMF_EXPORT
+    ConstIterator begin () const;
 
-    Iterator			end ();
-    ConstIterator		end () const;
+    IMF_EXPORT
+    Iterator end ();
+    IMF_EXPORT
+    ConstIterator end () const;
 
-    Iterator			find (const char name[]);
-    ConstIterator		find (const char name[]) const;
+    IMF_EXPORT
+    Iterator find (const char name[]);
+    IMF_EXPORT
+    ConstIterator find (const char name[]) const;
 
-    Iterator			find (const std::string &name);
-    ConstIterator		find (const std::string &name) const;
-
+    IMF_EXPORT
+    Iterator find (const std::string& name);
+    IMF_EXPORT
+    ConstIterator find (const std::string& name) const;
 
     //--------------------------------
     // Access to predefined attributes
     //--------------------------------
 
-    IMATH_NAMESPACE::Box2i &		displayWindow ();
-    const IMATH_NAMESPACE::Box2i &	displayWindow () const;
+    IMF_EXPORT
+    IMATH_NAMESPACE::Box2i& displayWindow ();
+    IMF_EXPORT
+    const IMATH_NAMESPACE::Box2i& displayWindow () const;
 
-    IMATH_NAMESPACE::Box2i &		dataWindow ();
-    const IMATH_NAMESPACE::Box2i &	dataWindow () const;
+    IMF_EXPORT
+    IMATH_NAMESPACE::Box2i& dataWindow ();
+    IMF_EXPORT
+    const IMATH_NAMESPACE::Box2i& dataWindow () const;
 
-    float &			pixelAspectRatio ();
-    const float &		pixelAspectRatio () const;
+    IMF_EXPORT
+    float& pixelAspectRatio ();
+    IMF_EXPORT
+    const float& pixelAspectRatio () const;
 
-    IMATH_NAMESPACE::V2f &		screenWindowCenter ();
-    const IMATH_NAMESPACE::V2f &		screenWindowCenter () const;
+    IMF_EXPORT
+    IMATH_NAMESPACE::V2f& screenWindowCenter ();
+    IMF_EXPORT
+    const IMATH_NAMESPACE::V2f& screenWindowCenter () const;
 
-    float &			screenWindowWidth ();
-    const float &		screenWindowWidth () const;
+    IMF_EXPORT
+    float& screenWindowWidth ();
+    IMF_EXPORT
+    const float& screenWindowWidth () const;
 
-    ChannelList &		channels ();
-    const ChannelList &		channels () const;
+    IMF_EXPORT
+    ChannelList& channels ();
+    IMF_EXPORT
+    const ChannelList& channels () const;
 
-    LineOrder &			lineOrder ();
-    const LineOrder &		lineOrder () const;
+    IMF_EXPORT
+    LineOrder& lineOrder ();
+    IMF_EXPORT
+    const LineOrder& lineOrder () const;
 
-    Compression &		compression ();
-    const Compression &		compression () const;
+    IMF_EXPORT
+    Compression& compression ();
+    IMF_EXPORT
+    const Compression& compression () const;
 
+    //-----------------------------------------------------
+    // The header object allows one to store a compression level to be
+    // used when writing a file.
+    //
+    // NB: These are NOT attributes, and will not be written to the
+    // file, but are instead ephemeral settings to be used for this
+    // instance of the header object.
+    //
+    // -----------------------------------------------------
+    IMF_EXPORT
+    void resetDefaultCompressionLevels ();
+    IMF_EXPORT
+    int& zipCompressionLevel ();
+    IMF_EXPORT
+    int zipCompressionLevel () const;
+    IMF_EXPORT
+    float& dwaCompressionLevel ();
+    IMF_EXPORT
+    float dwaCompressionLevel () const;
+    IMF_EXPORT
+    float& lossyHTJ2KQuality ();
+    IMF_EXPORT
+    float lossyHTJ2KQuality () const;
+    // Valid levels are 1 through 22 (libzstd range). Values outside
+    // that range are clamped. The library default is 5.
+    IMF_EXPORT
+    int& zstdCompressionLevel ();
+    IMF_EXPORT
+    int zstdCompressionLevel () const;
+    IMF_EXPORT
 
     //-----------------------------------------------------
     // Access to required attributes for multipart files
     // They are optional to non-multipart files and mandatory
     // for multipart files.
     //-----------------------------------------------------
-    void                        setName (const string& name);
+    IMF_EXPORT
+    void setName (const string& name);
 
-    string&                     name();
-    const string&               name() const;
+    IMF_EXPORT
+    string& name ();
+    IMF_EXPORT
+    const string& name () const;
 
-    bool                        hasName() const;
+    IMF_EXPORT
+    bool hasName () const;
 
-    void                        setType (const string& Type);
+    IMF_EXPORT
+    void setType (const string& Type);
 
-    string&                     type();
-    const string&               type() const;
+    IMF_EXPORT
+    string& type ();
+    IMF_EXPORT
+    const string& type () const;
 
-    bool                        hasType() const;
+    IMF_EXPORT
+    bool hasType () const;
 
-    void                        setVersion (const int version);
+    IMF_EXPORT
+    void setVersion (const int version);
 
-    int&                        version();
-    const int&                  version() const;
+    IMF_EXPORT
+    int& version ();
+    IMF_EXPORT
+    const int& version () const;
 
-    bool                        hasVersion() const;
+    IMF_EXPORT
+    bool hasVersion () const;
 
     //
     // the chunkCount attribute is set automatically when a file is written.
     // There is no need to set it manually
     //
-    void                        setChunkCount(int chunks);
-    bool                        hasChunkCount() const;
-    const int &                 chunkCount() const;
-    int &                       chunkCount();
+    IMF_EXPORT
+    void setChunkCount (int chunks);
+    IMF_EXPORT
+    bool hasChunkCount () const;
+    IMF_EXPORT
+    const int& chunkCount () const;
+    IMF_EXPORT
+    int& chunkCount ();
 
-    
     //
     // for multipart files, return whether the file has a view string attribute
     // (for the deprecated single part multiview format EXR, see ImfMultiView.h)
     //
-    void                       setView(const string & view);
-    bool                       hasView() const;
-    string &                   view();
-    const string &             view() const;
-    
+    IMF_EXPORT
+    void setView (const string& view);
+    IMF_EXPORT
+    bool hasView () const;
+    IMF_EXPORT
+    string& view ();
+    IMF_EXPORT
+    const string& view () const;
 
     //----------------------------------------------------------------------
     // Tile Description:
@@ -330,13 +383,16 @@ class IMF_EXPORT Header
     //
     //----------------------------------------------------------------------
 
-    void			setTileDescription (const TileDescription & td);
+    IMF_EXPORT
+    void setTileDescription (const TileDescription& td);
 
-    TileDescription &		tileDescription ();
-    const TileDescription &	tileDescription () const;
+    IMF_EXPORT
+    TileDescription& tileDescription ();
+    IMF_EXPORT
+    const TileDescription& tileDescription () const;
 
-    bool			hasTileDescription() const;
-
+    IMF_EXPORT
+    bool hasTileDescription () const;
 
     //----------------------------------------------------------------------
     // Preview image:
@@ -359,34 +415,36 @@ class IMF_EXPORT Header
     //
     //----------------------------------------------------------------------
 
-    void			setPreviewImage (const PreviewImage &p);
+    IMF_EXPORT
+    void setPreviewImage (const PreviewImage& p);
 
-    PreviewImage &		previewImage ();
-    const PreviewImage &	previewImage () const;
+    IMF_EXPORT
+    PreviewImage& previewImage ();
+    IMF_EXPORT
+    const PreviewImage& previewImage () const;
 
-    bool			hasPreviewImage () const;
-
+    IMF_EXPORT
+    bool hasPreviewImage () const;
 
     //-------------------------------------------------------------
     // Sanity check -- examines the header, and throws an exception
     // if it finds something wrong (empty display window, negative
-    // pixel aspect ratio, unknown compression sceme etc.)
+    // pixel aspect ratio, unknown compression scheme etc...)
     //
     // set isTiled to true if you are checking a tiled/multi-res
     // header
     //-------------------------------------------------------------
 
-    void			sanityCheck (bool isTiled = false,
-        			             bool isMultipartFile = false) const;
-
+    IMF_EXPORT
+    void sanityCheck (bool isTiled = false, bool isMultipartFile = false) const;
 
     //----------------------------------------------------------------
-    // Maximum image size and maximim tile size:
+    // Maximum image size and maximum tile size:
     //
     // sanityCheck() will throw an exception if the width or height of
     // the data window exceeds the maximum image width or height, or
     // if the size of a tile exceeds the maximum tile width or height.
-    // 
+    //
     // At program startup the maximum image and tile width and height
     // are set to zero, meaning that width and height are unlimited.
     //
@@ -396,14 +454,20 @@ class IMF_EXPORT Header
     // a damaged image file.
     //----------------------------------------------------------------
 
-    static void			setMaxImageSize (int maxWidth, int maxHeight);
-    static void			setMaxTileSize (int maxWidth, int maxHeight);
+    IMF_EXPORT
+    static void setMaxImageSize (int maxWidth, int maxHeight);
+    IMF_EXPORT
+    static void setMaxTileSize (int maxWidth, int maxHeight);
+    IMF_EXPORT
+    static void getMaxImageSize (int& maxWidth, int& maxHeight);
+    IMF_EXPORT
+    static void getMaxTileSize (int& maxWidth, int& maxHeight);
 
     //
     // Check if the header reads nothing.
     //
-    bool                        readsNothing();
-
+    IMF_EXPORT
+    bool readsNothing ();
 
     //------------------------------------------------------------------
     // Input and output:
@@ -415,76 +479,68 @@ class IMF_EXPORT Header
     // returns 0.
     //------------------------------------------------------------------
 
+    IMF_EXPORT
+    uint64_t writeTo (
+        OPENEXR_IMF_INTERNAL_NAMESPACE::OStream& os,
+        bool                                     isTiled = false) const;
 
-    Int64			writeTo (OPENEXR_IMF_INTERNAL_NAMESPACE::OStream &os,
-					 bool isTiled = false) const;
+    IMF_EXPORT
+    void readFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream& is, int& version);
 
-    void			readFrom (OPENEXR_IMF_INTERNAL_NAMESPACE::IStream &is,
-        			          int &version);
-    
+private:
+    AttributeMap _map;
 
-  private:
-
-    AttributeMap		_map;
-
-    bool                        _readsNothing;
+    bool _readsNothing;
 };
-
 
 //----------
 // Iterators
 //----------
 
-class Header::Iterator
+class IMF_EXPORT_TYPE Header::Iterator
 {
-  public:
-
+public:
     Iterator ();
-    Iterator (const Header::AttributeMap::iterator &i);
+    Iterator (const Header::AttributeMap::iterator& i);
 
-    Iterator &			operator ++ ();
-    Iterator 			operator ++ (int);
+    Iterator& operator++ ();
+    Iterator operator++ (int);
 
-    const char *		name () const;
-    Attribute &			attribute () const;
+    const char* name () const;
+    Attribute&  attribute () const;
 
-  private:
-
+private:
     friend class Header::ConstIterator;
 
     Header::AttributeMap::iterator _i;
 };
 
-
-class Header::ConstIterator
+class IMF_EXPORT_TYPE Header::ConstIterator
 {
-  public:
-
+public:
     ConstIterator ();
-    ConstIterator (const Header::AttributeMap::const_iterator &i);
-    ConstIterator (const Header::Iterator &other);
+    ConstIterator (const Header::AttributeMap::const_iterator& i);
+    ConstIterator (const Header::Iterator& other);
 
-    ConstIterator &		operator ++ ();
-    ConstIterator 		operator ++ (int);
+    ConstIterator& operator++ ();
+    ConstIterator  operator++ (int);
 
-    const char *		name () const;
-    const Attribute &		attribute () const;
+    const char*     name () const;
+    const Attribute& attribute () const;
 
-  private:
-
-    friend bool operator == (const ConstIterator &, const ConstIterator &);
-    friend bool operator != (const ConstIterator &, const ConstIterator &);
+private:
+    friend bool operator== (const ConstIterator&, const ConstIterator&);
+    friend bool operator!= (const ConstIterator&, const ConstIterator&);
 
     Header::AttributeMap::const_iterator _i;
 };
-
 
 //------------------------------------------------------------------------
 // Library initialization:
 //
 // In a multithreaded program, staticInitialize() must be called once
 // during startup, before the program accesses any other functions or
-// classes in the IlmImf library.  Calling staticInitialize() in this
+// classes in the OpenEXR library.  Calling staticInitialize() in this
 // way avoids races during initialization of the library's global
 // variables.
 //
@@ -493,206 +549,178 @@ class Header::ConstIterator
 //
 //------------------------------------------------------------------------
 
-void staticInitialize ();
-
+IMF_EXPORT void staticInitialize ();
 
 //-----------------
 // Inline Functions
 //-----------------
 
-
-inline
-Header::Iterator::Iterator (): _i()
+inline Header::Iterator::Iterator () : _i ()
 {
     // empty
 }
 
-
-inline
-Header::Iterator::Iterator (const Header::AttributeMap::iterator &i): _i (i)
+inline Header::Iterator::Iterator (const Header::AttributeMap::iterator& i)
+    : _i (i)
 {
     // empty
 }
 
-
-inline Header::Iterator &		
-Header::Iterator::operator ++ ()
+inline Header::Iterator&
+Header::Iterator::operator++ ()
 {
     ++_i;
     return *this;
 }
 
-
-inline Header::Iterator 	
-Header::Iterator::operator ++ (int)
+inline Header::Iterator
+Header::Iterator::operator++ (int)
 {
     Iterator tmp = *this;
     ++_i;
     return tmp;
 }
 
-
-inline const char *
+inline const char*
 Header::Iterator::name () const
 {
     return *_i->first;
 }
 
-
-inline Attribute &	
+inline Attribute&
 Header::Iterator::attribute () const
 {
     return *_i->second;
 }
 
-
-inline
-Header::ConstIterator::ConstIterator (): _i()
+inline Header::ConstIterator::ConstIterator () : _i ()
 {
     // empty
 }
 
-inline
-Header::ConstIterator::ConstIterator
-    (const Header::AttributeMap::const_iterator &i): _i (i)
+inline Header::ConstIterator::ConstIterator (
+    const Header::AttributeMap::const_iterator& i)
+    : _i (i)
 {
     // empty
 }
 
-
-inline
-Header::ConstIterator::ConstIterator (const Header::Iterator &other):
-    _i (other._i)
+inline Header::ConstIterator::ConstIterator (const Header::Iterator& other)
+    : _i (other._i)
 {
     // empty
 }
 
-inline Header::ConstIterator &
-Header::ConstIterator::operator ++ ()
+inline Header::ConstIterator&
+Header::ConstIterator::operator++ ()
 {
     ++_i;
     return *this;
 }
 
-
-inline Header::ConstIterator 		
-Header::ConstIterator::operator ++ (int)
+inline Header::ConstIterator
+Header::ConstIterator::operator++ (int)
 {
     ConstIterator tmp = *this;
     ++_i;
     return tmp;
 }
 
-
-inline const char *
+inline const char*
 Header::ConstIterator::name () const
 {
     return *_i->first;
 }
 
-
-inline const Attribute &	
+inline const Attribute&
 Header::ConstIterator::attribute () const
 {
     return *_i->second;
 }
 
-
 inline bool
-operator == (const Header::ConstIterator &x, const Header::ConstIterator &y)
+operator== (const Header::ConstIterator& x, const Header::ConstIterator& y)
 {
     return x._i == y._i;
 }
 
-
 inline bool
-operator != (const Header::ConstIterator &x, const Header::ConstIterator &y)
+operator!= (const Header::ConstIterator& x, const Header::ConstIterator& y)
 {
     return !(x == y);
 }
-
 
 //---------------------
 // Template definitions
 //---------------------
 
 template <class T>
-T &
+T&
 Header::typedAttribute (const char name[])
 {
-    Attribute *attr = &(*this)[name];
-    T *tattr = dynamic_cast <T*> (attr);
+    Attribute* attr  = &(*this)[name];
+    T*         tattr = dynamic_cast<T*> (attr);
 
-    if (tattr == 0)
-	throw IEX_NAMESPACE::TypeExc ("Unexpected attribute type.");
+    if (tattr == 0) throw IEX_NAMESPACE::TypeExc ("Unexpected attribute type.");
 
     return *tattr;
 }
 
-
 template <class T>
-const T &
+const T&
 Header::typedAttribute (const char name[]) const
 {
-    const Attribute *attr = &(*this)[name];
-    const T *tattr = dynamic_cast <const T*> (attr);
+    const Attribute* attr  = &(*this)[name];
+    const T*         tattr = dynamic_cast<const T*> (attr);
 
-    if (tattr == 0)
-	throw IEX_NAMESPACE::TypeExc ("Unexpected attribute type.");
+    if (tattr == 0) throw IEX_NAMESPACE::TypeExc ("Unexpected attribute type.");
 
     return *tattr;
 }
 
-
 template <class T>
-T &
-Header::typedAttribute (const std::string &name)
+T&
+Header::typedAttribute (const std::string& name)
 {
-    return typedAttribute<T> (name.c_str());
+    return typedAttribute<T> (name.c_str ());
 }
 
-
 template <class T>
-const T &
-Header::typedAttribute (const std::string &name) const
+const T&
+Header::typedAttribute (const std::string& name) const
 {
-    return typedAttribute<T> (name.c_str());
+    return typedAttribute<T> (name.c_str ());
 }
 
-
 template <class T>
-T *
+T*
 Header::findTypedAttribute (const char name[])
 {
     AttributeMap::iterator i = _map.find (name);
-    return (i == _map.end())? 0: dynamic_cast <T*> (i->second);
+    return (i == _map.end ()) ? 0 : dynamic_cast<T*> (i->second);
 }
 
-
 template <class T>
-const T *
+const T*
 Header::findTypedAttribute (const char name[]) const
 {
     AttributeMap::const_iterator i = _map.find (name);
-    return (i == _map.end())? 0: dynamic_cast <const T*> (i->second);
+    return (i == _map.end ()) ? 0 : dynamic_cast<const T*> (i->second);
 }
-
 
 template <class T>
-T *
-Header::findTypedAttribute (const std::string &name)
+T*
+Header::findTypedAttribute (const std::string& name)
 {
-    return findTypedAttribute<T> (name.c_str());
+    return findTypedAttribute<T> (name.c_str ());
 }
-
 
 template <class T>
-const T *
-Header::findTypedAttribute (const std::string &name) const
+const T*
+Header::findTypedAttribute (const std::string& name) const
 {
-    return findTypedAttribute<T> (name.c_str());
+    return findTypedAttribute<T> (name.c_str ());
 }
-
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_HEADER_EXIT
 

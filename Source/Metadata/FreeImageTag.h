@@ -2,9 +2,11 @@
 // Tag manipulation functions
 //
 // Design and implementation by
-// - Hervé Drolon <drolon@infonie.fr>
+// - HervÃ© Drolon <drolon@infonie.fr>
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -322,7 +324,7 @@ typedef struct tagTagInfo {
 
 
 /**
-Class to hold tag information (based on Meyers’ Singleton).<br>
+Class to hold tag information (based on Meyers' Singleton).<br>
 
 Sample usage :<br>
 <code>

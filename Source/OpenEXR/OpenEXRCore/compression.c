@@ -1,0 +1,807 @@
+/*
+** SPDX-License-Identifier: BSD-3-Clause
+** Copyright Contributors to the OpenEXR Project.
+*/
+
+#include "openexr_compression.h"
+#include "openexr_base.h"
+#include "internal_memory.h"
+#include "internal_structs.h"
+#include "internal_compress.h"
+#include "internal_decompress.h"
+#include "internal_coding.h"
+#include "internal_coding.h"
+#include "internal_file.h"
+#include "internal_huf.h"
+#include "internal_legacy_structs.h"
+
+#include "OpenEXRConfigInternal.h"
+
+#if OPENEXR_USE_INTERNAL_DEFLATE
+#    include "../../../external/deflate/lib/lib_common.h"
+#    include "../../../external/deflate/lib/arm/cpu_features.c"
+#    include "../../../external/deflate/lib/x86/cpu_features.c"
+#    include "../../../external/deflate/lib/utils.c"
+#    include "../../../external/deflate/lib/deflate_compress.c"
+#    undef BITBUF_NBITS
+#    include "../../../external/deflate/lib/deflate_decompress.c"
+#    undef BITBUF_NBITS
+#    include "../../../external/deflate/lib/adler32.c"
+#    include "../../../external/deflate/lib/zlib_compress.c"
+#    include "../../../external/deflate/lib/zlib_decompress.c"
+#else
+#    include <libdeflate.h>
+#endif
+
+#include <string.h>
+#ifdef _MSC_VER
+static inline int strcasecmp (const char* a, const char* b)
+{
+    return _stricmp (a, b);
+}
+#endif
+
+#if (                                                                          \
+    LIBDEFLATE_VERSION_MAJOR > 1 ||                                            \
+    (LIBDEFLATE_VERSION_MAJOR == 1 && LIBDEFLATE_VERSION_MINOR > 18))
+#    define EXR_USE_CONFIG_DEFLATE_STRUCT 1
+#endif
+
+/* value Aras found to be better trade off of speed vs size */
+#define EXR_DEFAULT_ZLIB_COMPRESS_LEVEL 4
+
+/**************************************/
+
+size_t
+exr_compress_max_buffer_size (size_t in_bytes)
+{
+    size_t r, extra;
+
+    r = libdeflate_zlib_compress_bound (NULL, in_bytes);
+    /*
+     * lib deflate has a message about needing a 9 byte boundary
+     * but is unclear if it actually adds that or not
+     * (see the comment on libdeflate_deflate_compress)
+     */
+    if (r > (SIZE_MAX - 9)) return (size_t) (SIZE_MAX);
+    r += 9;
+
+    /*
+     * old library had uiAdd( uiAdd( in, ceil(in * 0.01) ), 100 )
+     */
+    extra = (r * (size_t) 130);
+    if (extra < r) return (size_t) (SIZE_MAX);
+    extra /= (size_t) 128;
+
+    if (extra > (SIZE_MAX - 100)) return (size_t) (SIZE_MAX);
+    if (extra > r) r = extra;
+
+    /*
+     * in case huf is larger than zlib
+     */
+    extra = in_bytes + internal_exr_huf_compress_spare_bytes ();
+    if (r < extra) r = extra;
+
+    extra = in_bytes + internal_exr_huf_decompress_spare_bytes ();
+    if (r < extra) r = extra;
+
+    /* make sure there is some small 2 pages worth of buffer */
+    if (8192 > r) r = 8192;
+
+    return r;
+}
+
+/**************************************/
+
+exr_result_t
+exr_compress_buffer (
+    exr_const_context_t ctxt,
+    int                 level,
+    const void*         in,
+    size_t              in_bytes,
+    void*               out,
+    size_t              out_bytes_avail,
+    size_t*             actual_out)
+{
+    struct libdeflate_compressor* comp;
+
+#ifdef EXR_USE_CONFIG_DEFLATE_STRUCT
+    struct libdeflate_options opt = {
+        .sizeof_options = sizeof (struct libdeflate_options),
+        .malloc_func    = ctxt ? ctxt->alloc_fn : internal_exr_alloc,
+        .free_func      = ctxt ? ctxt->free_fn : internal_exr_free};
+
+#else
+    libdeflate_set_memory_allocator (
+        ctxt ? ctxt->alloc_fn : internal_exr_alloc,
+        ctxt ? ctxt->free_fn : internal_exr_free);
+#endif
+
+    if (level < 0)
+    {
+        exr_get_default_zip_compression_level (&level);
+        /* truly unset anywhere */
+        if (level < 0) level = EXR_DEFAULT_ZLIB_COMPRESS_LEVEL;
+    }
+
+#ifdef EXR_USE_CONFIG_DEFLATE_STRUCT
+    comp = libdeflate_alloc_compressor_ex (level, &opt);
+#else
+    comp = libdeflate_alloc_compressor (level);
+#endif
+    if (comp)
+    {
+        size_t outsz;
+        outsz =
+            libdeflate_zlib_compress (comp, in, in_bytes, out, out_bytes_avail);
+
+        libdeflate_free_compressor (comp);
+
+        if (outsz != 0)
+        {
+            if (actual_out) *actual_out = outsz;
+            return EXR_ERR_SUCCESS;
+        }
+        return EXR_ERR_OUT_OF_MEMORY;
+    }
+    return EXR_ERR_OUT_OF_MEMORY;
+}
+
+/**************************************/
+
+static struct libdeflate_decompressor*
+create_deflate_context (exr_const_context_t ctxt)
+{
+#ifdef EXR_USE_CONFIG_DEFLATE_STRUCT
+    struct libdeflate_options opt = {
+        .sizeof_options = sizeof (struct libdeflate_options),
+        .malloc_func    = ctxt ? ctxt->alloc_fn : internal_exr_alloc,
+        .free_func      = ctxt ? ctxt->free_fn : internal_exr_free};
+#endif
+
+#ifdef EXR_USE_CONFIG_DEFLATE_STRUCT
+    return libdeflate_alloc_decompressor_ex (&opt);
+#else
+    libdeflate_set_memory_allocator (
+        ctxt ? ctxt->alloc_fn : internal_exr_alloc,
+        ctxt ? ctxt->free_fn : internal_exr_free);
+    return libdeflate_alloc_decompressor ();
+#endif
+}
+
+static inline exr_result_t
+translate_deflate_result (
+    enum libdeflate_result res,
+    size_t actual_in_bytes,
+    size_t in_bytes)
+{
+    if (res == LIBDEFLATE_SUCCESS)
+    {
+        if (in_bytes == actual_in_bytes) return EXR_ERR_SUCCESS;
+        /* it's an error to not consume the full buffer, right? */
+    }
+    else if (res == LIBDEFLATE_INSUFFICIENT_SPACE)
+    {
+        return EXR_ERR_OUT_OF_MEMORY;
+    }
+    else if (res == LIBDEFLATE_SHORT_OUTPUT)
+    {
+        /* Decompression succeeded; *actual_out is the byte count. This is
+         * not an error when out_bytes_avail exceeds the true uncompressed
+         * size (e.g. PXR24/ZIP use padded scratch buffers). Callers that
+         * need an exact payload size must compare *actual_out (see e.g.
+         * undo_pxr24_impl). */
+        return EXR_ERR_SUCCESS;
+    }
+    return EXR_ERR_CORRUPT_CHUNK;
+}
+
+/**************************************/
+
+static void internal_free_zip_context (exr_decode_pipeline_t* decode)
+{
+    struct libdeflate_decompressor* decomp = decode->compression_context;
+    if (decomp)
+        libdeflate_free_decompressor (decomp);
+}
+
+exr_result_t internal_exr_decode_uncompress_buffer (
+    exr_decode_pipeline_t* decode,
+    const void*            in,
+    size_t                 in_bytes,
+    void*                  out,
+    size_t                 out_bytes_avail,
+    size_t*                actual_out)
+{
+    if (decode->pipe_size >= sizeof (exr_decode_pipeline_v2_t))
+    {
+        struct libdeflate_decompressor* decomp;
+        enum libdeflate_result          res;
+        size_t                          actual_in_bytes;
+
+        /* we can cache the context... */
+        if (decode->compression_context == NULL)
+        {
+            decode->compression_context = create_deflate_context (decode->context);
+            decode->free_compression_context = &internal_free_zip_context;
+        }
+        decomp = decode->compression_context;
+
+        res = libdeflate_zlib_decompress_ex (
+            decomp,
+            in,
+            in_bytes,
+            out,
+            out_bytes_avail,
+            &actual_in_bytes,
+            actual_out);
+
+        return translate_deflate_result (res, actual_in_bytes, in_bytes);
+    }
+    return exr_uncompress_buffer (decode->context, in, in_bytes,
+                                  out, out_bytes_avail, actual_out);
+}
+
+/**************************************/
+
+exr_result_t
+exr_uncompress_buffer (
+    exr_const_context_t ctxt,
+    const void*         in,
+    size_t              in_bytes,
+    void*               out,
+    size_t              out_bytes_avail,
+    size_t*             actual_out)
+{
+    struct libdeflate_decompressor* decomp;
+    enum libdeflate_result          res;
+    size_t                          actual_in_bytes;
+
+    decomp = create_deflate_context (ctxt);
+    if (decomp)
+    {
+        res = libdeflate_zlib_decompress_ex (
+            decomp,
+            in,
+            in_bytes,
+            out,
+            out_bytes_avail,
+            &actual_in_bytes,
+            actual_out);
+
+        libdeflate_free_decompressor (decomp);
+
+        return translate_deflate_result (res, actual_in_bytes, in_bytes);
+    }
+    return EXR_ERR_OUT_OF_MEMORY;
+}
+
+/**************************************/
+/**************************************/
+
+size_t
+exr_rle_compress_buffer (size_t in_bytes, const void* in, void* out, size_t out_avail)
+{
+    return internal_rle_compress (out, out_avail, in, in_bytes);
+}
+
+size_t
+exr_rle_uncompress_buffer (size_t in_bytes, size_t max_len, const void* in, void* out)
+{
+    return internal_rle_decompress (out, max_len, in, in_bytes);
+}
+
+/**************************************/
+
+int
+exr_compression_lines_per_chunk (exr_compression_t comptype)
+{
+    int linePerChunk = -1;
+
+    switch (comptype)
+    {
+        case EXR_COMPRESSION_NONE:
+        case EXR_COMPRESSION_RLE:
+        case EXR_COMPRESSION_ZSTD:
+        case EXR_COMPRESSION_ZIPS: linePerChunk = 1; break;
+        case EXR_COMPRESSION_ZIP:
+        case EXR_COMPRESSION_PXR24: linePerChunk = 16; break;
+        case EXR_COMPRESSION_PIZ:
+        case EXR_COMPRESSION_B44:
+        case EXR_COMPRESSION_B44A:
+        case EXR_COMPRESSION_HTJ2K32:
+        case EXR_COMPRESSION_DWAA: linePerChunk = 32; break;
+        case EXR_COMPRESSION_DWAB:
+        case EXR_COMPRESSION_HTJ2K256:
+        case EXR_COMPRESSION_LJ2K: linePerChunk = 256; break;
+        case EXR_COMPRESSION_LAST_TYPE:
+        default:
+            /* ERROR CONDITION */
+            break;
+    }
+    return linePerChunk;
+}
+
+/**************************************/
+
+const char *exr_compression_name (exr_compression_t comptype)
+{
+    static char* compressionnames[] = {
+        "none",
+        "rle",
+        "zips",
+        "zip",
+        "piz",
+        "pxr24",
+        "b44",
+        "b44a",
+        "dwaa",
+        "dwab",
+        "htj2k256",
+        "htj2k32",
+        "lj2k",
+        "zstd"
+    };
+    int idx = (int)comptype;
+    if (idx >= 0 && idx < (int)EXR_COMPRESSION_LAST_TYPE)
+        return compressionnames[idx];
+    return "<UNKNOWN>";
+}
+
+/**************************************/
+
+exr_compression_t exr_compression_type_from_name (const char *compname)
+{
+    exr_compression_t retval = EXR_COMPRESSION_LAST_TYPE;
+
+    if (compname == NULL)
+        return retval;
+
+    // C++ routine supported any case spelling by
+    // doing a tolower conversion on the string.
+    //
+    // we'll just test the first character to divide and conquer
+    // then do a strcasecmp rather than do the string dupe and conversion
+    switch (compname[0])
+    {
+        case 'n':
+        case 'N':
+            // c++ allowed no for none as well as none
+            if (0 == strcasecmp (compname, "no") ||
+                0 == strcasecmp (compname, "none"))
+                retval = EXR_COMPRESSION_NONE;
+            break;
+        case 'r':
+        case 'R':
+            if (0 == strcasecmp (compname, "rle"))
+                retval = EXR_COMPRESSION_RLE;
+            break;
+        case 'z':
+        case 'Z':
+            if (0 == strcasecmp (compname, "zips"))
+                retval = EXR_COMPRESSION_ZIPS;
+            else if (0 == strcasecmp (compname, "zip"))
+                retval = EXR_COMPRESSION_ZIP;
+            else if (0 == strcasecmp (compname, "zstd"))
+                retval = EXR_COMPRESSION_ZSTD;
+            break;
+        case 'p':
+        case 'P':
+            if (0 == strcasecmp (compname, "piz"))
+                retval = EXR_COMPRESSION_PIZ;
+            else if (0 == strcasecmp (compname, "pxr24"))
+                retval = EXR_COMPRESSION_PXR24;
+            break;
+        case 'b':
+        case 'B':
+            if (0 == strcasecmp (compname, "b44"))
+                retval = EXR_COMPRESSION_B44;
+            else if (0 == strcasecmp (compname, "b44a"))
+                retval = EXR_COMPRESSION_B44A;
+            break;
+        case 'd':
+        case 'D':
+            if (0 == strcasecmp (compname, "dwaa"))
+                retval = EXR_COMPRESSION_DWAA;
+            else if (0 == strcasecmp (compname, "dwab"))
+                retval = EXR_COMPRESSION_DWAB;
+            break;
+        case 'h':
+        case 'H':
+            if (0 == strcasecmp (compname, "htj2k256"))
+                retval = EXR_COMPRESSION_HTJ2K256;
+            else if (0 == strcasecmp (compname, "htj2k32"))
+                retval = EXR_COMPRESSION_HTJ2K32;
+            break;
+        case 'l':
+        case 'L':
+            if (0 == strcasecmp (compname, "lj2k"))
+                retval = EXR_COMPRESSION_LJ2K;
+            break;
+        default:
+            break;
+    }
+    return retval;
+}
+
+/**************************************/
+
+const char *exr_compression_description (exr_compression_t comptype)
+{
+    static char* compressiondescs[] = {
+        "none: no compression.",
+        "rle: run-length encoding.",
+        "zips: zlib/deflate compression, one scan line at a time.",
+        "zip: zlib/deflate compression, in blocks of 16 scan lines.",
+        "piz: piz-based wavelet compression, in blocks of 32 scan lines.",
+        "pxr24: lossy 24-bit float compression, in blocks of 16 scan lines.",
+        "b44: lossy 4-by-4 pixel block compression, fixed compression rate.",
+        "b44a: lossy 4-by-4 pixel block compression, flat fields are compressed more.",
+        "dwaa: lossy DCT based compression, in blocks of 32 scanlines. More efficient for partial buffer access.",
+        "dwab: lossy DCT based compression, in blocks of 256 scanlines. More efficient space wise and faster to decode full frames than DWAA.",
+        "htj2k256: High-Throughput JPEG 2000, lossless (256 lines)",
+        "htj2k32: High-Throughput JPEG 2000, lossless (32 lines)",
+        "lj2k: High-Throughput JPEG 2000, lossy (256 lines)",
+        "zstd: zstd lossless compression, 1 scan line at a time."
+    };
+    int idx = (int)comptype;
+    if (idx >= 0 && idx < (int)EXR_COMPRESSION_LAST_TYPE)
+        return compressiondescs[idx];
+    return "<UNKNOWN>: INVALID COMPRESSION ID";
+}
+
+/**************************************/
+
+int
+exr_compression_is_lossy (exr_compression_t comptype)
+{
+    switch (comptype)
+    {
+        case EXR_COMPRESSION_PXR24:
+        case EXR_COMPRESSION_B44:
+        case EXR_COMPRESSION_B44A:
+        case EXR_COMPRESSION_DWAA:
+        case EXR_COMPRESSION_DWAB:
+        case EXR_COMPRESSION_LJ2K:
+            return 1;
+        default:
+            break;
+    }
+    return 0;
+}
+
+/**************************************/
+
+int
+exr_compression_is_valid_for_deep (exr_compression_t comptype)
+{
+    switch (comptype)
+    {
+        case EXR_COMPRESSION_NONE:
+        case EXR_COMPRESSION_RLE:
+        case EXR_COMPRESSION_ZIPS:
+        case EXR_COMPRESSION_ZSTD:
+            return 1;
+        default:
+            break;
+    }
+    return 0;
+}
+
+/**************************************/
+
+exr_result_t
+exr_compress_chunk (exr_encode_pipeline_t* encode)
+{
+    exr_result_t    rv;
+    exr_context_t   ctxt;
+    exr_priv_part_t part;
+    size_t          maxbytes;
+
+    if (!encode) return EXR_ERR_MISSING_CONTEXT_ARG;
+    ctxt = (exr_context_t) encode->context;
+    if (!ctxt) return EXR_ERR_MISSING_CONTEXT_ARG;
+
+    /* TODO: Double check need for a lock? */
+    if (encode->part_index < 0 || encode->part_index >= ctxt->num_parts)
+        return ctxt->print_error (
+            ctxt,
+            EXR_ERR_ARGUMENT_OUT_OF_RANGE,
+            "Part index (%d) out of range",
+            encode->part_index);
+
+    part = ctxt->parts[encode->part_index];
+
+    maxbytes = encode->chunk.unpacked_size;
+    if (encode->packed_bytes > maxbytes)
+        maxbytes = encode->packed_bytes;
+
+    rv = internal_encode_alloc_buffer (
+        encode,
+        EXR_TRANSCODE_BUFFER_COMPRESSED,
+        &(encode->compressed_buffer),
+        &(encode->compressed_alloc_size),
+        exr_compress_max_buffer_size (maxbytes));
+    if (rv != EXR_ERR_SUCCESS)
+        return ctxt->print_error (
+            ctxt,
+            rv,
+            "error allocating buffer %zu",
+            exr_compress_max_buffer_size (maxbytes));
+    //return rv;
+
+    // This is never called in regular c++ usage
+    if (encode->sample_count_table!=NULL && !encode->skip_sample_count_table_compression)
+    {
+        uint64_t sampsize =
+            (((uint64_t) encode->chunk.width) *
+             ((uint64_t) encode->chunk.height));
+
+        sampsize *= sizeof (int32_t);
+
+        if (part->comp_type == EXR_COMPRESSION_NONE)
+        {
+            internal_encode_free_buffer (
+                encode,
+                EXR_TRANSCODE_BUFFER_PACKED_SAMPLES,
+                &(encode->packed_sample_count_table),
+                &(encode->packed_sample_count_alloc_size));
+
+            encode->packed_sample_count_table      = encode->sample_count_table;
+            encode->packed_sample_count_alloc_size = 0;
+            encode->packed_sample_count_bytes = sampsize;
+        }
+        else
+        {
+            void *pb;
+            size_t pbb, pas;
+
+            pb = encode->packed_buffer;
+            pbb = encode->packed_bytes;
+            pas = encode->packed_alloc_size;
+
+            rv = internal_encode_alloc_buffer (
+                encode,
+                EXR_TRANSCODE_BUFFER_PACKED_SAMPLES,
+                &(encode->packed_sample_count_table),
+                &(encode->packed_sample_count_alloc_size),
+                exr_compress_max_buffer_size (sampsize));
+            if (rv != EXR_ERR_SUCCESS)
+                return rv;
+
+            encode->packed_buffer = encode->packed_sample_count_table;
+            encode->packed_bytes = sampsize;
+            encode->packed_alloc_size = encode->packed_sample_count_alloc_size;
+            switch (part->comp_type)
+            {
+                case EXR_COMPRESSION_NONE: rv = EXR_ERR_INVALID_ARGUMENT; break;
+                case EXR_COMPRESSION_RLE: rv = internal_exr_apply_rle (encode); break;
+                case EXR_COMPRESSION_ZIP:
+                case EXR_COMPRESSION_ZIPS: rv = internal_exr_apply_zip (encode); break;
+                case EXR_COMPRESSION_ZSTD: rv = internal_exr_apply_zstd (encode); break;
+
+                default:
+                    rv = EXR_ERR_INVALID_ARGUMENT;
+                    break;
+            }
+            encode->packed_buffer = pb;
+            encode->packed_bytes = pbb;
+            encode->packed_alloc_size = pas;
+
+            if (rv != EXR_ERR_SUCCESS)
+                return ctxt->print_error (
+                    ctxt,
+                    rv,
+                    "Unable to compress sample table");
+        }
+    }
+
+    switch (part->comp_type)
+    {
+        case EXR_COMPRESSION_NONE:
+            return ctxt->report_error (
+                ctxt,
+                EXR_ERR_INVALID_ARGUMENT,
+                "no compression set but still trying to compress");
+
+        case EXR_COMPRESSION_RLE: rv = internal_exr_apply_rle (encode); break;
+        case EXR_COMPRESSION_ZIP:
+        case EXR_COMPRESSION_ZIPS: rv = internal_exr_apply_zip (encode); break;
+        case EXR_COMPRESSION_PIZ: rv = internal_exr_apply_piz (encode); break;
+        case EXR_COMPRESSION_PXR24:
+            rv = internal_exr_apply_pxr24 (encode);
+            break;
+        case EXR_COMPRESSION_B44: rv = internal_exr_apply_b44 (encode); break;
+        case EXR_COMPRESSION_B44A: rv = internal_exr_apply_b44a (encode); break;
+        case EXR_COMPRESSION_DWAA: rv = internal_exr_apply_dwaa (encode); break;
+        case EXR_COMPRESSION_DWAB: rv = internal_exr_apply_dwab (encode); break;
+        case EXR_COMPRESSION_HTJ2K32:
+        case EXR_COMPRESSION_HTJ2K256:
+        case EXR_COMPRESSION_LJ2K:
+            rv = internal_exr_apply_ht (encode); break;
+        case EXR_COMPRESSION_ZSTD: rv = internal_exr_apply_zstd (encode); break;
+        case EXR_COMPRESSION_LAST_TYPE:
+        default:
+            return ctxt->print_error (
+                ctxt,
+                EXR_ERR_INVALID_ARGUMENT,
+                "Compression technique 0x%02X invalid",
+                (int) part->comp_type);
+    }
+    return rv;
+}
+
+/**************************************/
+/**************************************/
+
+static exr_result_t
+decompress_data (
+    exr_const_context_t     ctxt,
+    const exr_compression_t ctype,
+    exr_decode_pipeline_t*  decode,
+    void*                   packbufptr,
+    size_t                  packsz,
+    void*                   unpackbufptr,
+    size_t                  unpacksz)
+{
+    exr_result_t rv;
+
+    if (packsz == 0) return EXR_ERR_SUCCESS;
+
+    if (packsz == unpacksz)
+    {
+        if (unpackbufptr != packbufptr)
+            memcpy (unpackbufptr, packbufptr, unpacksz);
+        return EXR_ERR_SUCCESS;
+    }
+
+    switch (ctype)
+    {
+        case EXR_COMPRESSION_NONE:
+            return ctxt->report_error (
+                ctxt,
+                EXR_ERR_INVALID_ARGUMENT,
+                "no compression set but still trying to decompress");
+
+        case EXR_COMPRESSION_RLE:
+            rv = internal_exr_undo_rle (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_ZIP:
+        case EXR_COMPRESSION_ZIPS:
+            rv = internal_exr_undo_zip (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_PIZ:
+            rv = internal_exr_undo_piz (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_PXR24:
+            rv = internal_exr_undo_pxr24 (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_B44:
+            rv = internal_exr_undo_b44 (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_B44A:
+            rv = internal_exr_undo_b44a (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_DWAA:
+            rv = internal_exr_undo_dwaa (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_DWAB:
+            rv = internal_exr_undo_dwab (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_HTJ2K256:
+        case EXR_COMPRESSION_HTJ2K32:
+        case EXR_COMPRESSION_LJ2K:
+            rv = internal_exr_undo_ht (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_ZSTD:
+            rv = internal_exr_undo_zstd (
+                decode, packbufptr, packsz, unpackbufptr, unpacksz);
+            break;
+        case EXR_COMPRESSION_LAST_TYPE:
+        default:
+            return ctxt->print_error (
+                ctxt,
+                EXR_ERR_INVALID_ARGUMENT,
+                "Compression technique 0x%02X invalid",
+                ctype);
+    }
+
+    return rv;
+}
+
+exr_result_t
+exr_uncompress_chunk (exr_decode_pipeline_t* decode)
+{
+    exr_result_t    rv   = EXR_ERR_SUCCESS;
+    exr_context_t   ctxt;
+    exr_priv_part_t part;
+
+    if (!decode) return EXR_ERR_MISSING_CONTEXT_ARG;
+
+    decode->bytes_decompressed = 0;
+
+    ctxt = (exr_context_t)decode->context;
+    if (!ctxt) return EXR_ERR_MISSING_CONTEXT_ARG;
+
+    /* TODO: Double check need for a lock? */
+    if (decode->part_index < 0 || decode->part_index >= ctxt->num_parts)
+        return ctxt->print_error (
+            ctxt,
+            EXR_ERR_ARGUMENT_OUT_OF_RANGE,
+            "Part index (%d) out of range",
+            decode->part_index);
+
+    part = ctxt->parts[decode->part_index];
+
+//    if (decode->chunk.unpacked_size != part->unpacked_size_per_chunk)
+//        return ctxt->print_error (
+//            ctxt,
+//            EXR_ERR_ARGUMENT_OUT_OF_RANGE,
+//            "Memory not sufficient to unpack a full part, expect %" PRIu64 ", given %" PRIu64,
+//            part->unpacked_size_per_chunk,
+//            decode->chunk.unpacked_size);
+
+    if (decode->packed_sample_count_table)
+    {
+        uint64_t sampsize =
+            (((uint64_t) decode->chunk.width) *
+             ((uint64_t) decode->chunk.height));
+
+        sampsize *= sizeof (int32_t);
+
+        rv = decompress_data (
+            ctxt,
+            part->comp_type,
+            decode,
+            decode->packed_sample_count_table,
+            decode->chunk.sample_count_table_size,
+            decode->sample_count_table,
+            sampsize);
+        decode->sample_count_valid = 1;
+        if (rv != EXR_ERR_SUCCESS)
+        {
+            return ctxt->print_error (
+                ctxt,
+                rv,
+                "Unable to decompress sample table %" PRIu64 " -> %" PRIu64,
+                decode->chunk.sample_count_table_size,
+                (uint64_t) sampsize);
+        }
+    }
+
+    if ((decode->decode_flags & EXR_DECODE_SAMPLE_DATA_ONLY)) return rv;
+
+    if (rv == EXR_ERR_SUCCESS &&
+        decode->chunk.packed_size > 0 &&
+        decode->chunk.unpacked_size > 0)
+        rv = decompress_data (
+            ctxt,
+            part->comp_type,
+            decode,
+            decode->packed_buffer,
+            decode->chunk.packed_size,
+            decode->unpacked_buffer,
+            decode->chunk.unpacked_size);
+
+    if (rv != EXR_ERR_SUCCESS)
+    {
+        return ctxt->print_error (
+            ctxt,
+            rv,
+            "Unable to decompress w %d image data %" PRIu64 " -> %" PRIu64 ", got %" PRIu64,
+            (int)part->comp_type,
+            decode->chunk.packed_size,
+            decode->chunk.unpacked_size,
+            decode->bytes_decompressed);
+    }
+    return rv;
+}

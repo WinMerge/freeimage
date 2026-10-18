@@ -666,8 +666,12 @@ ERR detach_SB(SimpleBitIO* pSB)
 //================================================================
 // Memory access functions
 //================================================================
-#if (defined(WIN32) && !defined(UNDER_CE) && (!defined(__MINGW32__) || defined(__MINGW64_TOOLCHAIN__))) || (defined(UNDER_CE) && defined(_ARM_))
-// WinCE ARM and Desktop x86
+/* Desktop Windows and WinCE ARM already declare _byteswap_ulong.
+   MinGW-w64's declaration is unsigned long(unsigned long), which
+   conflicts with a local U32(U32). __MINGW64_TOOLCHAIN__ is not set
+   by the MinGW and MSYS2 toolchains used in CI. */
+#if (defined(WIN32) && !defined(UNDER_CE)) || (defined(UNDER_CE) && defined(_ARM_))
+// WinCE ARM and desktop Windows, including MinGW
 #else
 // other platform
 #ifdef _BIG__ENDIAN_

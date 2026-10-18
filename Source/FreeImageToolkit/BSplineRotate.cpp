@@ -2,11 +2,13 @@
 // Bitmap rotation using B-Splines
 //
 // Design and implementation by
-// - Philippe Thévenaz (philippe.thevenaz@epfl.ch)
+// - Philippe ThÃ©venaz (philippe.thevenaz@epfl.ch)
 // Adaptation for FreeImage by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -25,7 +27,7 @@
 ==========================================================
 This code was taken and adapted from the following reference : 
 
-[1] Philippe Thévenaz, Spline interpolation, a C source code 
+[1] Philippe ThÃ©venaz, Spline interpolation, a C source code 
 implementation. http://bigwww.epfl.ch/thevenaz/
 
 It implements ideas described in the following papers : 
@@ -573,7 +575,7 @@ Rotate8Bit(FIBITMAP *dib, double angle, double x_shift, double y_shift, double x
 	// copy data samples
 	for(y = 0; y < height; y++) {
 		double *pImage = &ImageRasterArray[y*width];
-		BYTE *src_bits = FreeImage_GetScanLine(dib, height-1-y);
+		BYTE *src_bits = FreeImage_GetScanLine(dib, (int)(height-1-y));
 
 		for(x = 0; x < width; x++) {
 			pImage[x] = (double)src_bits[x];
@@ -602,7 +604,7 @@ Rotate8Bit(FIBITMAP *dib, double angle, double x_shift, double y_shift, double x
 
 	// visit all pixels of the output image and assign their value
 	for(y = 0; y < height; y++) {
-		BYTE *dst_bits = FreeImage_GetScanLine(dst, height-1-y);
+		BYTE *dst_bits = FreeImage_GetScanLine(dst, (int)(height-1-y));
 		
 		x0 = a12 * (double)y + x_shift;
 		y0 = a22 * (double)y + y_shift;

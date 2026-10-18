@@ -1,3 +1,12 @@
+Current build
+-------------
+CMake is how this tree is built. See README.md.
+
+    cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+    cmake --build build
+
+The notes below are a Solaris 9 `Makefile.solaris` port and are historical.
+
 Release Notes
 --------------
 Hey folks, 

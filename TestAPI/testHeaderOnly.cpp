@@ -2,9 +2,11 @@
 // FreeImage 3 Test Script
 //
 // Design and implementation by
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -174,7 +176,7 @@ testExifRawFile(const char *lpszPathName, int load_flags, int save_flags) {
 			BYTE *value = (BYTE*)FreeImage_GetTagValue(tag);
 
 			// save as jpeg : Exif data should be preserved
-			FreeImage_Save(fif, dib, lpszDstPathName, save_flags); 
+			if(!FreeImage_Save(fif, dib, lpszDstPathName, save_flags)) throw(1); 
 
 			// load and check Exif raw data
 			fif = FreeImage_GetFileType(lpszDstPathName);

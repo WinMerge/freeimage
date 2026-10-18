@@ -6,9 +6,11 @@
 // - Rui Lopes (ruiglopes@yahoo.com)
 // - Detlev Vendt (detlev.vendt@brillit.de)
 // - Petr Pytelka (pyta@lightcomp.com)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 //
 // This file is part of FreeImage 3
+//
+// Copyright (C) 2003-2026 The FreeImage Project
 //
 // COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
 // OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
@@ -40,6 +42,14 @@
 #include "Plugin.h"
 
 #include "../Metadata/FreeImageTag.h"
+#include <string>
+#include <vector>
+#ifdef _WIN32
+#include <fcntl.h>
+#else
+#include <unistd.h>
+#include <sys/stat.h>
+#endif
 
 // =====================================================================
 
@@ -266,24 +276,19 @@ FreeImage_Initialise(BOOL load_local_plugins_only) {
 	        s_plugins->AddNode(InitHDR);
 			s_plugins->AddNode(InitG3);
 			s_plugins->AddNode(InitSGI);
-			#if INCLUDE_LIB_OPENEXR
 			s_plugins->AddNode(InitEXR);
-			#endif
 			s_plugins->AddNode(InitJ2K);
 			s_plugins->AddNode(InitJP2);
 			s_plugins->AddNode(InitPFM);
 			s_plugins->AddNode(InitPICT);
-			#if INCLUDE_LIB_RAW
 			s_plugins->AddNode(InitRAW);
-			#endif
-			#if INCLUDE_LIB_WEBP
 			s_plugins->AddNode(InitWEBP);
-			#endif
-			#if INCLUDE_LIB_JXR
 #if !(defined(_MSC_VER) && (_MSC_VER <= 1310))
 			s_plugins->AddNode(InitJXR);
 #endif // unsupported by MS Visual Studio 2003 !!!
-			#endif
+			s_plugins->AddNode(InitHEIF);
+			s_plugins->AddNode(InitAVIF);
+            s_plugins->AddNode(InitJPEGXL);
 			
 			// external plugin initialization
 
@@ -474,44 +479,102 @@ FreeImage_SaveToHandle(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, FreeImageIO *io, fi
 }
 
 
+// Inspired by FreeImageRe's staged SaveImpl (FIPL/GPLv2), adapted without
+// its C++20 filesystem dependency. Never publish an incomplete encoder output.
+namespace {
+#ifdef _WIN32
+struct NarrowSavePath {
+    typedef char Char;
+    static HANDLE Create(const char *p) { return CreateFileA(p, GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL); }
+    static BOOL Replace(const char *from, const char *to) { return MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING); }
+    static void Remove(const char *p) { DeleteFileA(p); }
+};
+struct WideSavePath {
+    typedef wchar_t Char;
+    static HANDLE Create(const wchar_t *p) { return CreateFileW(p, GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL); }
+    static BOOL Replace(const wchar_t *from, const wchar_t *to) { return MoveFileExW(from, to, MOVEFILE_REPLACE_EXISTING); }
+    static void Remove(const wchar_t *p) { DeleteFileW(p); }
+};
+template<class Path> BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const typename Path::Char *filename, int flags) {
+    if(!filename || !FreeImage_HasPixels(dib) || !FreeImage_FIFSupportsWriting(fif)) return FALSE;
+    typedef typename Path::Char Char;
+    std::basic_string<Char> temporary(filename);
+    FILE *file = NULL;
+    static volatile LONG sequence = 0;
+    for(unsigned attempt = 0; attempt < 64; ++attempt) {
+        const std::string suffix = ".fitmp." + std::to_string(GetCurrentProcessId()) + "." + std::to_string(InterlockedIncrement(&sequence));
+        temporary.assign(filename);
+        const size_t separator = temporary.find_last_of(std::basic_string<Char>(1, static_cast<Char>('/')) + static_cast<Char>('\\'));
+        const size_t prefix = separator != std::basic_string<Char>::npos ? separator + 1 :
+            temporary.size() > 1 && temporary[1] == static_cast<Char>(':') ? 2 : 0;
+        temporary.resize(prefix);
+        for(const char *c = suffix.c_str(); *c; ++c) temporary += static_cast<Char>(*c);
+        HANDLE h = Path::Create(temporary.c_str());
+        if(h == INVALID_HANDLE_VALUE) {
+            if(GetLastError() == ERROR_FILE_EXISTS || GetLastError() == ERROR_ALREADY_EXISTS) continue;
+            return FALSE;
+        }
+        const int fd = _open_osfhandle(reinterpret_cast<intptr_t>(h), _O_BINARY | _O_RDWR);
+        if(fd == -1) { CloseHandle(h); Path::Remove(temporary.c_str()); return FALSE; }
+        file = _fdopen(fd, "w+b");
+        if(!file) { _close(fd); Path::Remove(temporary.c_str()); return FALSE; }
+        break;
+    }
+    if(!file) return FALSE;
+    BOOL success = FALSE;
+    FreeImageIO io; SetDefaultIO(&io);
+    try { success = FreeImage_SaveToHandle(fif, dib, &io, file, flags); } catch(...) { success = FALSE; }
+    if(ferror(file)) success = FALSE;
+    if(fclose(file) != 0) success = FALSE;
+    if(success) success = Path::Replace(temporary.c_str(), filename);
+    if(!success) Path::Remove(temporary.c_str());
+    return success;
+}
+#else
+BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags) {
+    if(!filename || !FreeImage_HasPixels(dib) || !FreeImage_FIFSupportsWriting(fif)) return FALSE;
+    struct stat info;
+    if(lstat(filename, &info) == 0 && !S_ISREG(info.st_mode)) return FALSE;
+    std::string temporary(filename);
+    const size_t separator = temporary.find_last_of('/');
+    temporary.resize(separator == std::string::npos ? 0 : separator + 1);
+    temporary += ".freeimage.XXXXXX";
+    std::vector<char> name(temporary.begin(), temporary.end());
+    name.push_back(0);
+    const int fd = mkstemp(&name[0]);
+    if(fd < 0) return FALSE;
+    FILE *file = fdopen(fd, "w+b");
+    if(!file) { close(fd); unlink(&name[0]); return FALSE; }
+    // Preserve regular-file permissions when replacing an existing destination.
+    if(stat(filename, &info) == 0 && S_ISREG(info.st_mode)) fchmod(fd, info.st_mode & 0777);
+    FreeImageIO io; SetDefaultIO(&io);
+    BOOL success = FALSE;
+    try { success = FreeImage_SaveToHandle(fif, dib, &io, file, flags); } catch(...) { success = FALSE; }
+    if(ferror(file)) success = FALSE;
+    if(fclose(file) != 0) success = FALSE;
+    if(success && rename(&name[0], filename) != 0) success = FALSE;
+    if(!success) unlink(&name[0]);
+    return success;
+}
+#endif
+}
 BOOL DLL_CALLCONV
 FreeImage_Save(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags) {
-	FreeImageIO io;
-	SetDefaultIO(&io);
-	
-	FILE *handle = fopen(filename, "w+b");
-	
-	if (handle) {
-		BOOL success = FreeImage_SaveToHandle(fif, dib, &io, (fi_handle)handle, flags);
-
-		fclose(handle);
-
-		return success;
-	} else {
-		FreeImage_OutputMessageProc((int)fif, "FreeImage_Save: failed to open file %s", filename);
-	}
-
-	return FALSE;
+    try {
+#ifdef _WIN32
+        return SaveFile<NarrowSavePath>(fif, dib, filename, flags);
+#else
+        return SaveFile(fif, dib, filename, flags);
+#endif
+    } catch(...) { return FALSE; }
 }
-
 BOOL DLL_CALLCONV
 FreeImage_SaveU(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const wchar_t *filename, int flags) {
-	FreeImageIO io;
-	SetDefaultIO(&io);
-#ifdef _WIN32	
-	FILE *handle = _wfopen(filename, L"w+b");
-	
-	if (handle) {
-		BOOL success = FreeImage_SaveToHandle(fif, dib, &io, (fi_handle)handle, flags);
-
-		fclose(handle);
-
-		return success;
-	} else {
-		FreeImage_OutputMessageProc((int)fif, "FreeImage_SaveU: failed to open output file");
-	}
+#ifdef _WIN32
+    try { return SaveFile<WideSavePath>(fif, dib, filename, flags); } catch(...) { return FALSE; }
+#else
+    return FALSE;
 #endif
-	return FALSE;
 }
 
 // =====================================================================
@@ -675,6 +738,12 @@ FreeImage_FIFSupportsWriting(FREE_IMAGE_FORMAT fif) {
 	if (s_plugins != NULL) {
 		PluginNode *node = s_plugins->FindNodeFromFIF(fif);
 
+#ifdef FREEIMAGE_LIBHEIF
+        // HEIF backends must be queried after shared-library initialization,
+        // rather than while registering the plugin in a load-time constructor.
+        if(node && node->m_plugin->save_proc && (fif == FIF_HEIF || fif == FIF_AVIF))
+            return FreeImage_FIFSupportsExportBPP(fif, 24);
+#endif
 		return (node != NULL) ? node->m_plugin->save_proc != NULL : FALSE ;
 	}
 

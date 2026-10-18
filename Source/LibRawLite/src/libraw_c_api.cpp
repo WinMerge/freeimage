@@ -1,6 +1,6 @@
 /* -*- C++ -*-
  * File: libraw_c_api.cpp
- * Copyright 2008-2021 LibRaw LLC (info@libraw.org)
+ * Copyright 2008-2025 LibRaw LLC (info@libraw.org)
  * Created: Sat Mar  8 , 2008
  *
  * LibRaw C interface
@@ -198,6 +198,15 @@ extern "C"
     ip->set_exifparser_handler(cb, data);
   }
 
+  void libraw_set_makernotes_handler(libraw_data_t *lr, exif_parser_callback cb,
+                                     void *data)
+  {
+    if (!lr)
+      return;
+    LibRaw *ip = (LibRaw *)lr->parent_class;
+    ip->set_makernotes_handler(cb, data);
+  }
+
   void libraw_set_dataerror_handler(libraw_data_t *lr, data_callback func,
                                     void *data)
   {
@@ -213,6 +222,14 @@ extern "C"
       return;
     LibRaw *ip = (LibRaw *)lr->parent_class;
     ip->set_progress_handler(cb, data);
+  }
+
+  int libraw_adjust_to_raw_inset_crop(libraw_data_t *lr, unsigned mask, float maxcrop)
+  {
+    if (!lr)
+      return EINVAL;
+    LibRaw *ip = (LibRaw *)lr->parent_class;
+    return ip->adjust_to_raw_inset_crop(mask,maxcrop);
   }
 
   // DCRAW
@@ -427,21 +444,21 @@ extern "C"
   DllDef float libraw_get_cam_mul(libraw_data_t *lr, int index)
   {
     if (!lr)
-      return EINVAL;
+      return -999.f;
     return lr->color.cam_mul[LIM(index, 0, 3)];
   }
 
   DllDef float libraw_get_pre_mul(libraw_data_t *lr, int index)
   {
     if (!lr)
-      return EINVAL;
+      return -999.f;
     return lr->color.pre_mul[LIM(index, 0, 3)];
   }
 
   DllDef float libraw_get_rgb_cam(libraw_data_t *lr, int index1, int index2)
   {
     if (!lr)
-      return EINVAL;
+      return -999.f;
     return lr->color.rgb_cam[LIM(index1, 0, 2)][LIM(index2, 0, 3)];
   }
 

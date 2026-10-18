@@ -1,35 +1,7 @@
-///////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2007, Weta Digital Ltd
-// 
-// All rights reserved.
-// 
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
-// *       Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-// *       Redistributions in binary form must reproduce the above
-// copyright notice, this list of conditions and the following disclaimer
-// in the documentation and/or other materials provided with the
-// distribution.
-// *       Neither the name of Weta Digital nor the names of
-// its contributors may be used to endorse or promote products derived
-// from this software without specific prior written permission. 
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-// "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-// LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-// OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-// LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-// OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// SPDX-License-Identifier: BSD-3-Clause
+// Copyright (c) Weta Digital, Ltd and Contributors to the OpenEXR Project.
 //
-///////////////////////////////////////////////////////////////////////////
 
 //-----------------------------------------------------------------------------
 //
@@ -38,14 +10,15 @@
 //
 //-----------------------------------------------------------------------------
 
-#include <ImfMultiView.h>
+#include "ImfMultiView.h"
 
 using namespace std;
 #include "ImfNamespace.h"
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_ENTER
 
-namespace {
+namespace
+{
 
 StringVector
 parseString (string name, char c = '.')
@@ -57,43 +30,42 @@ parseString (string name, char c = '.')
 
     StringVector r;
 
-    while (name.size() > 0)
-    {  
-	size_t s = name.find (c);
-	string sec = name.substr (0, s);
+    while (name.size () > 0)
+    {
+        size_t s   = name.find (c);
+        string sec = name.substr (0, s);
 
-	//
-	// Strip spaces from beginning
-	//
+        //
+        // Strip spaces from beginning
+        //
 
-	while (sec.size() > 0 && sec[0] == ' ')
-	    sec.erase (0, 1);
+        while (sec.size () > 0 && sec[0] == ' ')
+            sec.erase (0, 1);
 
-	//
-	// Strip spaces from end
-	//
+        //
+        // Strip spaces from end
+        //
 
-	while (sec.size() > 0 && sec[sec.size() - 1] == ' ')
-	    sec.erase (sec.size() - 1);
+        while (sec.size () > 0 && sec[sec.size () - 1] == ' ')
+            sec.erase (sec.size () - 1);
 
-	r.push_back (sec);
+        r.push_back (sec);
 
-	//
-	// Strip off name including ending 'c'
-	//
+        //
+        // Strip off name including ending 'c'
+        //
 
-	if (s == name.npos)
-	    name = "";
-	else
-	    name = name.substr (s + 1);
-    } 
+        if (s == name.npos)
+            name = "";
+        else
+            name = name.substr (s + 1);
+    }
 
     return r;
 }
 
-
 int
-viewNum (const string &view, const StringVector &multiView)
+viewNum (const string& view, const StringVector& multiView)
 {
     //
     // returns which view number is called 'view'
@@ -103,10 +75,9 @@ viewNum (const string &view, const StringVector &multiView)
     // otherwise, it's some other (valid) view
     //
 
-    for (size_t i = 0; i < multiView.size(); ++i)
+    for (size_t i = 0; i < multiView.size (); ++i)
     {
-	if (multiView[i] == view)
-	    return i;
+        if (multiView[i] == view) return i;
     }
 
     return -1;
@@ -114,20 +85,17 @@ viewNum (const string &view, const StringVector &multiView)
 
 } // namespace
 
-
 string
-defaultViewName (const StringVector &multiView)
+defaultViewName (const StringVector& multiView)
 {
-    if (multiView.size() > 0)
-	return multiView[0];
+    if (multiView.size () > 0)
+        return multiView[0];
     else
-	return "";
+        return "";
 }
 
-
 string
-viewFromChannelName (const string &channel,
-		     const StringVector &multiView)
+viewFromChannelName (const string& channel, const StringVector& multiView)
 {
     //
     // Given the name of a channel, return the name of the view to
@@ -140,42 +108,41 @@ viewFromChannelName (const string &channel,
 
     StringVector s = parseString (channel, '.');
 
-    if (s.size() == 0)
-	return ""; // nothing in, nothing out
+    if (s.size () == 0) return ""; // nothing in, nothing out
 
-    if (s.size() == 1)
+    if (s.size () == 1)
     {
-	//
-	// Return default view name.
-	// The rules say ALL channels with no periods
-	// in the name belong to the default view.
-	//
+        //
+        // Return default view name.
+        // The rules say ALL channels with no periods
+        // in the name belong to the default view.
+        //
 
-	return multiView[0];
+        return defaultViewName (multiView);
     }
     else
-    { 
-	//
-	// size >= 2 - the last part is the channel name,
-	// the next-to-last part is the view name.
-	// Check if that part of the name really is
-	// a valid view and, if it is, return it.
-	//
+    {
+        //
+        // size >= 2 - the last part is the channel name,
+        // the next-to-last part is the view name.
+        // Check if that part of the name really is
+        // a valid view and, if it is, return it.
+        //
 
-	const string &viewName = s[s.size() - 2];
+        const string& viewName = s[s.size () - 2];
 
-	if (viewNum (viewName, multiView) >= 0)
-	    return viewName;
-	else
-	    return ""; // not associated with any particular view
+        if (viewNum (viewName, multiView) >= 0)
+            return viewName;
+        else
+            return ""; // not associated with any particular view
     }
 }
 
-
 ChannelList
-channelsInView (const string & viewName,
-	        const ChannelList & channelList,
-		const StringVector & multiView)
+channelsInView (
+    const string&       viewName,
+    const ChannelList&  channelList,
+    const StringVector& multiView)
 {
     //
     // Return a list of all channels belonging to view viewName.
@@ -183,46 +150,41 @@ channelsInView (const string & viewName,
 
     ChannelList q;
 
-    for (ChannelList::ConstIterator i = channelList.begin();
-	 i != channelList.end();
-	 ++i)
+    for (ChannelList::ConstIterator i = channelList.begin ();
+         i != channelList.end ();
+         ++i)
     {
-	//
-	// Get view name for this channel
-	//
+        //
+        // Get view name for this channel
+        //
 
-	string view = viewFromChannelName (i.name(), multiView);
+        string view = viewFromChannelName (i.name (), multiView);
 
+        //
+        // Insert channel into q if it's a member of view viewName
+        //
 
-	//
-	// Insert channel into q if it's a member of view viewName
-	//
-
-	if (view == viewName)
-	   q.insert (i.name(), i.channel());
+        if (view == viewName) q.insert (i.name (), i.channel ());
     }
 
     return q;
 }
 
-
 ChannelList
-channelsInNoView (const ChannelList &channelList,
-		  const StringVector &multiView)
+channelsInNoView (const ChannelList& channelList, const StringVector& multiView)
 {
     //
     // Return a list of channels not associated with any named view.
     //
 
-    return channelsInView ("", channelList, multiView); 
+    return channelsInView ("", channelList, multiView);
 }
 
-
-
 bool
-areCounterparts (const string &channel1, 
-	         const string &channel2,
-		 const StringVector &multiView)
+areCounterparts (
+    const string&       channel1,
+    const string&       channel2,
+    const StringVector& multiView)
 {
     //
     // Given two channels, return true if they are the same
@@ -230,55 +192,52 @@ areCounterparts (const string &channel1,
     //
 
     StringVector chan1 = parseString (channel1);
-    size_t size1 = chan1.size();	// number of SECTIONS in string
-    					// name (not string length)
+    size_t       size1 = chan1.size (); // number of SECTIONS in string
+                                        // name (not string length)
 
     StringVector chan2 = parseString (channel2);
-    size_t size2 = chan2.size();
+    size_t       size2 = chan2.size ();
 
-    if (size1 == 0 || size2 == 0)
-	return false;
-     
+    if (size1 == 0 || size2 == 0) return false;
+
     //
     // channel1 and channel2 can't be counterparts
     // if either channel is in no view.
     //
 
-    if (size1 > 1 && viewNum (chan1[size1 - 2], multiView) == -1)
-	return false;
+    if (size1 > 1 && viewNum (chan1[size1 - 2], multiView) == -1) return false;
 
-    if (size2 > 1 && viewNum (chan2[size2 - 2], multiView) == -1)
-	return false; 
+    if (size2 > 1 && viewNum (chan2[size2 - 2], multiView) == -1) return false;
 
     if (viewFromChannelName (channel1, multiView) ==
-	viewFromChannelName (channel2, multiView))
+        viewFromChannelName (channel2, multiView))
     {
-	//
-	// channel1 and channel2 are not counterparts
-	// if they are in the same view.
-	//
+        //
+        // channel1 and channel2 are not counterparts
+        // if they are in the same view.
+        //
 
-	return false;
+        return false;
     }
 
     if (size1 == 1)
-    { 
-	//
-	// channel1 is a default channel - the channels will only be
-	// counterparts if channel2 is of the form <view>.<channel1>
-	//
+    {
+        //
+        // channel1 is a default channel - the channels will only be
+        // counterparts if channel2 is of the form <view>.<channel1>
+        //
 
-	return size2 == 2 && chan1[0] == chan2[1];
+        return size2 == 2 && chan1[0] == chan2[1];
     }
 
     if (size2 == 1)
     {
-	//
-	// channel2 is a default channel - the channels will only be
-	// counterparts if channel1 is of the form <view>.<channel2>
-	//
+        //
+        // channel2 is a default channel - the channels will only be
+        // counterparts if channel1 is of the form <view>.<channel2>
+        //
 
-	return size1 == 2 && chan2[0] == chan1[1];
+        return size1 == 2 && chan2[0] == chan1[1];
     }
 
     //
@@ -287,23 +246,21 @@ areCounterparts (const string &channel1,
     // all components except the penultimate one must be the same.
     //
 
-    if (size1 != size2)
-	return false;
+    if (size1 != size2) return false;
 
-    for(size_t i = 0; i < size1; ++i)
+    for (size_t i = 0; i < size1; ++i)
     {
-	if (i != size1 - 2 && chan1[i] != chan2[i])
-	    return false;
+        if (i != size1 - 2 && chan1[i] != chan2[i]) return false;
     }
 
     return true;
 }
 
-
 ChannelList
-channelInAllViews (const string &channelName,
-		   const ChannelList &channelList,
-		   const StringVector &multiView)
+channelInAllViews (
+    const string&       channelName,
+    const ChannelList&  channelList,
+    const StringVector& multiView)
 {
     //
     // Given the name of a channel, return a
@@ -312,51 +269,48 @@ channelInAllViews (const string &channelName,
 
     ChannelList q;
 
-    for (ChannelList::ConstIterator i=channelList.begin();
-	 i != channelList.end();
-	 ++i)
+    for (ChannelList::ConstIterator i = channelList.begin ();
+         i != channelList.end ();
+         ++i)
     {
-	if (i.name() == channelName ||
-	    areCounterparts (i.name(), channelName, multiView))
-	{
-	    q.insert (i.name(), i.channel());
-	}
+        if (i.name () == channelName ||
+            areCounterparts (i.name (), channelName, multiView))
+        {
+            q.insert (i.name (), i.channel ());
+        }
     }
 
     return q;
 }
 
-
 string
-channelInOtherView (const string &channelName,
-		    const ChannelList &channelList,
-		    const StringVector &multiView,
-		    const string &otherViewName)
+channelInOtherView (
+    const string&       channelName,
+    const ChannelList&  channelList,
+    const StringVector& multiView,
+    const string&       otherViewName)
 {
     //
     // Given the name of a channel in one view, return the
     // corresponding channel name for view otherViewName.
     //
 
-    for (ChannelList::ConstIterator i=channelList.begin();
-	 i != channelList.end();
-	 ++i)
+    for (ChannelList::ConstIterator i = channelList.begin ();
+         i != channelList.end ();
+         ++i)
     {
-	if (viewFromChannelName (i.name(), multiView) == otherViewName &&
-	    areCounterparts (i.name(), channelName, multiView))
-	{
-	    return i.name(); 
-	}
+        if (viewFromChannelName (i.name (), multiView) == otherViewName &&
+            areCounterparts (i.name (), channelName, multiView))
+        {
+            return i.name ();
+        }
     }
 
     return "";
 }
 
-
 string
-insertViewName (const string &channel,
-		const StringVector &multiView,
-		int i)
+insertViewName (const string& channel, const StringVector& multiView, int i)
 {
     //
     // Insert multiView[i] into the channel name if appropriate.
@@ -364,17 +318,16 @@ insertViewName (const string &channel,
 
     StringVector s = parseString (channel, '.');
 
-    if (s.size() == 0)
-	return ""; // nothing in, nothing out
+    if (s.size () == 0) return ""; // nothing in, nothing out
 
-    if (s.size() == 1 && i == 0)
+    if (s.size () == 1 && i == 0)
     {
-	//
-	// Channel in the default view, with no periods in its name.
-	// Do not insert view name.
-	//
+        //
+        // Channel in the default view, with no periods in its name.
+        // Do not insert view name.
+        //
 
-	return channel;
+        return channel;
     }
 
     //
@@ -383,53 +336,47 @@ insertViewName (const string &channel,
 
     string newName;
 
-    for (size_t j = 0; j < s.size(); ++j)
+    for (size_t j = 0; j < s.size (); ++j)
     {
-	if (j < s.size() - 1)
-	    newName += s[j] + ".";
-	else
-	    newName += multiView[i] + "." + s[j];
+        if (j < s.size () - 1)
+            newName += s[j] + ".";
+        else
+            newName += multiView[i] + "." + s[j];
     }
 
     return newName;
 }
 
-
 string
-removeViewName(const string & channel,const string & view)
+removeViewName (const string& channel, const string& view)
 {
     StringVector s = parseString (channel, '.');
 
-    if (s.size() == 0)
-	return ""; // nothing in, nothing out
+    if (s.size () == 0) return ""; // nothing in, nothing out
 
-    if (s.size() == 1)
+    if (s.size () == 1)
     {
-	//
-	// Channel in the default view, since no periods in its name.
-	// No viewname to remove
-	//
+        //
+        // Channel in the default view, since no periods in its name.
+        // No viewname to remove
+        //
 
-	return channel;
+        return channel;
     }
 
     string newName;
-    for( size_t j = 0 ; j < s.size() ; ++j)
+    for (size_t j = 0; j < s.size (); ++j)
     {
-	    // only add the penultimate string part
-	    // if it doesn't match the view name
-	    if(j+2!=s.size() || s[j]!=view)
-	    {
-                  newName += s[j];
-	          if(j+1!=s.size())
-	          {
-                      newName  += ".";
-	          }
-	    }
+        // only add the penultimate string part
+        // if it doesn't match the view name
+        if (j + 2 != s.size () || s[j] != view)
+        {
+            newName += s[j];
+            if (j + 1 != s.size ()) { newName += "."; }
+        }
     }
 
     return newName;
-
 }
 
 OPENEXR_IMF_INTERNAL_NAMESPACE_SOURCE_EXIT

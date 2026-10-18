@@ -25,7 +25,7 @@
 // ------------------------
 // Initial design and implementation by
 // - Karl-Heinz Bussian (khbussian@moss.de)
-// - Hervé Drolon (drolon@infonie.fr)
+// - HervÃ© Drolon (drolon@infonie.fr)
 // Completely rewritten from scratch by Ryan Rubley (ryan@lostreality.org)
 // in order to address the following major fixes:
 // * Supports any number of chars per pixel (not just 1 or 2)

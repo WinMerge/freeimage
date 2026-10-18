@@ -125,6 +125,9 @@
     <ClCompile Include="tif_hash_set.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="tif_win32.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="t4.h">
