@@ -15,6 +15,9 @@
     <Filter Include="Header Files\lib">
       <UniqueIdentifier>{608b6cbe-43ac-4068-93d2-6bdd357a9a6b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\arm">
+      <UniqueIdentifier>{84a2e1da-c9d1-45fd-9841-b53324cae22d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="lib\zlib_decompress.c">
@@ -40,6 +43,9 @@
     </ClCompile>
     <ClCompile Include="lib\x86\cpu_features.c">
       <Filter>Source Files\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="lib\arm\cpu_features.c">
+      <Filter>Source Files\arm</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

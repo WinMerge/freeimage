@@ -90,6 +90,8 @@
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM)  \
   || defined(__aarch64__) || defined(_M_ARM64) || defined(_M_ARM64EC)
   #define OJPH_ARCH_ARM
+#elif defined(__arm) || defined(_M_ARM)
+#  define OJPH_ARCH_ARM32
 #elif defined(__i386) || defined(__i386__) || defined(_M_IX86)
   #define OJPH_ARCH_I386
 #elif defined(__x86_64) || defined(__x86_64__) || defined(__amd64) \
@@ -122,6 +124,7 @@ namespace ojph {
   ////////////////////////////////////////////////////////////////////////////
 #if !defined(OJPH_ARCH_X86_64) && !defined(OJPH_ARCH_I386) &&  \
     !defined(OJPH_ARCH_ARM) && !defined(OJPH_ARCH_PPC64LE) &&  \
+    !defined(OJPH_ARCH_ARM32) &&  /* winmerge branch */\
     !defined(OJPH_DISABLE_SIMD)
 #define OJPH_DISABLE_SIMD
 #endif // !OJPH_ARCH_UNKNOWN
@@ -234,7 +237,7 @@ namespace ojph {
 #ifdef OJPH_COMPILER_MSVC
   #if (defined OJPH_ARCH_X86_64 || defined OJPH_ARCH_ARM)
     #pragma intrinsic(_BitScanReverse64)
-  #elif (defined OJPH_ARCH_I386)
+  #elif (defined OJPH_ARCH_I386 || defined OJPH_ARCH_ARM32) // winmerge branch
     #pragma intrinsic(_BitScanReverse)
   #else
     #error Error unsupport MSVC version
@@ -246,7 +249,7 @@ namespace ojph {
     unsigned long result = 0;
     #if (defined OJPH_ARCH_X86_64) || (defined OJPH_ARCH_ARM)
       _BitScanReverse64(&result, val);
-    #elif (defined OJPH_ARCH_I386)
+    #elif (defined OJPH_ARCH_I386 || defined OJPH_ARCH_ARM32) // winmerge branch
       ui32 msb = (ui32)(val >> 32), lsb = (ui32)val;
       if (msb == 0)
         _BitScanReverse(&result, lsb);
@@ -303,7 +306,7 @@ namespace ojph {
     unsigned long result = 0;
     #if (defined OJPH_ARCH_X86_64) || (defined OJPH_ARCH_ARM)
       _BitScanForward64(&result, val);
-    #elif (defined OJPH_ARCH_I386)
+    #elif (defined OJPH_ARCH_I386) || (defined OJPH_ARCH_ARM32) // winmerge branch)
       ui32 lsb = (ui32)val, msb = (ui32)(val >> 32);
       if (lsb != 0)
         _BitScanForward(&result, lsb);
