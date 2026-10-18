@@ -625,11 +625,7 @@
     <ClCompile Include="OpenJPH\coding\ojph_block_common.cpp" />
     <ClCompile Include="OpenJPH\coding\ojph_block_decoder32.cpp" />
     <ClCompile Include="OpenJPH\coding\ojph_block_decoder64.cpp" />
-    <ClCompile Include="OpenJPH\coding\ojph_block_decoder_avx2.cpp" />
-    <ClCompile Include="OpenJPH\coding\ojph_block_decoder_ssse3.cpp" />
     <ClCompile Include="OpenJPH\coding\ojph_block_encoder.cpp" />
-    <ClCompile Include="OpenJPH\coding\ojph_block_encoder_avx2.cpp" />
-    <ClCompile Include="OpenJPH\coding\ojph_block_encoder_avx512.cpp" />
     <ClCompile Include="OpenJPH\others\ojph_arch.cpp" />
     <ClCompile Include="OpenJPH\others\ojph_file.cpp" />
     <ClCompile Include="OpenJPH\others\ojph_mem.cpp" />
