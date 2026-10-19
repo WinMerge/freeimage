@@ -35,7 +35,8 @@
 #    define IMF_HAVE_NEON_AARCH64 1
 #endif
 
-#if defined(_M_ARM64) || defined(_M_ARM64EC)
+#if (defined(_M_ARM64) || defined(_M_ARM64EC)) && /* winmerge branch */\
+    (!defined(_MSC_VER) || _MSC_VER >= 1920) /* winmerge branch */
 #    define IMF_HAVE_NEON_WINDOWS_ARM64 1
 #endif
 
@@ -66,8 +67,16 @@
 #define _SSE_ALIGNMENT_MASK 0x0F
 #define _AVX_ALIGNMENT_MASK 0x1F
 
-#ifdef __ARM_NEON // Needed to support macOS with arm64 processor (e.g. M1)
-#    include <arm_neon.h>
+#if defined(__ARM_NEON) || defined(IMF_HAVE_NEON_ARM64) /* winmerge branch */
+#    if defined(_MSC_VER) /* winmerge branch */
+#        if defined(_M_ARM64) || defined(_M_ARM64EC) /* winmerge branch */
+#        include <arm64_neon.h> /* winmerge branch */
+#        else /* winmerge branch */
+#        include <arm_neon.h>
+#        endif /* winmerge branch */
+#    else /* winmerge branch */
+#        include <arm_neon.h> /* winmerge branch */
+#    endif /* winmerge branch */
 #endif
 
 #include "OpenEXRConfigInternal.h"

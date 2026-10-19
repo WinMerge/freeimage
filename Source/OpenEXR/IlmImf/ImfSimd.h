@@ -42,7 +42,9 @@
 #    define IMF_HAVE_F16C 1
 #endif
 
-#if defined(__ARM_NEON) || defined(_M_ARM64) || defined(_M_ARM64EC)
+#if defined(__ARM_NEON) || /* winmerge branch */\
+    ((defined(_M_ARM64) || defined(_M_ARM64EC)) && /* winmerge branch */\
+     (!defined(_MSC_VER) || _MSC_VER >= 1920)) /* winmerge branch */
 #    define IMF_HAVE_NEON
 #endif
 
@@ -50,7 +52,8 @@
 #    define IMF_HAVE_NEON_AARCH64 1
 #endif
 
-#if defined(_M_ARM64) || defined(_M_ARM64EC)
+#if (defined(_M_ARM64) || defined(_M_ARM64EC)) && /* winmerge branch */\
+    (!defined(_MSC_VER) || _MSC_VER >= 1920) /* winmerge branch */
 #    define IMF_HAVE_NEON_WINDOWS_ARM64 1
 #endif
 
@@ -69,7 +72,11 @@ extern "C" {
 #endif
 
 #ifdef IMF_HAVE_NEON
-#    include <arm_neon.h>
+#    if defined(_MSC_VER) && (defined(_M_ARM64) || defined(_M_ARM64EC)) /* winmerge branch */
+#        include <arm64_neon.h> /* winmerge branch */
+#    else /* winmerge branch */
+#        include <arm_neon.h>
+#    endif /* winmerge branch */
 #endif
 }
 

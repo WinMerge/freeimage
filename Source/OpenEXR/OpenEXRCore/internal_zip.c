@@ -28,7 +28,8 @@
 #    define IMF_HAVE_NEON_AARCH64 1
 #endif
 
-#if defined(_M_ARM64) || defined(_M_ARM64EC)
+#if (defined(_M_ARM64) || defined(_M_ARM64EC)) && /* winmerge branch */\
+    (!defined(_MSC_VER) || _MSC_VER >= 1920) /* winmerge branch */
 #    define IMF_HAVE_NEON_WINDOWS_ARM64 1
 #endif
 

@@ -57,7 +57,8 @@
 
 #if defined(OPJ_COMPILER_MSVC) && defined(_M_ARM64) \
     && !defined(_M_ARM64EC) && !defined(_M_CEE_PURE) && !defined(__CUDACC__) \
-    && !defined(__INTEL_COMPILER) && !defined(__clang__)
+    && !defined(__INTEL_COMPILER) && !defined(__clang__) /* winmerge branch */\
+    && _MSC_VER >= 1920 /* winmerge branch */
 #define MSVC_NEON_INTRINSICS
 #endif
 

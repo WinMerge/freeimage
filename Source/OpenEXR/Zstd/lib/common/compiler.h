@@ -215,7 +215,8 @@
 #  if defined(__SSE2__) || (defined(_M_X64) && !defined(_M_ARM64EC)) || (defined (_M_IX86) && defined(_M_IX86_FP) && (_M_IX86_FP >= 2))
 #    define ZSTD_ARCH_X86_SSE2
 #  endif
-#  if defined(__ARM_NEON) || defined(_M_ARM64)
+#  if defined(__ARM_NEON) || /* winmerge branch */\
+      (defined(_M_ARM64) && (!defined(_MSC_VER) || _MSC_VER >= 1920)) /* winmerge branch */
 #    define ZSTD_ARCH_ARM_NEON
 #  endif
 #
@@ -225,7 +226,11 @@
 #  if defined(ZSTD_ARCH_X86_SSE2)
 #    include <emmintrin.h>
 #  elif defined(ZSTD_ARCH_ARM_NEON)
-#    include <arm_neon.h>
+#    if defined(_MSC_VER) && defined(_M_ARM64) /* winmerge branch */
+#      include <arm64_neon.h> /* winmerge branch */
+#    else /* winmerge branch */
+#      include <arm_neon.h>
+#    endif /* winmerge branch */
 #  endif
 #endif
 

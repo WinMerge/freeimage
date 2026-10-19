@@ -79,9 +79,15 @@ static inline u32 get_arm_cpu_features(void) { return 0; }
  * r226563 for arm64), hardware floating point support is sufficient.
  */
 #if (defined(__GNUC__) || defined(__clang__) || defined(_MSC_VER)) && \
-	(HAVE_NEON_NATIVE || (GCC_PREREQ(6, 1) && defined(__ARM_FP)))
-#  define HAVE_NEON_INTRIN	1
-#  include <arm_neon.h>
+	(HAVE_NEON_NATIVE || (GCC_PREREQ(6, 1) && defined(__ARM_FP))) && /* winmerge branch */\
+	!(defined(_MSC_VER) && defined(ARCH_ARM64) && _MSC_VER < 1920) /* winmerge branch */
+#  define HAVE_NEON_INTRIN	1 /* winmerge branch */
+#  if defined(_MSC_VER) && defined(ARCH_ARM64) /* winmerge branch */
+/* MSVC names its ARM64 intrinsics header differently from ARM32. *//* winmerge branch */
+#    include <arm64_neon.h> /* winmerge branch */
+#  else /* winmerge branch */
+#    include <arm_neon.h> /* winmerge branch */
+#  endif /* winmerge branch */
 #else
 #  define HAVE_NEON_INTRIN	0
 #endif
