@@ -185,7 +185,7 @@
     <ClCompile>
       <Optimization>Disabled</Optimization>
       <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -349,7 +349,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
       <OmitFramePointers>true</OmitFramePointers>
       <WholeProgramOptimization>true</WholeProgramOptimization>
       <AdditionalIncludeDirectories>..;..\ZLib;..\DeprecationManager;..\Imath;..\LibOpenJPEG;..\LibPNG;..\LibRawLite;..\LibWebP\src;..\LibTIFF4;..\OpenEXR;..\OpenEXR\OpenEXRCore;..\OpenEXR\Half;..\OpenEXR\Iex;..\OpenEXR\IlmImf;..\OpenEXR\Imath;..\OpenEXR\IlmThread;..\LibJXR\jxrgluelib;..\LibJXR\image\sys;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_OPENEXR;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;OPJ_STATIC;FREEIMAGE_LIB;_CRT_SECURE_NO_DEPRECATE;LIBRAW_NODLL;INCLUDE_LIB_RAW;INCLUDE_LIB_JXR;INCLUDE_LIB_WEBP;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
