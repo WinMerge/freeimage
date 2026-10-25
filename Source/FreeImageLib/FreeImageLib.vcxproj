@@ -516,6 +516,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\OpenEXR\Half\half.cpp" Condition="'$(Platform)'=='Win32'" />
     <ClCompile Include="..\FreeImageToolkit\Analysis.cpp" />
     <ClCompile Include="..\FreeImage\BitmapAccess.cpp" />
     <ClCompile Include="..\FreeImage\ColorLookup.cpp" />
@@ -655,7 +656,7 @@ copy ..\FreeImage.h ..\..\Dist\$(Platform)
       <Project>{097d9f6c-fd0e-4cbc-9676-009012aaeca8}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <ProjectReference Include="..\OpenEXR\OpenEXR.vcxproj">
+    <ProjectReference Include="..\OpenEXR\OpenEXR.vcxproj" Condition="'$(Platform)'!='Win32'">
       <Project>{17a4874b-0606-4687-90b6-f91f8cb3b8af}</Project>
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
