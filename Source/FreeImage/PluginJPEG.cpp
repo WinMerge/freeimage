@@ -49,6 +49,7 @@ extern "C" {
 }
 
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 
 #include "../Metadata/FreeImageTag.h"
@@ -712,6 +713,7 @@ jpeg_read_jfxx(FIBITMAP *dib, const BYTE *dataptr, unsigned int datalen) {
 */
 static BOOL 
 read_markers(j_decompress_ptr cinfo, FIBITMAP *dib) {
+    if(FreeImageInternal::IsStrippingMetadata()) return TRUE;
 	jpeg_saved_marker_ptr marker;
 
 	for(marker = cinfo->marker_list; marker != NULL; marker = marker->next) {
@@ -1157,6 +1159,10 @@ SupportsNoPixels() {
 
 static FIBITMAP * DLL_CALLCONV
 Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+    // Explicit EXIF rotation needs orientation metadata before the outer
+    // dispatcher strips it. Otherwise no auxiliary markers are retained.
+    FreeImageInternal::MetadataStripScope metadata_scope(
+        FreeImageInternal::IsStrippingMetadata() && !(flags & JPEG_EXIFROTATE));
 	if (handle) {
 		FIBITMAP *dib = NULL;
 
@@ -1192,10 +1198,12 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 
 			// step 2b: save special markers for later reading
 			
-			jpeg_save_markers(&cinfo, JPEG_COM, 0xFFFF);
-			for(int m = 0; m < 16; m++) {
-				jpeg_save_markers(&cinfo, JPEG_APP0 + m, 0xFFFF);
-			}
+            if(!FreeImageInternal::IsStrippingMetadata()) {
+                jpeg_save_markers(&cinfo, JPEG_COM, 0xFFFF);
+                for(int m = 0; m < 16; m++) {
+                    jpeg_save_markers(&cinfo, JPEG_APP0 + m, 0xFFFF);
+                }
+            }
 
 			// step 3: read handle parameters with jpeg_read_header()
 

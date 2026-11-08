@@ -12,14 +12,14 @@ license and patent notices are in `licenses/` and installed with FreeImage.
 
 | Feature | Sources | Licenses (see full texts) |
 | --- | --- | --- |
-| HEIF container | libheif 1.23.5 | LGPL-3.0-or-later |
+| HEIF container | libheif 1.23.7 | LGPL-3.0-or-later |
 | HEVC decode | libde265 1.1.3 | LGPL-3.0-or-later |
 | HEVC encode | Kvazaar 2.3.2 | BSD-3-Clause |
-| AV1 decode/encode | libaom 3.15.1 | BSD-2-Clause, patent grant |
+| AV1 decode/encode | libaom 3.15.3 | BSD-2-Clause, patent grant |
 | JPEG XL | libjxl 0.12.0 | BSD-3-Clause, patent grant |
-| JPEG XL compression | Brotli 1.2.0 | MIT |
+| JPEG XL compression | Brotli 1.2.1 | MIT |
 | JPEG XL SIMD | Highway 1.4.0 | Apache-2.0 or BSD-3-Clause |
-| JPEG XL color management | Little CMS 2.19.1 | MIT |
+| JPEG XL color management | Little CMS 2.20 | MIT |
 
 FreeImage's own FIPL/GPL licensing does not replace these dependency licenses.
 The bundled codec archives are compiled as position-independent static
@@ -29,8 +29,10 @@ source and relinking obligations. Selecting `USE_SYSTEM_LIBHEIF=ON` retains
 the system SDK/dynamic-library approach.
 
 HEIF backends are built in rather than dynamically loaded plugins. No x265,
-x264, dav1d or SVT-AV1 dependency is added. AOM and libde265 use portable code
-to avoid requiring NASM or assuming host SIMD features in cross builds;
+x264, dav1d or SVT-AV1 dependency is added. AOM is enabled by default for AV1
+support; set `FREEIMAGE_BUNDLE_AOM=OFF` to omit it and avoid its Perl build-time
+requirement, at the cost of AVIF support. In either mode libde265 uses portable
+code to avoid requiring NASM or assuming host SIMD features in cross builds;
 Highway retains JPEG XL's runtime-dispatched SIMD support.
 
 Kvazaar supports lossy HEIF output, including alpha and metadata, but the

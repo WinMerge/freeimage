@@ -38,6 +38,7 @@
 #include "Plugin.h"
 #include "Utilities.h"
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 
 namespace {
 
@@ -220,6 +221,8 @@ FreeImage_InternalGetPageCount(FIMULTIBITMAP *bitmap) {
 	if (bitmap) {
 		if (((MULTIBITMAPHEADER *)bitmap->data)->handle) {
 			MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);
+            FreeImageInternal::MetadataStripScope metadata_scope(
+                FreeImageInternal::WantsMetadataStrip(header->load_flags));
 			
 			header->io.seek_proc(header->handle, 0, SEEK_SET);
 			
@@ -393,6 +396,8 @@ FreeImage_OpenMultiBitmapFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_h
 
 BOOL DLL_CALLCONV
 FreeImage_SaveMultiBitmapToHandle(FREE_IMAGE_FORMAT fif, FIMULTIBITMAP *bitmap, FreeImageIO *io, fi_handle handle, int flags) {
+    const bool save_strip = FreeImageInternal::WantsMetadataStrip(flags);
+    flags &= ~FREEIMAGE_STRIP;
 	if(!bitmap || !bitmap->data || !io || !handle) {
 		return FALSE;
 	}
@@ -408,6 +413,8 @@ FreeImage_SaveMultiBitmapToHandle(FREE_IMAGE_FORMAT fif, FIMULTIBITMAP *bitmap, 
 		if(node) {
 			MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);
 			
+            const bool strip = save_strip || FreeImageInternal::WantsMetadataStrip(header->load_flags);
+            FreeImageInternal::MetadataStripScope metadata_scope(strip);
 			// dst data
 			void *data = FreeImage_Open(node, io, handle, FALSE);
 			// src data
@@ -431,10 +438,11 @@ FreeImage_SaveMultiBitmapToHandle(FREE_IMAGE_FORMAT fif, FIMULTIBITMAP *bitmap, 
 							for (int j = i->getStart(); j <= i->getEnd(); j++) {
 								
 								// load the original source data
-								FIBITMAP *dib = header->node->m_plugin->load_proc(&header->io, header->handle, j, header->load_flags, data_read);
+								FIBITMAP *dib = header->node->m_plugin->load_proc(&header->io, header->handle, j, header->load_flags & ~FREEIMAGE_STRIP, data_read);
 								
 								// save the data
-								success = node->m_plugin->save_proc(io, dib, handle, count, flags, data);
+								if(strip && dib) FreeImage_StripMetadata(dib);
+                                success = dib && node->m_plugin->save_proc(io, dib, handle, count, flags, data);
 								count++;
 								
 								FreeImage_Unload(dib);
@@ -462,7 +470,8 @@ FreeImage_SaveMultiBitmapToHandle(FREE_IMAGE_FORMAT fif, FIMULTIBITMAP *bitmap, 
 							
 							// save the data
 							
-							success = node->m_plugin->save_proc(io, dib, handle, count, flags, data);
+							if(strip && dib) FreeImage_StripMetadata(dib);
+                                success = dib && node->m_plugin->save_proc(io, dib, handle, count, flags, data);
 							count++;
 							
 							// unload the dib
@@ -708,6 +717,8 @@ FIBITMAP * DLL_CALLCONV
 FreeImage_LockPage(FIMULTIBITMAP *bitmap, int page) {
 	if (bitmap) {
 		MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);
+        const bool strip = FreeImageInternal::WantsMetadataStrip(header->load_flags);
+        FreeImageInternal::MetadataStripScope metadata_scope(strip);
 
 		// only lock if the page wasn't locked before...
 
@@ -731,9 +742,10 @@ FreeImage_LockPage(FIMULTIBITMAP *bitmap, int page) {
 		// load the bitmap data
 
 		if (header->read_data != NULL) {
-			FIBITMAP *dib = (header->node->m_plugin->load_proc != NULL) ? header->node->m_plugin->load_proc(&header->io, header->handle, page, header->load_flags, header->read_data) : NULL;
+			FIBITMAP *dib = (header->node->m_plugin->load_proc != NULL) ? header->node->m_plugin->load_proc(&header->io, header->handle, page, header->load_flags & ~FREEIMAGE_STRIP, header->read_data) : NULL;
 
 			if (dib) {
+                if(strip) FreeImage_StripMetadata(dib);
 				header->locked_pages[dib] = page;
 
 				return dib;

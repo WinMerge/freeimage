@@ -1,0 +1,116 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "54744c8104161f4f07fd935f",
+  "mod_date": "2018-07-31 20:48:19.881000",
+  "labels": [
+    "iOS",
+    "arm64",
+    "Xcode",
+    "OSX"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "ce03aeb0",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "e40d",
+        "text": "Also just adding to this arm64 from February 2015 will be standard for iOS, any project without it will be rejected from AppStore. FreeImage must be compiled under arm64 to be used from then on. So little bit of time to get these kinds of fixes in.\r\n\r\nI'll try and send patches to the external dependancies as well.",
+        "subject": "#96 Fixes for FreeImage - iOS and arm64",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2014-11-25 09:36:23.579000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "d164",
+        "text": "Added pull with above fix to LibRaw (and LibRaw https://github.com/LibRaw/LibRaw/pull/45 )",
+        "subject": "#96 Fixes for FreeImage - iOS and arm64",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2014-11-25 10:32:12.310000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "de67",
+        "text": "Updated for 3.17.0 :\r\nhttps://sourceforge.net/p/freeimage/patches/115/",
+        "subject": "#96 Fixes for FreeImage - iOS and arm64",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2016-02-17 06:56:44.087000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "843f",
+        "text": "- **status**: open --> pending\n- **assigned_to**: Hervé Drolon\n- **Group**:  --> \n",
+        "subject": "#96 Fixes for FreeImage - iOS and arm64",
+        "author": "drolon",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2016-03-20 17:47:07.689000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": true
+      },
+      {
+        "slug": "981d",
+        "text": "see\r\nhttps://sourceforge.net/p/freeimage/patches/115/\r\n",
+        "subject": "#96 Fixes for FreeImage - iOS and arm64",
+        "author": "drolon",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2016-03-20 17:47:07.786000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "a945",
+        "text": "- **status**: pending --> closed\n",
+        "subject": "#96 Fixes for FreeImage - iOS and arm64",
+        "author": "drolon",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2018-07-31 20:48:19.622000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": true
+      },
+      {
+        "slug": "133f",
+        "text": "closed to follow a single thread at patch 115",
+        "subject": "#96 Fixes for FreeImage - iOS and arm64",
+        "author": "drolon",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2018-07-31 20:48:19.792000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/ce03aeb0/",
+  "created_date": "2014-11-25 09:31:45.140000",
+  "ticket_num": 96,
+  "summary": "Fixes for FreeImage - iOS and arm64",
+  "description": "The following code changes where made to successfully compile FreeImage for ARM64, armv7, i386, x86_64 for iOS using Xcode 6 on OS X 10.10 Yosemite using Clang\r\n\r\n- Fixes: ARM64 issues.\r\n- Updates Not updated CMakeLists with new dependancies\r\n- Updates Makefile.srcs with new dependancies\r\n- Fixes undefined types for LibJXR for OS X (including stdlib sources)\r\n- Fixes LibRawLite static casting issue (would not compile in clang without change)\r\n- Patches OpenEXR use of DEBUG preprocessor - will break for static release libraries\r\n- Patches ZLib use of DEBUG preprocessor - will break for static release libraries (patched for upstream https://github.com/madler/zlib/pull/80 )\r\n\r\n\r\nAll these fixes can be see here:\r\nhttps://github.com/danoli3/FreeImage/commit/f069aaefc6724fa9c8065a47000b31212024e9d6\r\n\r\nPatch:\r\nhttps://github.com/danoli3/FreeImage/commit/f069aaefc6724fa9c8065a47000b31212024e9d6.patch\r\n\r\n\r\nClone repo found here:\r\nhttps://github.com/danoli3/FreeImage\r\n",
+  "reported_by": "danoli3",
+  "assigned_to": "drolon",
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": "4d8d0888b9363c263a0005a6",
+  "status": "closed",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [],
+  "custom_fields": {
+    "_priority": "5",
+    "_milestone": ""
+  }
+}

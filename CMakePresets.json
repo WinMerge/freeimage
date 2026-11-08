@@ -51,6 +51,26 @@
                 "BUILD_TESTS": "ON",
                 "CMAKE_BUILD_TYPE": "Debug"
             }
+        },
+        {
+            "name": "vs2022-all",
+            "inherits": "vs2022",
+            "displayName": "Visual Studio 2022 (all platforms)",
+            "description": "Generates a portable CMake-backed solution with Win32, x64, ARM64, ARM64EC and All Platforms under build-vs2022-all/visualstudio/.",
+            "binaryDir": "${sourceDir}/build-vs2022-all",
+            "cacheVariables": {
+                "FREEIMAGE_VS_ALL_PLATFORMS": "ON"
+            }
+        },
+        {
+            "name": "vs2026-all",
+            "inherits": "vs2026",
+            "displayName": "Visual Studio 2026 (all platforms)",
+            "description": "Generates a portable CMake-backed solution with Win32, x64, ARM64, ARM64EC and All Platforms under build-vs2026-all/visualstudio/.",
+            "binaryDir": "${sourceDir}/build-vs2026-all",
+            "cacheVariables": {
+                "FREEIMAGE_VS_ALL_PLATFORMS": "ON"
+            }
         }
     ]
 }

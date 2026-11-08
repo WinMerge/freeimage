@@ -32,11 +32,12 @@
 
 #define FREEIMAGE_MAJOR_VERSION   3
 #define FREEIMAGE_MINOR_VERSION   19
-#define FREEIMAGE_RELEASE_SERIAL  25
+#define FREEIMAGE_RELEASE_SERIAL  31
 
 // Compiler options ---------------------------------------------------------
 
 #include <wchar.h>	// needed for UNICODE functions
+#include <stdint.h>	// fixed-width types for large-file I/O
 
 #if defined(FREEIMAGE_LIB)
 	#define DLL_API
@@ -640,6 +641,24 @@ FI_STRUCT(FreeImageIO) {
     FI_TellProc  tell_proc;     //! pointer to the function used to aquire the current position
 };
 
+// Additive large-file input API; FreeImageIO and Plugin keep their original ABI.
+// Transfers return complete elements, as fread/fwrite do. Each transfer must fit
+// in size_t; positions use signed 64-bit offsets. For TIFF input, read_proc,
+// seek_proc and tell_proc are required; write_proc may be NULL. seek_proc
+// returns zero on success; tell_proc returns a negative value on failure.
+// The caller retains ownership of the seekable handle.
+typedef uint64_t (DLL_CALLCONV *FI_ReadProc64) (void *buffer, uint64_t size, uint64_t count, fi_handle handle);
+typedef uint64_t (DLL_CALLCONV *FI_WriteProc64) (void *buffer, uint64_t size, uint64_t count, fi_handle handle);
+typedef int (DLL_CALLCONV *FI_SeekProc64) (fi_handle handle, int64_t offset, int origin);
+typedef int64_t (DLL_CALLCONV *FI_TellProc64) (fi_handle handle);
+
+FI_STRUCT(FreeImageIO64) {
+    FI_ReadProc64 read_proc;
+    FI_WriteProc64 write_proc;
+    FI_SeekProc64 seek_proc;
+    FI_TellProc64 tell_proc;
+};
+
 #if (defined(_WIN32) || defined(__WIN32__))
 #pragma pack(pop)
 #else
@@ -704,6 +723,8 @@ typedef void (DLL_CALLCONV *FI_InitProc)(Plugin *plugin, int format_id);
 // HEIF/AVIF saving: quality 1..100 (0 defaults to 90); optional lossless.
 #define HEIF_LOSSLESS 0x100
 #define JXL_LOSSLESS 0x100
+// Common load/save flag. The sign bit avoids JPEG's positive scaled-load size field.
+#define FREEIMAGE_STRIP (-2147483647 - 1) //! discard auxiliary metadata, ICC profile and thumbnail; preserve animation controls
 #define FIF_LOAD_NOPIXELS 0x8000	//! loading: load the image header only (not supported by all plugins, default to full loading)
 
 #define BMP_DEFAULT         0
@@ -865,8 +886,11 @@ DLL_API BOOL DLL_CALLCONV FreeImage_HasPixels(FIBITMAP *dib);
 // Load / Save routines -----------------------------------------------------
 
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_Load(FREE_IMAGE_FORMAT fif, const char *filename, int flags FI_DEFAULT(0));
+DLL_API FIBITMAP *DLL_CALLCONV FreeImage_Load64(FREE_IMAGE_FORMAT fif, const char *filename, int flags FI_DEFAULT(0));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_LoadU(FREE_IMAGE_FORMAT fif, const wchar_t *filename, int flags FI_DEFAULT(0));
 DLL_API FIBITMAP *DLL_CALLCONV FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handle, int flags FI_DEFAULT(0));
+// TIFF-only single-image input. Other formats return NULL; existing APIs are unchanged.
+DLL_API FIBITMAP *DLL_CALLCONV FreeImage_LoadFromHandle64(FREE_IMAGE_FORMAT fif, FreeImageIO64 *io, fi_handle handle, int flags FI_DEFAULT(0));
 DLL_API BOOL DLL_CALLCONV FreeImage_Save(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags FI_DEFAULT(0));
 DLL_API BOOL DLL_CALLCONV FreeImage_SaveU(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const wchar_t *filename, int flags FI_DEFAULT(0));
 DLL_API BOOL DLL_CALLCONV FreeImage_SaveToHandle(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, FreeImageIO *io, fi_handle handle, int flags FI_DEFAULT(0));
@@ -1138,6 +1162,7 @@ DLL_API BOOL DLL_CALLCONV FreeImage_SetMetadataKeyValue(FREE_IMAGE_MDMODEL model
 // helpers
 DLL_API unsigned DLL_CALLCONV FreeImage_GetMetadataCount(FREE_IMAGE_MDMODEL model, FIBITMAP *dib);
 DLL_API BOOL DLL_CALLCONV FreeImage_CloneMetadata(FIBITMAP *dst, FIBITMAP *src);
+DLL_API BOOL DLL_CALLCONV FreeImage_StripMetadata(FIBITMAP *dib);
 
 // tag to C string conversion
 DLL_API const char* DLL_CALLCONV FreeImage_TagToString(FREE_IMAGE_MDMODEL model, FITAG *tag, char *Make FI_DEFAULT(NULL));

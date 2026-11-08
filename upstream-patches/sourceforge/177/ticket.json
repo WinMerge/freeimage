@@ -1,0 +1,40 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1eb20d871afbbb5d012",
+  "mod_date": "2026-09-07 15:02:03.939000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "d275e0f952",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/d275e0f952/",
+  "created_date": "2026-09-07 15:02:03.577000",
+  "ticket_num": 177,
+  "summary": "CVE-2024-28581: TARGA RLE IOCache at least one pixel wide",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nCVE-2024-28581 — NVD attributes an overflow to _assignPixel<>() when reading TARGA. Trunk r1911 already clamps RLE packet writes against dib_end before _assignPixel. A remaining bug on the same malformed-TGA class: IOCache size is (remaining_size / height), which can be smaller than one file pixel. loadRLE() then calls getBytes(file_pixel_size) and reads past the undersized cache.\n\nThis patch clamps the cache size to at least file_pixel_size.\n\nNVD: https://nvd.nist.gov/vuln/detail/CVE-2024-28581\n\nGitHub: https://github.com/danoli3/FreeImage/commit/68af81b (PR https://github.com/danoli3/FreeImage/pull/39)\n\nApply from the FreeImage tree root:\n\n    patch -p0 < CVE-2024-28581.patch\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 673,
+      "url": "https://sourceforge.net/p/freeimage/patches/177/attachment/CVE-2024-28581.patch"
+    }
+  ],
+  "custom_fields": {}
+}

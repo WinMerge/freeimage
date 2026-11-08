@@ -28,6 +28,7 @@
 
 #include "FreeImage.h"
 #include "Utilities.h"
+#include <limits.h>
 
 // ----------------------------------------------------------
 //   Constants + headers
@@ -270,6 +271,19 @@ LoadPixelData(FreeImageIO *io, fi_handle handle, FIBITMAP *dib, int height, unsi
 	return TRUE;
 }
 
+
+// Advance a signed RLE cursor by a file-controlled step. Both cursors start
+// at 0 and only move forward. A wrapping add makes the next store use a
+// negative index and write before the bitmap (GHSA-7pp5-4w3w-437c).
+static BOOL
+RleAddCursor(int *cursor, unsigned step) {
+	if (*cursor < 0 || step > (unsigned)INT_MAX || (unsigned)*cursor > (unsigned)INT_MAX - step) {
+		return FALSE;
+	}
+	*cursor += (int)step;
+	return TRUE;
+}
+
 /**
 Load image pixels for 4-bit RLE compressed dib
 @param io FreeImage IO
@@ -290,14 +304,23 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 	try {
 		height = abs(height);
 
-		pixels = (BYTE*)malloc(width * height * sizeof(BYTE));
+		// NB: width and height are file-driven ints: multiply in size_t so a
+		// huge image cannot wrap to a tiny buffer (CVE-2023-47994 integer
+		// overflow in LoadPixelDataRLE4). size_t is only 32 bits on 32-bit
+		// targets, so bound the product explicitly as well.
+		if (width <= 0 || height <= 0 || (size_t)width > ((size_t)-1) / (size_t)height) {
+			throw(1);
+		}
+		const size_t pixel_count = (size_t)width * (size_t)height;
+
+		pixels = (BYTE*)malloc(pixel_count * sizeof(BYTE));
 		if (!pixels) {
 			throw(1);
 		}
-		memset(pixels, 0, width * height * sizeof(BYTE));
+		memset(pixels, 0, pixel_count * sizeof(BYTE));
 
 		BYTE *q = pixels;
-		BYTE *end = pixels + height * width;
+		BYTE *end = pixels + pixel_count;
 
 		for (int scanline = 0; scanline < height; ) {
 			if (q < pixels || q  >= end) {
@@ -315,7 +338,9 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 				for (int i = 0; i < status_byte; i++)	{
 					*q++ = (BYTE)((i & 0x01) ? (second_byte & 0x0f) : ((second_byte >> 4) & 0x0f));
 				}
-				bits += status_byte;
+				if (!RleAddCursor(&bits, (unsigned)status_byte)) {
+					throw(1);
+				}
 			}
 			else {
 				// Escape mode
@@ -328,7 +353,7 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 						// End of line
 						bits = 0;
 						scanline++;
-						q = pixels + scanline * width;
+						q = pixels + (size_t)scanline * (size_t)width;
 					}
 					break;
 
@@ -350,10 +375,24 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 							throw(1);
 						}
 
-						// apply them
-						bits += delta_x;
-						scanline += delta_y;
-						q = pixels + scanline*width+bits;
+						// Reject a wrapped cursor before it is used as a pointer.
+						// A delta that merely leaves the buffer stops the decode, which
+						// is the existing result for a run that walks off the bitmap.
+						if (!RleAddCursor(&bits, delta_x) || !RleAddCursor(&scanline, delta_y)) {
+							throw(1);
+						}
+						if (scanline < 0 || bits < 0 || scanline >= height) {
+							q = end;
+							break;
+						}
+						{
+							const size_t row = (size_t)scanline * (size_t)width;
+							if ((size_t)bits > pixel_count - row) {
+								q = end;
+								break;
+							}
+							q = pixels + row + (size_t)bits;
+						}
 					}
 					break;
 
@@ -369,7 +408,9 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 							}
 							*q++ = (BYTE)((i & 0x01) ? (second_byte & 0x0f) : ((second_byte >> 4) & 0x0f));
 						}
-						bits += status_byte;
+						if (!RleAddCursor(&bits, (unsigned)status_byte)) {
+							throw(1);
+						}
 						// Read pad byte
 						if (((status_byte & 0x03) == 1) || ((status_byte & 0x03) == 2)) {
 							BYTE padding = 0;
@@ -386,7 +427,7 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 		{
 			// Convert to 4-bit
 			for(int y = 0; y < height; y++) {
-				const BYTE *src = (BYTE*)pixels + y * width;
+				const BYTE *src = pixels + (size_t)y * (size_t)width;
 				BYTE *dst = FreeImage_GetScanLine(dib, y);
 
 				BOOL hinibble = TRUE;
@@ -442,8 +483,11 @@ LoadPixelDataRLE8(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 	// `height` (e.g. right after the final RLE_ENDOFLINE), and bounding the
 	// loop on `scanline` prevents ever reading that marker, causing this
 	// function to spuriously fail on legitimate files (see issue #23).
-	// Safety against out-of-bounds writes (CVE-2020-21427) is instead
-	// enforced directly at each FreeImage_GetScanLine() call site below.
+	// Safety against out-of-bounds writes (CVE-2020-21427) is enforced at
+	// each FreeImage_GetScanLine() call site below. Deltas are also rejected
+	// when they would wrap the signed cursor (GHSA-7pp5-4w3w-437c): a negative
+	// bits value makes `width - bits` positive, and the next run writes before
+	// the scanline.
 	for (;;) {
 
 		if (io->read_proc(&status_byte, sizeof(BYTE), 1, handle) != 1) {
@@ -458,7 +502,9 @@ LoadPixelDataRLE8(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 			switch (status_byte) {
 				case RLE_ENDOFLINE:
 					bits = 0;
-					scanline++;
+					if (!RleAddCursor(&scanline, 1)) {
+						return FALSE;
+					}
 					break;
 
 				case RLE_ENDOFBITMAP:
@@ -474,14 +520,16 @@ LoadPixelDataRLE8(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 					if (io->read_proc(&delta_y, sizeof(BYTE), 1, handle) != 1) {
 						return FALSE;
 					}
-					// apply them
-					bits += delta_x;
-					scanline += delta_y;
+					// A wrapped cursor is negative. The following run would then
+					// treat `width - bits` as positive and write before the scanline.
+					if (!RleAddCursor(&bits, delta_x) || !RleAddCursor(&scanline, delta_y)) {
+						return FALSE;
+					}
 					break;
 
 				default:
 					// absolute mode
-					if (scanline >= height) {
+					if (scanline < 0 || scanline >= height || bits < 0) {
 						return FALSE;
 					}
 					count = MIN((int)status_byte, width - bits);
@@ -498,13 +546,15 @@ LoadPixelDataRLE8(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
 							return FALSE;
 						}
 					}
-					bits += status_byte;				
+					if (!RleAddCursor(&bits, status_byte)) {
+						return FALSE;
+					}
 					break;
 
 			} // switch (status_byte)
 		}
 		else {
-			if (scanline >= height) {
+			if (scanline < 0 || scanline >= height || bits < 0) {
 				return FALSE;
 			}
 			count = MIN((int)status_byte, width - bits);

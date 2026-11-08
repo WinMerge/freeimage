@@ -2,16 +2,17 @@
 # Compare vendored library versions under Source/ with upstream releases.
 # With --file-issue, open or update one GitHub issue when any library is behind.
 # LibJXR is skipped: it has no maintained upstream.
-set -u
+set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MARKER='<!-- upstream-version-check -->'
 ISSUE_TITLE='Vendored libraries have newer upstream releases'
 TOKEN="${GH_TOKEN:-${GITHUB_TOKEN:-}}"
 BEHIND_FILE="$(mktemp)"
+CURRENT_FILE="$(mktemp)"
 ERROR_FILE="$(mktemp)"
 BODY_FILE="$(mktemp)"
-trap 'rm -f "$BEHIND_FILE" "$ERROR_FILE" "$BODY_FILE"' EXIT
+trap 'rm -f "$BEHIND_FILE" "$CURRENT_FILE" "$ERROR_FILE" "$BODY_FILE"' EXIT
 
 gh_get() {
     local url="$1"
@@ -25,8 +26,10 @@ gh_get() {
 
 plain_version() {
     local value="$1"
+    value="${value#lcms}"
     value="${value#v}"
     value="${value#V}"
+    [[ "$value" =~ ^[0-9]+(\.[0-9]+)*([a-zA-Z_-].*)?$ ]] || return 1
     printf '%s\n' "$value" | sed -E 's/^([0-9]+(\.[0-9]+)*).*/\1/'
 }
 
@@ -126,7 +129,7 @@ gitlab_latest() {
     if [ -z "$tag" ]; then
         return 1
     fi
-    url="$(printf '%s' "$json" | jq -r --arg tag "$tag" '.[] | select(.tag_name == $tag) | .html_url' | head -n 1)"
+    url="$(printf '%s' "$json" | jq -r --arg tag "$tag" '.[] | select(.tag_name == $tag) | (.html_url // ._links.self // empty)' | head -n 1)"
     printf '%s %s\n' "$tag" "${url:-https://gitlab.com/${project}/-/releases/${tag}}"
 }
 
@@ -149,12 +152,28 @@ ijg_latest() {
     printf '%s https://www.ijg.org/files/\n' "$best"
 }
 
+googlesource_latest() {
+    local project="$1" json candidate best=""
+    json="$(curl -fsSL "https://aomedia.googlesource.com/${project}/+refs/tags?format=JSON")" || return 1
+    # Gitiles prefixes JSON with an anti-XSSI line.
+    json="$(printf '%s\n' "$json" | sed '1d')"
+    while read -r candidate; do
+        [ -n "$candidate" ] || continue
+        if [ -z "$best" ] || version_gt "$candidate" "$best"; then
+            best="$candidate"
+        fi
+    done <<< "$(printf '%s' "$json" | jq -r 'keys[] | select(test("^v?[0-9]+(\\.[0-9]+)+$"))')"
+    [ -n "$best" ] || return 1
+    printf '%s https://aomedia.googlesource.com/%s/+/refs/tags/%s\n' "$best" "$project" "$best"
+}
+
 record() {
     local name="$1" vendored="$2" upstream="$3" url="$4"
     if version_gt "$upstream" "$vendored"; then
         printf '%s\t%s\t%s\t%s\n' "$name" "$vendored" "$upstream" "$url" >> "$BEHIND_FILE"
         printf '%s: vendored %s, upstream %s (behind)\n' "$name" "$vendored" "$upstream"
     else
+        printf '%s\t%s\t%s\t%s\n' "$name" "$vendored" "$upstream" "$url" >> "$CURRENT_FILE"
         printf '%s: vendored %s, upstream %s (current)\n' "$name" "$vendored" "$upstream"
     fi
 }
@@ -175,13 +194,20 @@ check_lib() {
             return 0
         }
     fi
+    check_version "$name" "$kind" "$target" "$vendored"
+}
+
+check_version() {
+    local name="$1" kind="$2" target="$3" vendored="$4"
+    local upstream_line upstream url
     case "$kind" in
         github|libraw) upstream_line="$(github_latest "$target")" || upstream_line="" ;;
         gitlab) upstream_line="$(gitlab_latest "$target")" || upstream_line="" ;;
         ijg) upstream_line="$(ijg_latest)" || upstream_line="" ;;
+        googlesource) upstream_line="$(googlesource_latest "$target")" || upstream_line="" ;;
         *) upstream_line="" ;;
     esac
-    if [ -z "$upstream_line" ]; then
+    if [ -z "$upstream_line" ] || ! plain_version "${upstream_line%% *}" >/dev/null; then
         printf '%s\tupstream lookup failed\n' "$name" >> "$ERROR_FILE"
         printf '%s: upstream lookup failed\n' "$name" >&2
         return 0
@@ -191,17 +217,71 @@ check_lib() {
     record "$name" "$vendored" "$upstream" "$url"
 }
 
+check_bundled_archives() {
+    local entries name archive source vendored kind target
+    entries="$(jq -er '.[] | [.name, .archive, .url] | @tsv' "$ROOT/Source/ThirdParty/sources.json")" || {
+        printf 'Bundled archives\tfailed to read sources.json\n' >> "$ERROR_FILE"
+        return
+    }
+    while IFS=$'\t' read -r name archive source; do
+        vendored="${archive#"${name}-"}"
+        vendored="${vendored%.tar.gz}"
+        vendored="${vendored%.zip}"
+        if [[ ! "$vendored" =~ ^[0-9]+(\.[0-9]+)+$ ]] || [ ! -f "$ROOT/Source/ThirdParty/$archive" ]; then
+            printf '%s\tvendored archive/version not found: %s\n' "$name" "$archive" >> "$ERROR_FILE"
+            continue
+        fi
+        if [[ "$source" =~ ^https://github.com/([^/]+/[^/]+)/ ]]; then
+            kind=github
+            target="${BASH_REMATCH[1]}"
+        elif [[ "$source" == https://storage.googleapis.com/aom-releases/* ]]; then
+            kind=googlesource
+            target=aom
+        else
+            printf '%s\tunsupported upstream source: %s\n' "$name" "$source" >> "$ERROR_FILE"
+            continue
+        fi
+        check_version "$name" "$kind" "$target" "$vendored"
+    done <<< "$entries"
+}
+
+check_split_version() {
+    local name="$1" repo="$2" file="$ROOT/$3" prefix="$4" patch_name="$5"
+    local major minor patch
+    major="$(sed -nE "s/^#define[[:space:]]+${prefix}_VERSION_MAJOR[[:space:]]+([0-9]+).*/\\1/p" "$file")"
+    minor="$(sed -nE "s/^#define[[:space:]]+${prefix}_VERSION_MINOR[[:space:]]+([0-9]+).*/\\1/p" "$file")"
+    patch="$(sed -nE "s/^#define[[:space:]]+${prefix}_VERSION_${patch_name}[[:space:]]+([0-9]+).*/\\1/p" "$file")"
+    if [ -z "$major" ] || [ -z "$minor" ] || [ -z "$patch" ]; then
+        printf '%s\tvendored version not found in %s\n' "$name" "$file" >> "$ERROR_FILE"
+        return
+    fi
+    check_version "$name" github "$repo" "$major.$minor.$patch"
+}
+
 write_body() {
     {
         printf '%s\n\n' "$MARKER"
         printf '%s\n' "A scheduled check compared the versions in \`Source/\` with each project's latest stable release."
-        printf '%s\n\n' "A newer tag is not always the branch this tree vendors. OpenEXR 3.3.x can be current for this fork while a later major release is the newest tag."
+        printf '%s\n\n' "This compares stable upstream versions; compatibility and branch policy still need review. Zstandard follows OpenEXR releases and is reported for visibility. OpenJPH is checked against its own releases."
+        printf '%s\n\n' "### Updates available"
         printf '%s\n' "| Library | Vendored | Latest upstream |"
         printf '%s\n' "| --- | --- | --- |"
         while IFS=$'\t' read -r name vendored upstream url; do
             [ -n "${name:-}" ] || continue
             printf '| %s | %s | [%s](%s) |\n' "$name" "$vendored" "$upstream" "$url"
         done < "$BEHIND_FILE"
+        if [ ! -s "$BEHIND_FILE" ]; then
+            printf '\nNo newer stable releases found among successfully checked libraries.\n'
+        fi
+        printf '\n%s\n\n' "### Up to date"
+        printf '%s\n' "| Library | Vendored | Latest upstream |"
+        printf '%s\n' "| --- | --- | --- |"
+        while IFS=$'\t' read -r name vendored upstream url; do
+            [ -n "${name:-}" ] || continue
+            printf '| %s | %s | [%s](%s) |\n' "$name" "$vendored" "$upstream" "$url"
+        done < "$CURRENT_FILE"
+        printf '\n%s\n\n' "### Not checked"
+        printf '%s\n' '- LibJXR: unversioned snapshot with no maintained upstream release feed.'
         if [ -s "$ERROR_FILE" ]; then
             printf '\n%s\n\n' "Checks that did not complete:"
             while IFS=$'\t' read -r name message; do
@@ -215,13 +295,7 @@ write_body() {
 
 file_issue() {
     local repo="${GITHUB_REPOSITORY:-}"
-    if [ ! -s "$BEHIND_FILE" ]; then
-        printf '%s\n' "No vendored library is behind a stable upstream release."
-        return 0
-    fi
-    write_body
     if [ -z "$repo" ] || [ -z "$TOKEN" ]; then
-        cat "$BODY_FILE"
         printf '\n%s\n' "GH_TOKEN and GITHUB_REPOSITORY are not set, so no issue was filed."
         return 0
     fi
@@ -247,8 +321,12 @@ file_issue() {
                 -H "User-Agent: freeimage-upstream-check" \
                 -H "Content-Type: application/json" \
                 --data-binary @- \
-                "https://api.github.com/repos/${repo}/issues/${number}" >/dev/null
+                "https://api.github.com/repos/${repo}/issues/${number}" >/dev/null || return 1
         printf 'Updated %s\n' "$existing_url"
+        return 0
+    fi
+    if [ ! -s "$BEHIND_FILE" ] && [ ! -s "$ERROR_FILE" ]; then
+        printf '%s\n' "No vendored library is behind a stable upstream release; no new issue needed."
         return 0
     fi
     existing_url="$(jq -n --rawfile body "$BODY_FILE" --arg title "$ISSUE_TITLE" '{title: $title, body: $body}' \
@@ -259,7 +337,7 @@ file_issue() {
             -H "Content-Type: application/json" \
             --data-binary @- \
             "https://api.github.com/repos/${repo}/issues" \
-        | jq -r '.html_url')"
+        | jq -er '.html_url')" || return 1
     printf 'Opened %s\n' "$existing_url"
 }
 
@@ -278,7 +356,19 @@ check_lib "libtiff" gitlab "libtiff/libtiff" "Source/LibTIFF4/tiffvers.h" 'TIFFL
 check_lib "libwebp" github "webmproject/libwebp" "Source/LibWebP/NEWS" 'version[[:space:]]+([0-9.]+)'
 check_lib "zlib" github "madler/zlib" "Source/ZLib/zlib.h" 'ZLIB_VERSION[[:space:]]+"([0-9.]+)"'
 check_lib "libjpeg (IJG)" ijg "ijg" "Source/LibJPEG/jversion.h" 'JVERSION[[:space:]]+"([0-9]+)'
+check_split_version "Zstandard (OpenEXR)" "facebook/zstd" "Source/OpenEXR/Zstd/lib/zstd.h" ZSTD RELEASE
+check_split_version "OpenJPH (OpenEXR)" "aous72/OpenJPH" "Source/OpenEXR/OpenJPH/openjph/ojph_version.h" OPENJPH PATCH
+check_bundled_archives
+
+write_body
+cat "$BODY_FILE"
+if [ -n "${GITHUB_STEP_SUMMARY:-}" ]; then
+    cat "$BODY_FILE" >> "$GITHUB_STEP_SUMMARY"
+fi
 
 if [ "$FILE_ISSUE" -eq 1 ]; then
-    file_issue
+    file_issue || exit 1
+fi
+if [ -s "$ERROR_FILE" ]; then
+    exit 1
 fi

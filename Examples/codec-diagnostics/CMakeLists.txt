@@ -1,0 +1,6 @@
+cmake_minimum_required(VERSION 3.16)
+project(CodecDiagnostics LANGUAGES CXX)
+find_package(FreeImage CONFIG REQUIRED)
+add_executable(CodecDiagnostics main.cpp)
+target_compile_features(CodecDiagnostics PRIVATE cxx_std_11)
+target_link_libraries(CodecDiagnostics PRIVATE FreeImage::FreeImage)

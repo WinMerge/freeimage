@@ -1,0 +1,23 @@
+diff --git a/Source/FreeImage/FreeImageIO.cpp b/Source/FreeImage/FreeImageIO.cpp
+index 9555f0d..c5c57c8 100644
+--- a/Source/FreeImage/FreeImageIO.cpp
++++ b/Source/FreeImage/FreeImageIO.cpp
+@@ -122,7 +122,17 @@ _MemoryWriteProc(void *buffer, unsigned size, unsigned count, fi_handle handle)
+ 
+ 	FIMEMORYHEADER *mem_header = (FIMEMORYHEADER*)(((FIMEMORY*)handle)->data);
+ 
+-	const long required_bytes = (long)(size * count);
++	// NB: the old (long)(size * count) wrapped in 32-bit unsigned before
++	// the cast (same bug class as the _MemoryReadProc total above), so a
++	// huge total became tiny and the copy claimed more items than were
++	// written. Compute the product wide and refuse totals the int stream
++	// positions (max 2 GiB data_length) cannot represent. Zero-size
++	// behavior is unchanged (required_bytes == 0, same as before).
++	const unsigned long long required_total = (unsigned long long)size * (unsigned long long)count;
++	if (required_total > 0x7FFFFFFFull) {
++		return 0;
++	}
++	const long required_bytes = (long)required_total;
+ 
+ 	// double the data block size if we need to
+ 	while( (mem_header->current_position + required_bytes) >= mem_header->data_length ) {

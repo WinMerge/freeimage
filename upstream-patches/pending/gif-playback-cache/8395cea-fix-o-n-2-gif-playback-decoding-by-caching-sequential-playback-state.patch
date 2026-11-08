@@ -1,0 +1,416 @@
+diff --git a/Source/FreeImage/MultiPage.cpp b/Source/FreeImage/MultiPage.cpp
+index f5b42ff..2f56e40 100644
+--- a/Source/FreeImage/MultiPage.cpp
++++ b/Source/FreeImage/MultiPage.cpp
+@@ -108,10 +108,11 @@ struct MULTIBITMAPHEADER {
+ 		, read_only(TRUE)
+ 		, cache_fif(fif)
+ 		, load_flags(0)
++		, read_data(NULL)
+ 	{
+ 		SetDefaultIO(&io);
+ 	}
+-	
++
+ 	PluginNode *node;
+ 	FREE_IMAGE_FORMAT fif;
+ 	FreeImageIO io;
+@@ -125,6 +126,12 @@ struct MULTIBITMAPHEADER {
+ 	BOOL read_only;
+ 	FREE_IMAGE_FORMAT cache_fif;
+ 	int load_flags;
++	// plugin decoder state kept open for the lifetime of the multi-bitmap
++	// (lazily opened on the first FreeImage_LockPage() call), so plugins
++	// that keep their own state - e.g. PluginGIF.cpp's GIF_PLAYBACK cache -
++	// can see it survive across sequential page requests instead of being
++	// torn down and rebuilt on every single FreeImage_LockPage() call.
++	void *read_data;
+ };
+ 
+ // =====================================================================
+@@ -482,8 +489,14 @@ FreeImage_CloseMultiBitmap(FIMULTIBITMAP *bitmap, int flags) {
+ 		BOOL success = TRUE;
+ 		
+ 		if (bitmap->data) {
+-			MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);			
+-			
++			MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);
++
++			// close the decoder state FreeImage_LockPage() kept open, if any
++			if (header->read_data != NULL) {
++				FreeImage_Close(header->node, &header->io, header->handle, header->read_data);
++				header->read_data = NULL;
++			}
++
+ 			// saves changes only of images loaded directly from a file
+ 			if (header->changed && !header->m_filename.empty()) {
+ 				try {
+@@ -698,28 +711,27 @@ FreeImage_LockPage(FIMULTIBITMAP *bitmap, int page) {
+ 			}
+ 		}
+ 
+-		// open the bitmap
+-		
+-		header->io.seek_proc(header->handle, 0, SEEK_SET);
+-		
+-		void *data = FreeImage_Open(header->node, &header->io, header->handle, TRUE);
+-		
+-		// load the bitmap data
+-		
+-		if (data != NULL) {
+-			FIBITMAP *dib = (header->node->m_plugin->load_proc != NULL) ? header->node->m_plugin->load_proc(&header->io, header->handle, page, header->load_flags, data) : NULL;
++		// open the bitmap decoder once and keep it open for the lifetime of
++		// the multi-bitmap, instead of reopening it on every single page -
++		// this both avoids re-parsing the file from scratch each call and
++		// lets plugins retain their own state across sequential page
++		// requests (see PluginGIF.cpp's GIF_PLAYBACK cache)
+ 
+-			// close the file
+-			
+-			FreeImage_Close(header->node, &header->io, header->handle, data);
++		if (header->read_data == NULL) {
++			header->io.seek_proc(header->handle, 0, SEEK_SET);
++			header->read_data = FreeImage_Open(header->node, &header->io, header->handle, TRUE);
++		}
++
++		// load the bitmap data
+ 
+-			// if there was still another bitmap open, get rid of it
++		if (header->read_data != NULL) {
++			FIBITMAP *dib = (header->node->m_plugin->load_proc != NULL) ? header->node->m_plugin->load_proc(&header->io, header->handle, page, header->load_flags, header->read_data) : NULL;
+ 
+ 			if (dib) {
+ 				header->locked_pages[dib] = page;
+ 
+ 				return dib;
+-			}	
++			}
+ 
+ 			return NULL;
+ 		}
+diff --git a/Source/FreeImage/PluginGIF.cpp b/Source/FreeImage/PluginGIF.cpp
+index a11b1a3..edd8d63 100644
+--- a/Source/FreeImage/PluginGIF.cpp
++++ b/Source/FreeImage/PluginGIF.cpp
+@@ -3,7 +3,7 @@
+ //
+ // Design and implementation by
+ // - Ryan Rubley <ryan@lostreality.org>
+-// - Raphaël Gaquer <raphael.gaquer@alcer.com>
++// - Raphaï¿½l Gaquer <raphael.gaquer@alcer.com>
+ // - Aaron Shumate <aaron@shumate.us>
+ //
+ // References
+@@ -60,6 +60,30 @@ struct GIFinfo {
+ 	std::vector<size_t> graphic_control_extension_offsets;
+ 	std::vector<size_t> image_descriptor_offsets;
+ 
++	// GIF_PLAYBACK sequential-decode cache. FreeImage_LockPage() keeps a
++	// single GIFinfo open for the lifetime of the FIMULTIBITMAP (see
++	// MultiPage.cpp), so this survives across consecutive page requests.
++	// It holds the fully composited canvas for the last page returned,
++	// plus the canvas state from just before that page's own image data
++	// was drawn onto it (needed to undo a GIF_DISPOSAL_PREVIOUS frame when
++	// composing the next one). This lets sequential playback reuse the
++	// previous frame's work instead of repeating the backward/forward
++	// reconstruction GIF_PLAYBACK would otherwise redo for every frame.
++	struct PlaybackCache {
++		PlaybackCache() : valid(false), page(-1), disposal_method(GIF_DISPOSAL_LEAVE), left(0), top(0), width(0), height(0), delay_time(0), canvas(NULL), previous_canvas(NULL) {}
++		~PlaybackCache() {
++			if( canvas ) FreeImage_Unload(canvas);
++			if( previous_canvas ) FreeImage_Unload(previous_canvas);
++		}
++		bool valid;
++		int page;
++		int disposal_method;
++		WORD left, top, width, height;
++		int delay_time;
++		FIBITMAP *canvas;			//fully composited result for `page`
++		FIBITMAP *previous_canvas;	//composited result just before `page`'s own pixels were drawn
++	} playback;
++
+ 	GIFinfo() : read(0), global_color_table_offset(0), global_color_table_size(0), background_color(0)
+ 	{
+ 	}
+@@ -657,7 +681,97 @@ PageCount(FreeImageIO *io, fi_handle handle, void *data) {
+ 	return (int) info->image_descriptor_offsets.size();
+ }
+ 
+-static FIBITMAP * DLL_CALLCONV 
++// ----------------------------------------------------------
++//   GIF_PLAYBACK sequential-decode cache helpers
++// ----------------------------------------------------------
++
++// Reads a single frame's Graphic Control Extension + Image Descriptor.
++// Mirrors the exact seek/read pattern the backward-reconstruction scan in
++// Load() uses below, including not checking whether the frame actually has
++// a GCE (graphic_control_extension_offsets[page] == 0), to keep behaviour
++// identical between the cached and reconstructed paths.
++static PageInfo
++GifPlaybackReadPageInfo(FreeImageIO *io, fi_handle handle, GIFinfo *info, int page) {
++	BYTE packed;
++	io->seek_proc(handle, (long)(info->graphic_control_extension_offsets[page] + 1), SEEK_SET);
++	io->read_proc(&packed, 1, 1, handle);
++	int disposal_method = (packed & GIF_PACKED_GCE_DISPOSAL) >> 2;
++
++	WORD left, top, width, height;
++	io->seek_proc(handle, (long)(info->image_descriptor_offsets[page]), SEEK_SET);
++	io->read_proc(&left, 2, 1, handle);
++	io->read_proc(&top, 2, 1, handle);
++	io->read_proc(&width, 2, 1, handle);
++	io->read_proc(&height, 2, 1, handle);
++#ifdef FREEIMAGE_BIGENDIAN
++	SwapShort(&left);
++	SwapShort(&top);
++	SwapShort(&width);
++	SwapShort(&height);
++#endif
++	return PageInfo(disposal_method, left, top, width, height);
++}
++
++// Composites a freshly-decoded raw frame onto the playback canvas at its
++// (left, top) position, honoring its transparent color if any. Reports the
++// frame's delay time via *delay_time if non-null.
++static void
++GifPlaybackCompositeFrame(FIBITMAP *canvas, FIBITMAP *pagedib, const PageInfo &pinfo, int logicalheight, int *delay_time) {
++	RGBQUAD *pal = FreeImage_GetPalette(pagedib);
++	bool have_transparent = false;
++	int transparent_color = 0;
++	if( FreeImage_IsTransparent(pagedib) ) {
++		int count = FreeImage_GetTransparencyCount(pagedib);
++		BYTE *table = FreeImage_GetTransparencyTable(pagedib);
++		for( int i = 0; i < count; i++ ) {
++			if( table[i] == 0 ) {
++				have_transparent = true;
++				transparent_color = i;
++				break;
++			}
++		}
++	}
++	for( int y = 0; y < pinfo.height; y++ ) {
++		const int scanidx = logicalheight - (y + pinfo.top) - 1;
++		if ( scanidx < 0 ) {
++			break;  // If data is corrupt, don't calculate in invalid scanline
++		}
++		RGBQUAD *scanline = (RGBQUAD *)FreeImage_GetScanLine(canvas, scanidx) + pinfo.left;
++		BYTE *pageline = FreeImage_GetScanLine(pagedib, pinfo.height - y - 1);
++		for( int x = 0; x < pinfo.width; x++ ) {
++			if( !have_transparent || *pageline != transparent_color ) {
++				*scanline = pal[*pageline];
++				scanline->rgbReserved = 255;
++			}
++			scanline++;
++			pageline++;
++		}
++	}
++	if( delay_time ) {
++		FITAG *tag;
++		if( FreeImage_GetMetadataEx(FIMD_ANIMATION, pagedib, "FrameTime", FIDT_LONG, &tag) ) {
++			*delay_time = *(LONG *)FreeImage_GetTagValue(tag);
++		}
++	}
++}
++
++// Fills a frame's rect on the playback canvas with a flat color, used for
++// GIF_DISPOSAL_BACKGROUND.
++static void
++GifPlaybackFillRect(FIBITMAP *canvas, const PageInfo &pinfo, int logicalheight, const RGBQUAD &color) {
++	for( int y = 0; y < pinfo.height; y++ ) {
++		const int scanidx = logicalheight - (y + pinfo.top) - 1;
++		if ( scanidx < 0 ) {
++			break;
++		}
++		RGBQUAD *scanline = (RGBQUAD *)FreeImage_GetScanLine(canvas, scanidx) + pinfo.left;
++		for( int x = 0; x < pinfo.width; x++ ) {
++			*scanline++ = color;
++		}
++	}
++}
++
++static FIBITMAP * DLL_CALLCONV
+ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 	if( data == NULL ) {
+ 		return NULL;
+@@ -704,6 +818,74 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 			}
+ 			background.rgbReserved = 0;
+ 
++			GIFinfo::PlaybackCache &cache = info->playback;
++
++			//repeated access to the same page: nothing to decode
++			if( cache.valid && cache.page == page ) {
++				dib = FreeImage_Clone(cache.canvas);
++				if( dib == NULL ) {
++					throw FI_MSG_ERROR_DIB_MEMORY;
++				}
++				FreeImage_SetMetadataEx(FIMD_ANIMATION, dib, "FrameTime", ANIMTAG_FRAMETIME, FIDT_LONG, 1, 4, &cache.delay_time);
++				return dib;
++			}
++
++			//sequential access: reuse the previous frame's composited state
++			//instead of reconstructing the whole animation from scratch
++			if( cache.valid && cache.page == page - 1 ) {
++				FIBITMAP *canvas = FreeImage_Clone((cache.disposal_method == GIF_DISPOSAL_PREVIOUS) ? cache.previous_canvas : cache.canvas);
++				if( canvas == NULL ) {
++					throw FI_MSG_ERROR_DIB_MEMORY;
++				}
++				if( cache.disposal_method == GIF_DISPOSAL_BACKGROUND ) {
++					GifPlaybackFillRect(canvas, PageInfo(cache.disposal_method, cache.left, cache.top, cache.width, cache.height), logicalheight, background);
++				}
++
++				//the state right before this page's own pixels are drawn is
++				//what the *next* sequential frame will need should this page
++				//turn out to use GIF_DISPOSAL_PREVIOUS
++				FIBITMAP *new_previous_canvas = FreeImage_Clone(canvas);
++				if( new_previous_canvas == NULL ) {
++					FreeImage_Unload(canvas);
++					throw FI_MSG_ERROR_DIB_MEMORY;
++				}
++
++				PageInfo thispage = GifPlaybackReadPageInfo(io, handle, info, page);
++				int this_delay_time = 0;
++				FIBITMAP *pagedib = Load(io, handle, page, GIF_LOAD256, data);
++				if( pagedib != NULL ) {
++					GifPlaybackCompositeFrame(canvas, pagedib, thispage, logicalheight, &this_delay_time);
++					FreeImage_Unload(pagedib);
++				}
++
++				if( cache.canvas ) {
++					FreeImage_Unload(cache.canvas);
++				}
++				if( cache.previous_canvas ) {
++					FreeImage_Unload(cache.previous_canvas);
++				}
++				cache.canvas = canvas;
++				cache.previous_canvas = new_previous_canvas;
++				cache.page = page;
++				cache.disposal_method = thispage.disposal_method;
++				cache.left = thispage.left;
++				cache.top = thispage.top;
++				cache.width = thispage.width;
++				cache.height = thispage.height;
++				cache.delay_time = this_delay_time;
++				cache.valid = true;
++
++				dib = FreeImage_Clone(cache.canvas);
++				if( dib == NULL ) {
++					throw FI_MSG_ERROR_DIB_MEMORY;
++				}
++				FreeImage_SetMetadataEx(FIMD_ANIMATION, dib, "FrameTime", ANIMTAG_FRAMETIME, FIDT_LONG, 1, 4, &this_delay_time);
++				return dib;
++			}
++
++			//non-sequential access (backwards or a jump): fall back to
++			//reconstructing the frame from the nearest safe earlier frame
++
+ 			//allocate entire logical area
+ 			dib = FreeImage_Allocate(logicalwidth, logicalheight, 32);
+ 			if( dib == NULL ) {
+@@ -765,6 +947,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 
+ 			//draw each page into the logical area
+ 			delay_time = 0;
++			FIBITMAP *previous_canvas_snapshot = NULL;
+ 			for( page = start; page <= end; page++ ) {
+ 				PageInfo &info = pageinfo[end - page];
+ 				//things we can skip having to decode
+@@ -773,16 +956,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 						continue;
+ 					}
+ 					if( info.disposal_method == GIF_DISPOSAL_BACKGROUND ) {
+-						for( y = 0; y < info.height; y++ ) {
+-							const int scanidx = logicalheight - (y + info.top) - 1;
+-							if ( scanidx < 0 ) {
+-								break;  // If data is corrupt, don't calculate in invalid scanline
+-							}
+-							scanline = (RGBQUAD *)FreeImage_GetScanLine(dib, scanidx) + info.left;
+-							for( x = 0; x < info.width; x++ ) {
+-								*scanline++ = background;
+-							}
+-						}
++						GifPlaybackFillRect(dib, info, logicalheight, background);
+ 						continue;
+ 					}
+ 				}
+@@ -790,49 +964,46 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 				//decode page
+ 				FIBITMAP *pagedib = Load(io, handle, page, GIF_LOAD256, data);
+ 				if( pagedib != NULL ) {
+-					RGBQUAD *pal = FreeImage_GetPalette(pagedib);
+-					have_transparent = false;
+-					if( FreeImage_IsTransparent(pagedib) ) {
+-						int count = FreeImage_GetTransparencyCount(pagedib);
+-						BYTE *table = FreeImage_GetTransparencyTable(pagedib);
+-						for( int i = 0; i < count; i++ ) {
+-							if( table[i] == 0 ) {
+-								have_transparent = true;
+-								transparent_color = i;
+-								break;
+-							}
+-						}
+-					}
+-					//copy page data into logical buffer, with full alpha opaqueness
+-					for( y = 0; y < info.height; y++ ) {
+-						const int scanidx = logicalheight - (y + info.top) - 1;
+-						if ( scanidx < 0 ) {
+-							break;  // If data is corrupt, don't calculate in invalid scanline
+-						}
+-						scanline = (RGBQUAD *)FreeImage_GetScanLine(dib, scanidx) + info.left;
+-						BYTE *pageline = FreeImage_GetScanLine(pagedib, info.height - y - 1);
+-						for( x = 0; x < info.width; x++ ) {
+-							if( !have_transparent || *pageline != transparent_color ) {
+-								*scanline = pal[*pageline];
+-								scanline->rgbReserved = 255;
+-							}
+-							scanline++;
+-							pageline++;
+-						}
+-					}
+-					//copy frame time
+ 					if( page == end ) {
+-						FITAG *tag;
+-						if( FreeImage_GetMetadataEx(FIMD_ANIMATION, pagedib, "FrameTime", FIDT_LONG, &tag) ) {
+-							delay_time = *(LONG *)FreeImage_GetTagValue(tag);
+-						}
++						//canvas state right before this (final) page's own pixels
++						//are drawn - what a following sequential page would need
++						//should this page use GIF_DISPOSAL_PREVIOUS
++						previous_canvas_snapshot = FreeImage_Clone(dib);
+ 					}
++					GifPlaybackCompositeFrame(dib, pagedib, info, logicalheight, (page == end) ? &delay_time : NULL);
+ 					FreeImage_Unload(pagedib);
+ 				}
+ 			}
+ 
+ 			//setup frame time
+ 			FreeImage_SetMetadataEx(FIMD_ANIMATION, dib, "FrameTime", ANIMTAG_FRAMETIME, FIDT_LONG, 1, 4, &delay_time);
++
++			//populate the sequential playback cache so a following request for
++			//page + 1 can skip this reconstruction entirely
++			if( previous_canvas_snapshot != NULL ) {
++				FIBITMAP *canvas_snapshot = FreeImage_Clone(dib);
++				if( canvas_snapshot != NULL ) {
++					if( cache.canvas ) {
++						FreeImage_Unload(cache.canvas);
++					}
++					if( cache.previous_canvas ) {
++						FreeImage_Unload(cache.previous_canvas);
++					}
++					cache.canvas = canvas_snapshot;
++					cache.previous_canvas = previous_canvas_snapshot;
++					cache.page = end;
++					cache.disposal_method = pageinfo[0].disposal_method;
++					cache.left = pageinfo[0].left;
++					cache.top = pageinfo[0].top;
++					cache.width = pageinfo[0].width;
++					cache.height = pageinfo[0].height;
++					cache.delay_time = delay_time;
++					cache.valid = true;
++				} else {
++					FreeImage_Unload(previous_canvas_snapshot);
++				}
++			}
++
+ 			return dib;
+ 		}
+ 

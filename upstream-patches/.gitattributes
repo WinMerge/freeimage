@@ -1,0 +1,4 @@
+# Patch hashes describe the original bytes, including mixed line endings.
+*.patch -text
+*.gz -text
+*.zip -text

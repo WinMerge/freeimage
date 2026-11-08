@@ -1,0 +1,38 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6acdc8b0386934fb497c1ec2",
+  "mod_date": "2026-10-13 05:59:12.812000",
+  "labels": [
+    "patch",
+    " bugfix"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "1bfa37bb1f",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/1bfa37bb1f/",
+  "created_date": "2026-10-13 05:59:12.590000",
+  "ticket_num": 189,
+  "summary": "Accept trailing BMP RLE8 end-of-bitmap after the final end-of-line",
+  "description": "Applies to FreeImage SVN trunk r1911, checked 2026-10-13.\n\nRead the final end-of-bitmap marker even when the final end-of-line has advanced scanline to height. Validate the row before both absolute and encoded pixel writes so an extra data packet cannot write past the bitmap.\n\nOriginal contributor: Dan Rosser. License: retain the original FreeImage file license (FIPL/GPL).\nFork fix: https://github.com/danoli3/FreeImage/commit/b9c6227\n\n## Verification\n\nA valid one-row stream with a trailing end-of-bitmap marker fails before this fix and loads after it. A data run following the final end-of-line is still rejected.\n\nThe attached regression harness builds against the public FreeImage API. All six cases fail against unpatched r1911 versions of the affected files and pass after this batch. Each edited translation unit and the harness was built with `-fsanitize=address -g`, linked to the existing 3.19.21 core archive on macOS ARM64. The rest of that archive was not ASan-instrumented: this verifies the targeted code, not a full sanitized upstream build. The fork's existing MainTestSuite and VendorCodecTest also pass independently.\n\n## Apply\n\nAttach `bmp-rle8-terminator.patch` and `bmp-rle8-terminator-submission.zip` to this ticket. The ZIP contains the patch, harness and this description.\n\nFrom the upstream source root:\n\n```sh\npatch --dry-run -p0 < bmp-rle8-terminator.patch\npatch -p0 < bmp-rle8-terminator.patch\n```\n\nRun `regression bmp-rle8-terminator` after linking regression.cpp to the built library. The harness returns 0 for the corrected behavior, 1 for a regression and 2 for usage errors. An ASan abort also indicates failure for the CUT baseline.\n\nAll patches dry-run successfully on pristine r1911. The two BMP patches also apply together. No dependency upgrades or ABI changes are needed.\n\nThe live ticket index and relevant attachments from #121/#143/#149/#154 were inspected. No equivalent patch was identified in that review; this is not an exhaustive audit of every historical discussion or attachment.",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 3576,
+      "url": "https://sourceforge.net/p/freeimage/patches/189/attachment/bmp-rle8-terminator-submission.zip"
+    }
+  ],
+  "custom_fields": {}
+}

@@ -1,0 +1,17 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8866183..0857f60 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1120,6 +1120,12 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
+ # propagate out of add_subdirectory().
+ if(FREEIMAGE_STATIC)
+     target_compile_definitions(${PROJECT_NAME} PUBLIC FREEIMAGE_LIB)
++elseif(WIN32)
++    # Shared Windows builds (MSVC and MinGW, including llvm-mingw) compile
++    # this target with dllexport. Consumers do not get the define, so
++    # FreeImage.h gives them dllimport. Without it the library's own
++    # objects are built dllimport and the link fails (issue #127).
++    target_compile_definitions(${PROJECT_NAME} PRIVATE FREEIMAGE_EXPORTS)
+ endif()
+ 
+ 

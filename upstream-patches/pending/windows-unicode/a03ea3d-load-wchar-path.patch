@@ -1,0 +1,13 @@
+diff --git a/Source/FreeImage/Plugin.cpp b/Source/FreeImage/Plugin.cpp
+index 38b8f19..5c958dd 100644
+--- a/Source/FreeImage/Plugin.cpp
++++ b/Source/FreeImage/Plugin.cpp
+@@ -527,7 +527,7 @@ FreeImage_RegisterLocalPlugin(FI_InitProc proc_address, const char *format, cons
+ FREE_IMAGE_FORMAT DLL_CALLCONV
+ FreeImage_RegisterExternalPlugin(const wchar_t *path, const char *format, const char *description, const char *extension, const char *regexpr) {
+ 	if (path != NULL) {
+-		HINSTANCE instance = LoadLibrary(path);
++		HINSTANCE instance = LoadLibraryW(path);
+ 
+ 		if (instance != NULL) {
+ 			FARPROC proc_address = GetProcAddress(instance, "_Init@8");

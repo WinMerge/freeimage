@@ -1,0 +1,44 @@
+[
+  {
+    "commit": "d474400d1434624fd3fc6f0503a6ac0a7fbc1b0b",
+    "parent": "b16dd6cd89abcb8f547cc55c06e88630fceb678d",
+    "subject": "Fix 6 unpatched CVEs from issue #35: OOB reads in IPTC/Exif, OOB in XPM/RAS",
+    "author": "Dan Rosser <danoli3@gmail.com>",
+    "path": "upstream-patches/sourceforge/198/linked-commits/d474400-fix-6-unpatched-cves-from-issue-35-oob-reads-in-iptc-exif-oob-in-xpm-ras.patch",
+    "sha256": "a40c654e833131e4eb1b5154e82a4afa206727ffea8daf483f07abbb8251bcda",
+    "bytes": 12745,
+    "files": [
+      "Source/FreeImage/PluginRAS.cpp",
+      "Source/FreeImage/PluginXPM.cpp",
+      "Source/Metadata/Exif.cpp",
+      "Source/Metadata/IPTC.cpp"
+    ]
+  },
+  {
+    "commit": "38fbe82eaa4f6e1fb9f7b059028a273b09ca2e41",
+    "parent": "5af27d055ad31fbf99631a55a5de19b3820a4790",
+    "subject": "fix heap overflow in IFF PBM RLE decompression",
+    "author": "areofyl <areofyl@users.noreply.github.com>",
+    "path": "upstream-patches/sourceforge/198/linked-commits/38fbe82-fix-heap-overflow-in-iff-pbm-rle-decompression.patch",
+    "sha256": "52caa481ecc84bd8bf17ba0405abe933e6e63d05a4178ff872c25a473b87c153",
+    "bytes": 1264,
+    "files": [
+      "Source/FreeImage/PluginIFF.cpp"
+    ]
+  },
+  {
+    "commit": "ad068d2f6b2e252d51637c9482c13540f1b1b3f1",
+    "parent": "e1105d3b464b679f0525c6178d9ccf49d55cf712",
+    "subject": "Reject truncated PBM RLE streams and bound no-op decoding",
+    "author": "Dan Rosser <danoli3@gmail.com>",
+    "path": "upstream-patches/sourceforge/198/linked-commits/ad068d2-reject-truncated-pbm-rle-streams-and-bound-no-op-decoding.patch",
+    "sha256": "69756e90504c56252cd7e1b9f70364a48b29280ca1d226401744ead5d96a69c7",
+    "bytes": 9773,
+    "files": [
+      ".github/workflows/cmake.yml",
+      "Source/FreeImage/PluginIFF.cpp",
+      "TestAPI/CMakeLists.txt",
+      "TestAPI/testIffPbmRle.cpp"
+    ]
+  }
+]

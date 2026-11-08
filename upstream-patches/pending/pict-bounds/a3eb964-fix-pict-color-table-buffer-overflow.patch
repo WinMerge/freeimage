@@ -1,0 +1,14 @@
+diff --git a/Source/FreeImage/PluginPICT.cpp b/Source/FreeImage/PluginPICT.cpp
+index ec8d734..b1e2626 100644
+--- a/Source/FreeImage/PluginPICT.cpp
++++ b/Source/FreeImage/PluginPICT.cpp
+@@ -390,7 +390,8 @@ ReadColorTable( FreeImageIO *io, fi_handle handle, WORD* pNumColors, RGBQUAD* pP
+ 			// colours in order.
+ 			val = (WORD)i;
+ 		}
+-		if (val >= numColors) {
++		if (val >= numColors || val >= 256) {
++			// pPal is always a fixed 256-entry array
+ 			throw "pixel value greater than color table size.";
+ 		}
+ 		// Mac colour tables contain 16-bit values for R, G, and B...

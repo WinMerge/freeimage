@@ -38,6 +38,7 @@
 #include "FreeImage.h"
 #include "FreeImageIO.h"
 #include "Utilities.h"
+#include "../Metadata/MetadataStrip.h"
 #include "MapIntrospector.h"
 
 #include "../Metadata/FreeImageTag.h"
@@ -1373,6 +1374,71 @@ FreeImage_CloneMetadata(FIBITMAP *dst, FIBITMAP *src) {
 }
 
 // ----------------------------------------------------------
+
+BOOL DLL_CALLCONV
+FreeImage_StripMetadata(FIBITMAP *dib) {
+#if !FREEIMAGE_METADATA_STRIP
+    (void)dib;
+    return FALSE;
+#else
+    if(!dib) return FALSE;
+    FreeImage_DestroyICCProfile(dib); // preserves the structural CMYK flag
+    FreeImage_SetThumbnail(dib, NULL);
+    METADATAMAP *metadata = ((FREEIMAGEHEADER *)dib->data)->metadata;
+    for(METADATAMAP::iterator model = metadata->begin(); model != metadata->end();) {
+        if(model->first == FIMD_ANIMATION) { ++model; continue; }
+        TAGMAP *tags = model->second;
+        if(tags) {
+            for(TAGMAP::iterator tag = tags->begin(); tag != tags->end(); ++tag)
+                FreeImage_DeleteTag(tag->second);
+            delete tags;
+        }
+        metadata->erase(model++);
+    }
+    return TRUE;
+#endif
+}
+
+#if FREEIMAGE_METADATA_STRIP
+FIBITMAP *FreeImageInternal::CreateStrippedView(FIBITMAP *source) {
+    if(!source || !FreeImage_HasPixels(source)) return NULL;
+    FIBITMAP *view = FreeImage_AllocateHeaderForBits(FreeImage_GetBits(source), FreeImage_GetPitch(source),
+        FreeImage_GetImageType(source), FreeImage_GetWidth(source), FreeImage_GetHeight(source),
+        FreeImage_GetBPP(source), FreeImage_GetRedMask(source), FreeImage_GetGreenMask(source),
+        FreeImage_GetBlueMask(source));
+    if(!view) return NULL;
+    *FreeImage_GetInfoHeader(view) = *FreeImage_GetInfoHeader(source);
+    if(FreeImage_GetPalette(source)) {
+        memcpy(FreeImage_GetPalette(view), FreeImage_GetPalette(source),
+            FreeImage_GetColorsUsed(source) * sizeof(RGBQUAD));
+    }
+    FREEIMAGEHEADER *src = (FREEIMAGEHEADER *)source->data;
+    FREEIMAGEHEADER *dst = (FREEIMAGEHEADER *)view->data;
+    dst->bkgnd_color = src->bkgnd_color;
+    memcpy(dst->transparent_table, src->transparent_table, sizeof(dst->transparent_table));
+    dst->transparency_count = src->transparency_count;
+    dst->transparent = src->transparent;
+    dst->iccProfile.flags = src->iccProfile.flags;
+    // Timing, looping and frame disposal are image data needed by GIF playback.
+    FITAG *tag = NULL;
+    FIMETADATA *iterator = FreeImage_FindFirstMetadata(FIMD_ANIMATION, source, &tag);
+    if(!iterator && FreeImage_GetMetadataCount(FIMD_ANIMATION, source)) {
+        FreeImage_Unload(view);
+        return NULL;
+    }
+    if(iterator) {
+        do {
+            if(!FreeImage_SetMetadata(FIMD_ANIMATION, view, FreeImage_GetTagKey(tag), tag)) {
+                FreeImage_FindCloseMetadata(iterator);
+                FreeImage_Unload(view);
+                return NULL;
+            }
+        } while(FreeImage_FindNextMetadata(iterator, &tag));
+        FreeImage_FindCloseMetadata(iterator);
+    }
+    return view;
+}
+#endif
 
 BOOL DLL_CALLCONV 
 FreeImage_SetMetadata(FREE_IMAGE_MDMODEL model, FIBITMAP *dib, const char *key, FITAG *tag) {

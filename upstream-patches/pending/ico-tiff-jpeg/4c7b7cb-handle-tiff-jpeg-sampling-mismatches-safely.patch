@@ -1,0 +1,223 @@
+diff --git a/Source/FreeImage/PluginICO.cpp b/Source/FreeImage/PluginICO.cpp
+index d6620df..09dbcc6 100644
+--- a/Source/FreeImage/PluginICO.cpp
++++ b/Source/FreeImage/PluginICO.cpp
+@@ -302,10 +302,6 @@ LoadStandardIcon(FreeImageIO *io, fi_handle handle, int flags, BOOL header_only)
+ 	// allocate the bitmap
+ 	int width  = bmih.biWidth;
+ 	int height = bmih.biHeight / 2; // height == xor + and mask
+-	// Prevent memory allocation errors caused by abnormally large image dimensions.
+-	// Reject images whose pixel count exceeds 4096*1024 (~4M pixels).
+-	if (width * height > 4096*1024)
+-		return NULL;
+ 	unsigned bit_count = bmih.biBitCount;
+ 
+ 	// ICO BITMAPINFOHEADER must use a real Windows bpp. Illegal values
+@@ -317,6 +313,11 @@ LoadStandardIcon(FreeImageIO *io, fi_handle handle, int flags, BOOL header_only)
+ 	if ((width <= 0) || (height <= 0)) {
+ 		return NULL;
+ 	}
++	// Reject icons whose pixel count exceeds the allocation limit. Divide
++	// before multiplying so malformed dimensions cannot overflow an int.
++	if (width > (4096 * 1024) / height) {
++		return NULL;
++	}
+ 
+ 	unsigned line   = CalculateLine(width, bit_count);
+ 	unsigned pitch  = CalculatePitch(line);
+diff --git a/Source/LibTIFF4/tif_jpeg.c b/Source/LibTIFF4/tif_jpeg.c
+index 1c487a8..bf412b9 100644
+--- a/Source/LibTIFF4/tif_jpeg.c
++++ b/Source/LibTIFF4/tif_jpeg.c
+@@ -1357,22 +1357,35 @@ static int JPEGComputeStrileWidthHeightBytesPerLine(TIFF *tif, uint16_t s)
+         }
+     }
+ 
++    int sampling_mismatch = 0;
+     if (td->td_planarconfig == PLANARCONFIG_CONTIG)
+     {
+         /* Component 0 should have expected sampling factors */
+-/* Comment out this block of code; otherwise, JPEG-compressed TIFF images with mismatched sampling factors cannot be opened.
+         if (sp->cinfo.d.comp_info[0].h_samp_factor != sp->h_sampling ||
+             sp->cinfo.d.comp_info[0].v_samp_factor != sp->v_sampling)
+         {
+-            TIFFErrorExtR(tif, module,
+-                          "Improper JPEG sampling factors %d,%d\n"
+-                          "Apparently should be %" PRIu16 ",%" PRIu16 ".",
+-                          sp->cinfo.d.comp_info[0].h_samp_factor,
+-                          sp->cinfo.d.comp_info[0].v_samp_factor,
+-                          sp->h_sampling, sp->v_sampling);
+-            return (0);
++            /*
++             * Some files have TIFF subsampling tags that disagree with the
++             * JPEG stream. Such files can only be decoded safely through
++             * libjpeg's full-resolution RGB output path below; raw YCbCr
++             * output uses the TIFF factors to size destination planes.
++             */
++            if (sp->photometric != PHOTOMETRIC_YCBCR ||
++                sp->cinfo.d.num_components != 3)
++            {
++                TIFFErrorExtR(tif, module,
++                              "Improper JPEG sampling factors %d,%d\n"
++                              "Apparently should be %" PRIu16 ",%" PRIu16 ".",
++                              sp->cinfo.d.comp_info[0].h_samp_factor,
++                              sp->cinfo.d.comp_info[0].v_samp_factor,
++                              sp->h_sampling, sp->v_sampling);
++                return (0);
++            }
++            sampling_mismatch = 1;
++            TIFFWarningExtR(tif, module,
++                            "JPEG sampling factors differ from TIFF tags; "
++                            "decoding through RGB output");
+         }
+-*/
+         /* Rest should have sampling factors 1,1 */
+         for (ci = 1; ci < sp->cinfo.d.num_components; ci++)
+         {
+@@ -1397,7 +1410,8 @@ static int JPEGComputeStrileWidthHeightBytesPerLine(TIFF *tif, uint16_t s)
+     downsampled_output = FALSE;
+     if (td->td_planarconfig == PLANARCONFIG_CONTIG &&
+         sp->photometric == PHOTOMETRIC_YCBCR &&
+-        sp->otherSettings.jpegcolormode == JPEGCOLORMODE_RGB)
++        (sp->otherSettings.jpegcolormode == JPEGCOLORMODE_RGB ||
++         sampling_mismatch))
+     {
+         /* Convert YCbCr to RGB */
+         sp->cinfo.d.jpeg_color_space = JCS_YCbCr;
+diff --git a/TestAPI/testVendorCodecs.cpp b/TestAPI/testVendorCodecs.cpp
+index da882a4..ea015fc 100644
+--- a/TestAPI/testVendorCodecs.cpp
++++ b/TestAPI/testVendorCodecs.cpp
+@@ -152,6 +152,113 @@ static void tiffRoundtrip(int flag) {
+     FreeImage_Unload(image);
+     printf("TIFF compression 0x%x passed\n", flag);
+ }
++
++static TIFF *openTiff(const char *path, const char *mode);
++
++static void tiffJpegSamplingMismatch() {
++    const char *path = "vendor-jpeg-sampling-mismatch.tif";
++    const uint32_t w = 64, h = 32;
++    TIFF *tif = openTiff(path, "w");
++    check(tif, "JPEG TIFF open failed");
++
++    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
++    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
++    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
++    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
++    TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
++    TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
++    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_YCBCR);
++    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_JPEG);
++    // The shared TIFF samples have 2x1 sampling in the JPEG stream but 2x2
++    // in the TIFF tag. Start with matching 2x1 metadata, then alter only the
++    // TIFF tag below.
++    TIFFSetField(tif, TIFFTAG_YCBCRSUBSAMPLING, 2, 1);
++    TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
++    TIFFSetField(tif, TIFFTAG_JPEGQUALITY, 90);
++    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, h);
++
++    std::vector<unsigned char> row(w * 3);
++    for (uint32_t y = 0; y < h; ++y) {
++        for (uint32_t x = 0; x < w; ++x) {
++            row[x * 3 + 0] = static_cast<unsigned char>(x * 3);
++            row[x * 3 + 1] = static_cast<unsigned char>(y * 7);
++            row[x * 3 + 2] = static_cast<unsigned char>((x + y) * 5);
++        }
++        check(TIFFWriteScanline(tif, row.data(), y, 0) > 0,
++              "JPEG TIFF scanline write failed");
++    }
++    TIFFClose(tif);
++
++    FIBITMAP *reference = FreeImage_Load(FIF_TIFF, path);
++    check(reference != nullptr, "Matching-sampling JPEG TIFF failed to load");
++    check(FreeImage_GetWidth(reference) == w && FreeImage_GetHeight(reference) == h,
++          "Matching-sampling JPEG TIFF dimensions are wrong");
++    const unsigned line = FreeImage_GetLine(reference);
++    std::vector<unsigned char> referencePixels(line * h);
++    for (uint32_t y = 0; y < h; ++y)
++        std::memcpy(referencePixels.data() + y * line,
++                    FreeImage_GetScanLine(reference, h - 1 - y), line);
++    FreeImage_Unload(reference);
++
++    // Change only the TIFF tag; keep the embedded JPEG at 2x1 sampling.
++    tif = openTiff(path, "r+");
++    check(tif, "JPEG TIFF reopen failed");
++    check(TIFFSetField(tif, TIFFTAG_YCBCRSUBSAMPLING, 2, 2) != 0,
++          "Could not change TIFF subsampling tag");
++    check(TIFFRewriteDirectory(tif) != 0, "Could not rewrite TIFF directory");
++    TIFFClose(tif);
++
++    FIBITMAP *image = FreeImage_Load(FIF_TIFF, path);
++    check(image != nullptr, "Mismatched-sampling JPEG TIFF failed to load");
++    check(FreeImage_GetWidth(image) == w && FreeImage_GetHeight(image) == h,
++          "Mismatched-sampling JPEG TIFF dimensions are wrong");
++    check(FreeImage_GetLine(image) == line, "Mismatched-sampling JPEG TIFF line size changed");
++    for (uint32_t y = 0; y < h; ++y)
++        check(std::memcmp(referencePixels.data() + y * line,
++                          FreeImage_GetScanLine(image, h - 1 - y), line) == 0,
++              "Mismatched-sampling JPEG TIFF pixels differ from reference");
++    FreeImage_Unload(image);
++    std::remove(path);
++    puts("JPEG TIFF with mismatched sampling factors passed");
++}
++
++static void putLE16(std::vector<unsigned char> &data, size_t offset, uint16_t value) {
++    data[offset] = static_cast<unsigned char>(value);
++    data[offset + 1] = static_cast<unsigned char>(value >> 8);
++}
++
++static void putLE32(std::vector<unsigned char> &data, size_t offset, uint32_t value) {
++    for (unsigned i = 0; i < 4; ++i)
++        data[offset + i] = static_cast<unsigned char>(value >> (8 * i));
++}
++
++static void icoRejectsOverflowedPixelCount() {
++    // One-entry ICO with a 1-bpp DIB. FIF_LOAD_NOPIXELS makes this safe to
++    // exercise even if a regression lets the enormous dimensions through.
++    std::vector<unsigned char> ico(70, 0);
++    putLE16(ico, 2, 1);   // ICONDIR: type = icon
++    putLE16(ico, 4, 1);   // ICONDIR: one image
++    ico[6] = 0;           // ICONDIRENTRY: 256 pixels wide
++    ico[7] = 0;           // ICONDIRENTRY: 256 pixels high
++    putLE16(ico, 10, 1);  // planes
++    putLE16(ico, 12, 1);  // bit count
++    putLE32(ico, 14, 48); // BITMAPINFOHEADER plus two-entry palette
++    putLE32(ico, 18, 22); // image data offset
++    putLE32(ico, 22, 40); // BITMAPINFOHEADER size
++    putLE32(ico, 26, 65536);
++    putLE32(ico, 30, 131072); // XOR + AND height; decoded height is 65536
++    putLE16(ico, 34, 1);      // planes
++    putLE16(ico, 36, 1);      // bit count
++    putLE32(ico, 54, 2);      // two palette entries
++
++    FIMEMORY *mem = FreeImage_OpenMemory(ico.data(), static_cast<DWORD>(ico.size()));
++    check(mem != nullptr, "ICO test memory allocation failed");
++    FIBITMAP *image = FreeImage_LoadFromMemory(FIF_ICO, mem, FIF_LOAD_NOPIXELS);
++    check(image == nullptr, "ICO accepted dimensions with an overflowing pixel count");
++    FreeImage_CloseMemory(mem);
++    puts("ICO rejects dimensions with overflowing pixel count");
++}
++
+ static tmsize_t readFile(thandle_t h, void *p, tmsize_t n) {
+     return fread(p, 1, n, static_cast<FILE *>(h));
+ }
+@@ -175,7 +282,8 @@ static toff_t sizeFile(thandle_t h) {
+ static int mapFile(thandle_t, void **, toff_t *) { return 0; }
+ static void unmapFile(thandle_t, void *, toff_t) {}
+ static TIFF *openTiff(const char *path, const char *mode) {
+-    FILE *f = fopen(path, mode[0] == 'w' ? "wb+" : "rb");
++    const char *fileMode = mode[0] == 'w' ? "wb+" : (strchr(mode, '+') ? "rb+" : "rb");
++    FILE *f = fopen(path, fileMode);
+     check(f != nullptr, "TIFF file open failed");
+     return TIFFClientOpen(path, mode, f, readFile, writeFile, seekFile, closeFile, sizeFile,
+                           mapFile, unmapFile);
+@@ -229,6 +337,8 @@ int main() {
+         tiffRoundtrip(TIFF_LZW);
+         tiffRoundtrip(TIFF_ADOBE_DEFLATE);
+         tiffRoundtrip(TIFF_PACKBITS);
++        tiffJpegSamplingMismatch();
++        icoRejectsOverflowedPixelCount();
+         g3Roundtrip();
+         FreeImage_DeInitialise();
+         return 0;

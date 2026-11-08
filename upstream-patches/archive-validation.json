@@ -1,0 +1,16 @@
+{
+  "checked": "2026-11-05",
+  "fork_review_tip": "f376729ec99dcb00f93d32e3ee26aaffdc55f4d8",
+  "original_attachments_hashed": 29,
+  "candidate_diffs_verified": 62,
+  "supplemental_diffs_verified": 8,
+  "patches_parsed": 99,
+  "local_markdown_links_checked": 248,
+  "gzip_zip_integrity": "passed",
+  "git_ignore_check": "passed",
+  "scope": "Artifact integrity and provenance only; no new build, ASan run or SVN patch-application validation.",
+  "warnings": [
+    "upstream-patches/sourceforge/190/openjpeg-2.5.4-project.patch.gz: error: corrupt patch at <stdin>:202; original preserved; final-newline companion checked separately"
+  ],
+  "errors": []
+}

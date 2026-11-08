@@ -1,0 +1,608 @@
+diff --git a/.github/workflows/codec-samples.yml b/.github/workflows/codec-samples.yml
+new file mode 100644
+index 0000000..848222e
+--- /dev/null
++++ b/.github/workflows/codec-samples.yml
+@@ -0,0 +1,80 @@
++name: JP2/JXR sample checks
++on:
++  pull_request:
++    paths:
++      - CMakeLists.txt
++      - Source/FreeImage/PluginJXR.cpp
++      - Source/FreeImage/J2KHelper.cpp
++      - Source/FreeImage/PluginJP2.cpp
++      - Source/FreeImage/PluginJ2K.cpp
++      - Source/FreeImage/FreeImageIO.cpp
++      - Source/FreeImage/MemoryIO.cpp
++      - Source/FreeImage/Conversion*.cpp
++      - Source/FreeImage/ToneMapping.cpp
++      - Source/FreeImage/tmo*.cpp
++      - Source/LibOpenJPEG/**
++      - Source/LibJXR/**
++      - TestAPI/testCodecDisplay.cpp
++      - TestAPI/CMakeLists.txt
++      - Examples/codec-diagnostics/**
++      - scripts/tests/run-codec-samples.py
++      - .github/workflows/codec-samples.yml
++  workflow_dispatch:
++permissions:
++  contents: read
++jobs:
++  portable:
++    name: JXR portable build (${{ matrix.os }})
++    runs-on: ${{ matrix.os }}
++    defaults:
++      run:
++        shell: pwsh
++    strategy:
++      fail-fast: false
++      matrix:
++        os: [ubuntu-latest, macos-latest]
++    steps:
++      - uses: actions/checkout@v4
++      - name: Detect available CPU threads
++        run: |
++          "CMAKE_BUILD_PARALLEL_LEVEL=$([Environment]::ProcessorCount)" >> $env:GITHUB_ENV
++      - name: Configure portable JXR and JPEG 2000 tests
++        run: >-
++          cmake -S . -B build -G Ninja -DBUILD_TESTS=ON -DBUILD_JXR=ON
++          -DBUILD_OPENEXR=OFF -DCMAKE_CXX_STANDARD=11 -DCMAKE_BUILD_TYPE=Debug
++      - name: Build diagnostic and regression test
++        run: cmake --build build --target CodecDisplayTest CodecDiagnostics
++      - name: Test native types and explicit previews
++        run: ctest --test-dir build -R CodecDisplayTest --output-on-failure
++  samples:
++    name: Issue 198 samples (MSVC static=${{ matrix.static }})
++    runs-on: windows-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        static: ["ON", "OFF"]
++    defaults:
++      run:
++        shell: pwsh
++    steps:
++      - uses: actions/checkout@v4
++      - name: Detect available CPU threads
++        run: |
++          "CMAKE_BUILD_PARALLEL_LEVEL=$([Environment]::ProcessorCount)" >> $env:GITHUB_ENV
++      - uses: actions/setup-python@v5
++        with:
++          python-version: '3.12'
++      - name: Configure MSVC JXR and JPEG 2000
++        run: >-
++          cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_JXR=ON
++          -DBUILD_OPENEXR=OFF -DCMAKE_CXX_STANDARD=17
++          -DFREEIMAGE_STATIC=${{ matrix.static }}
++      - name: Build diagnostic and regression test
++        run: cmake --build build --target CodecDisplayTest CodecDiagnostics --config Debug
++      - name: Test native types and explicit previews
++        run: ctest --test-dir build -C Debug -R CodecDisplayTest --output-on-failure
++      - name: Check supplied archive through file, memory and preview paths
++        run: >-
++          python scripts/tests/run-codec-samples.py
++          --tool build/TestAPI/Debug/CodecDiagnostics.exe
++          --output sample-results --previews
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 679c6b2..ecd2e7d 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -526,6 +526,11 @@ if(BUILD_JXR)
+     include_directories(Source/LibJXR/common/include)
+     include_directories(Source/LibJXR/jxrgluelib)
+     add_definitions(-DINCLUDE_LIB_JXR)
++    if(NOT WIN32)
++        # Match the portable JXR build used by the classic Makefiles.
++        set_property(SOURCE ${FreeImage_JXR_SRCS} Source/FreeImage/PluginJXR.cpp
++            APPEND PROPERTY COMPILE_DEFINITIONS __ANSI__)
++    endif()
+     endif()
+ endif()
+ 
+diff --git a/Examples/codec-diagnostics/CMakeLists.txt b/Examples/codec-diagnostics/CMakeLists.txt
+new file mode 100644
+index 0000000..a624b27
+--- /dev/null
++++ b/Examples/codec-diagnostics/CMakeLists.txt
+@@ -0,0 +1,6 @@
++cmake_minimum_required(VERSION 3.16)
++project(CodecDiagnostics LANGUAGES CXX)
++find_package(FreeImage CONFIG REQUIRED)
++add_executable(CodecDiagnostics main.cpp)
++target_compile_features(CodecDiagnostics PRIVATE cxx_std_11)
++target_link_libraries(CodecDiagnostics PRIVATE FreeImage::FreeImage)
+diff --git a/Examples/codec-diagnostics/Preview.h b/Examples/codec-diagnostics/Preview.h
+new file mode 100644
+index 0000000..b534284
+--- /dev/null
++++ b/Examples/codec-diagnostics/Preview.h
+@@ -0,0 +1,23 @@
++#ifndef FREEIMAGE_EXAMPLE_PREVIEW_H
++#define FREEIMAGE_EXAMPLE_PREVIEW_H
++#include <FreeImage.h>
++
++namespace codec_example {
++// Explicit RGB display preview. Native pixels are retained by the caller.
++// HDR tone mapping changes appearance; the 24-bit result discards alpha.
++inline FIBITMAP *MakeRGBPreview(FIBITMAP *source) {
++    if(!FreeImage_HasPixels(source)) return NULL;
++    switch(FreeImage_GetImageType(source)) {
++        case FIT_BITMAP:
++        case FIT_RGB16:
++        case FIT_RGBA16:
++            return FreeImage_ConvertTo24Bits(source);
++        case FIT_RGBF:
++        case FIT_RGBAF:
++            return FreeImage_ToneMapping(source, FITMO_DRAGO03);
++        default:
++            return NULL;
++    }
++}
++}
++#endif
+diff --git a/Examples/codec-diagnostics/README.md b/Examples/codec-diagnostics/README.md
+new file mode 100644
+index 0000000..24589bb
+--- /dev/null
++++ b/Examples/codec-diagnostics/README.md
+@@ -0,0 +1,50 @@
++# Codec loading and preview diagnostics
++
++This tool separates format detection, native decoding, memory-I/O verification,
++and display-preview conversion. It was added to investigate issue #198.
++
++Build from this source tree:
++
++```sh
++cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_JXR=ON -DCMAKE_BUILD_TYPE=Debug
++cmake --build build --target CodecDiagnostics --config Debug --parallel
++build/TestAPI/CodecDiagnostics --memory image.jxr preview.png
++```
++
++For Visual Studio, the executable is `build/TestAPI/Debug/CodecDiagnostics.exe`.
++Alternatively, install FreeImage and configure this directory using
++`-DCMAKE_PREFIX_PATH=/path/to/freeimage-install`. For DLL installs, include the
++installation's `bin` directory in `PATH` when running that standalone build.
++
++The input signature takes priority over the extension. A raw J2K codestream
++named `.jp2` therefore uses the J2K decoder. An unknown signature falls back
++to the filename; missing codec support is reported separately from decoding.
++`--memory` additionally compares file and memory decodes, including pixel hashes.
++It uses the existing DWORD-sized memory-stream API, not the proposed large-file API.
++
++The optional output is an explicit **24-bit RGB display preview**. RGB16/RGBA16
++images are reduced to 8-bit channels. RGBF/RGBAF images use Drago HDR tone mapping.
++This changes HDR appearance and discards alpha in the preview; native pixels
++remain unchanged. Preserve the native image for HDR processing and choose an
++appropriate tone-mapping/alpha policy in your application. Unsupported preview
++types fail at the conversion stage without being reported as decode failures.
++
++The supplied #198 archive includes a raw J2K file named `sample-photo.jp2`, a
++`FIT_RGB16` JP2, and two JXR files decoded as `FIT_RGBAF`. Direct
++`FreeImage_ConvertTo24Bits`, `FreeImage_ConvertTo32Bits`, or
++`FreeImage_ConvertToStandardType` calls are not interchangeable for these types.
++The .NET `GetBitmap` wrapper requires `FIT_BITMAP`; the C++ FreeImagePlus loader
++can retain native typed images. A caller must distinguish decoding from conversion.
++
++`CodecDisplayTest` uses synthetic images for these paths. The `JP2/JXR sample
++checks` action also exercises the pinned archive linked in #198 on Windows,
++without committing the supplied photographs to the repository. It reports decode
++and preview results in the job log. The same archive can be checked locally:
++
++```sh
++python3 scripts/tests/run-codec-samples.py --archive /path/to/samples.zip \
++  --tool build/TestAPI/CodecDiagnostics --output /tmp/codec-samples --previews
++```
++
++If `--archive` is omitted, the script downloads the public archive linked in #198
++and checks its SHA-256 before extraction.
+diff --git a/Examples/codec-diagnostics/main.cpp b/Examples/codec-diagnostics/main.cpp
+new file mode 100644
+index 0000000..5eb008a
+--- /dev/null
++++ b/Examples/codec-diagnostics/main.cpp
+@@ -0,0 +1,117 @@
++#include "Preview.h"
++#include <cstdint>
++#include <cstdio>
++#include <fstream>
++#include <limits>
++#include <memory>
++#include <stdexcept>
++#include <string>
++#include <vector>
++
++namespace {
++struct BitmapDeleter { void operator()(FIBITMAP *p) const { FreeImage_Unload(p); } };
++struct MemoryDeleter { void operator()(FIMEMORY *p) const { FreeImage_CloseMemory(p); } };
++typedef std::unique_ptr<FIBITMAP, BitmapDeleter> Bitmap;
++typedef std::unique_ptr<FIMEMORY, MemoryDeleter> Memory;
++struct Library {
++    Library() { FreeImage_Initialise(); }
++    ~Library() { FreeImage_DeInitialise(); }
++};
++const char *Format(FREE_IMAGE_FORMAT format) {
++    const char *name = FreeImage_GetFormatFromFIF(format);
++    return name ? name : "UNKNOWN";
++}
++const char *Type(FIBITMAP *dib) {
++    switch(FreeImage_GetImageType(dib)) {
++        case FIT_BITMAP: return "FIT_BITMAP";
++        case FIT_RGB16: return "FIT_RGB16";
++        case FIT_RGBA16: return "FIT_RGBA16";
++        case FIT_RGBF: return "FIT_RGBF";
++        case FIT_RGBAF: return "FIT_RGBAF";
++        default: return "OTHER";
++    }
++}
++void Message(FREE_IMAGE_FORMAT format, const char *message) {
++    std::fprintf(stderr, "%s: %s\n", Format(format), message);
++}
++std::uint64_t Hash(FIBITMAP *dib) {
++    std::uint64_t hash = UINT64_C(14695981039346656037);
++    for(unsigned y = 0; y < FreeImage_GetHeight(dib); ++y) {
++        const BYTE *row = FreeImage_GetScanLine(dib, y);
++        for(unsigned x = 0; x < FreeImage_GetLine(dib); ++x) {
++            hash ^= row[x]; hash *= UINT64_C(1099511628211);
++        }
++    }
++    return hash;
++}
++}
++
++int main(int argc, char **argv) {
++    const bool memory_check = argc > 1 && std::string(argv[1]) == "--memory";
++    const int first = memory_check ? 2 : 1;
++    if(argc < first + 1 || argc > first + 2) {
++        std::fprintf(stderr, "Usage: CodecDiagnostics [--memory] input [preview.png]\n");
++        return 2;
++    }
++    Library library;
++    FreeImage_SetOutputMessage(Message);
++    try {
++        const char *input = argv[first];
++        {
++            std::ifstream readable(input, std::ios::binary);
++            if(!readable) { std::fprintf(stderr, "input.open=failed\n"); return 3; }
++        }
++        const FREE_IMAGE_FORMAT signature = FreeImage_GetFileType(input);
++        const FREE_IMAGE_FORMAT extension = FreeImage_GetFIFFromFilename(input);
++        const FREE_IMAGE_FORMAT format = signature != FIF_UNKNOWN ? signature : extension;
++        std::printf("signature=%s extension=%s selected=%s\n", Format(signature), Format(extension), Format(format));
++        if(format == FIF_UNKNOWN || !FreeImage_FIFSupportsReading(format)) {
++            std::fprintf(stderr, "detection: no enabled reader; check codec build options\n");
++            return 3;
++        }
++        Bitmap decoded(FreeImage_Load(format, input));
++        if(!decoded || !FreeImage_HasPixels(decoded.get())) {
++            std::fprintf(stderr, "decode.file=failed\n"); return 4;
++        }
++        const std::uint64_t hash = Hash(decoded.get());
++        std::printf("decode.file=success native_type=%s bpp=%u width=%u height=%u\n",
++            Type(decoded.get()), FreeImage_GetBPP(decoded.get()), FreeImage_GetWidth(decoded.get()), FreeImage_GetHeight(decoded.get()));
++        if(memory_check) {
++            std::ifstream file(input, std::ios::binary | std::ios::ate);
++            const std::streamoff length = file.tellg();
++            if(!file || length <= 0 || static_cast<std::uint64_t>(length) > std::numeric_limits<DWORD>::max() ||
++               static_cast<std::uint64_t>(length) > std::numeric_limits<std::size_t>::max() ||
++               length > std::numeric_limits<std::streamsize>::max())
++                throw std::runtime_error("input does not fit the existing memory-I/O API");
++            std::vector<BYTE> bytes(static_cast<std::size_t>(length));
++            file.seekg(0);
++            if(!file.read(reinterpret_cast<char *>(bytes.data()), static_cast<std::streamsize>(length)))
++                throw std::runtime_error("could not read input for memory verification");
++            Memory stream(FreeImage_OpenMemory(bytes.data(), static_cast<DWORD>(bytes.size())));
++            if(!stream) throw std::runtime_error("could not open memory stream");
++            const FREE_IMAGE_FORMAT memory_format = FreeImage_GetFileTypeFromMemory(stream.get());
++            const long position = FreeImage_TellMemory(stream.get());
++            Bitmap from_memory(FreeImage_LoadFromMemory(memory_format != FIF_UNKNOWN ? memory_format : format, stream.get()));
++            const bool same = from_memory && FreeImage_GetImageType(from_memory.get()) == FreeImage_GetImageType(decoded.get()) &&
++                FreeImage_GetWidth(from_memory.get()) == FreeImage_GetWidth(decoded.get()) &&
++                FreeImage_GetHeight(from_memory.get()) == FreeImage_GetHeight(decoded.get()) &&
++                FreeImage_GetBPP(from_memory.get()) == FreeImage_GetBPP(decoded.get()) && Hash(from_memory.get()) == hash;
++            std::printf("decode.memory=%s position_after_detection=%ld pixels_match=%s\n",
++                from_memory ? "success" : "failed", position, same ? "true" : "false");
++            if(!same || position != 0) return 5;
++        }
++        if(argc == first + 2) {
++            Bitmap preview(codec_example::MakeRGBPreview(decoded.get()));
++            if(!preview) { std::fprintf(stderr, "preview.conversion=failed; native decode succeeded\n"); return 6; }
++            if(!FreeImage_Save(FIF_PNG, preview.get(), argv[first + 1])) {
++                std::fprintf(stderr, "preview.save=failed; native decode succeeded\n"); return 7;
++            }
++            std::printf("preview=success type=FIT_BITMAP bpp=24 policy=%s alpha=discarded\n",
++                FreeImage_GetImageType(decoded.get()) == FIT_RGBF || FreeImage_GetImageType(decoded.get()) == FIT_RGBAF ? "Drago-HDR-tone-map" : "8-bit-RGB");
++            if(Hash(decoded.get()) != hash) throw std::runtime_error("preview changed native pixels");
++        }
++    } catch(const std::exception &error) {
++        std::fprintf(stderr, "diagnostic: %s\n", error.what()); return 8;
++    }
++    return 0;
++}
+diff --git a/README.md b/README.md
+index 9bccaa5..62d51b3 100644
+--- a/README.md
++++ b/README.md
+@@ -46,7 +46,7 @@ Original library can be found : https://freeimage.sourceforge.io
+ 
+ ## Building this fork
+ 
+-JPEG-XR is included only on Windows (`BUILD_JXR` defaults to `WIN32`). Camera RAW is included by default (`-DBUILD_LIBRAWLITE=OFF` leaves it out).
++JPEG-XR is enabled by default only on Windows (`BUILD_JXR` defaults to `WIN32`); pass `-DBUILD_JXR=ON` to include it on other platforms. Camera RAW is included by default (`-DBUILD_LIBRAWLITE=OFF` leaves it out).
+ 
+ ### Simply build it
+ 
+@@ -55,6 +55,9 @@ cmake . -B cmake-build
+ cmake --build cmake-build # On Linux, add -j$(nproc) for multicore build
+ ```
+ 
++For JP2/JXR format detection and display-conversion troubleshooting, see the
++[codec diagnostic example](Examples/codec-diagnostics/README.md).
++
+ ### Platform-specific examples
+ 
+ **Linux (gcc) / macOS (clang)**
+diff --git a/Source/LibJXR/image/decode/segdec.c b/Source/LibJXR/image/decode/segdec.c
+index f2a0c8b..94cdd8e 100644
+--- a/Source/LibJXR/image/decode/segdec.c
++++ b/Source/LibJXR/image/decode/segdec.c
+@@ -29,6 +29,11 @@
+ #include "strcodec.h"
+ #include "decode.h"
+ 
++/* Prototype for the portable implementation in strcodec.c. */
++#if !defined(WIN32) && !defined(UNDER_CE)
++U32 _byteswap_ulong(U32 bits);
++#endif
++
+ #ifdef MEM_TRACE
+ #define TRACE_MALLOC    1
+ #define TRACE_NEW       0
+diff --git a/Source/LibJXR/jxrgluelib/JXRGlueJxr.c b/Source/LibJXR/jxrgluelib/JXRGlueJxr.c
+index 2362806..dbae154 100644
+--- a/Source/LibJXR/jxrgluelib/JXRGlueJxr.c
++++ b/Source/LibJXR/jxrgluelib/JXRGlueJxr.c
+@@ -26,6 +26,7 @@
+ // POSSIBILITY OF SUCH DAMAGE.
+ //
+ //*@@@---@@@@******************************************************************
++#include <wchar.h>
+ #include <limits.h>
+ #include <JXRGlue.h>
+ 
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index 0d2273e..3a71049 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -182,3 +182,25 @@ if(BUILD_TESTS AND BUILD_LIBTIFF)
+     endif()
+     add_test(NAME UnicodeMultiPageTest COMMAND UnicodeMultiPageTest)
+ endif()
++
++if(BUILD_TESTS)
++    add_executable(CodecDisplayTest testCodecDisplay.cpp)
++    target_link_libraries(CodecDisplayTest PRIVATE FreeImage)
++    target_compile_definitions(CodecDisplayTest PRIVATE
++        FREEIMAGE_TEST_JP2=$<BOOL:${BUILD_LIBOPENJPEG}>
++        FREEIMAGE_TEST_JXR=$<BOOL:${BUILD_JXR}>)
++    add_test(NAME CodecDisplayTest COMMAND CodecDisplayTest
++        "${CMAKE_CURRENT_BINARY_DIR}/codec-display-$<CONFIG>.jp2")
++    set_tests_properties(CodecDisplayTest PROPERTIES TIMEOUT 60)
++
++    add_executable(CodecDiagnostics EXCLUDE_FROM_ALL ../Examples/codec-diagnostics/main.cpp)
++    target_link_libraries(CodecDiagnostics PRIVATE FreeImage)
++    target_compile_features(CodecDiagnostics PRIVATE cxx_std_11)
++    if(WIN32 AND NOT FREEIMAGE_STATIC)
++        foreach(target CodecDisplayTest CodecDiagnostics)
++            add_custom_command(TARGET ${target} POST_BUILD
++                COMMAND ${CMAKE_COMMAND} -E copy_if_different
++                    $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:${target}> VERBATIM)
++        endforeach()
++    endif()
++endif()
+diff --git a/TestAPI/testCodecDisplay.cpp b/TestAPI/testCodecDisplay.cpp
+new file mode 100644
+index 0000000..980217d
+--- /dev/null
++++ b/TestAPI/testCodecDisplay.cpp
+@@ -0,0 +1,105 @@
++#include "../Examples/codec-diagnostics/Preview.h"
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <fstream>
++#include <memory>
++
++namespace {
++struct BitmapDeleter { void operator()(FIBITMAP *p) const { FreeImage_Unload(p); } };
++struct MemoryDeleter { void operator()(FIMEMORY *p) const { FreeImage_CloseMemory(p); } };
++typedef std::unique_ptr<FIBITMAP, BitmapDeleter> Bitmap;
++typedef std::unique_ptr<FIMEMORY, MemoryDeleter> Memory;
++void Require(bool ok, const char *what) {
++    if(!ok) { std::fprintf(stderr, "FAIL: %s\n", what); std::exit(1); }
++}
++void CheckPreview(FIBITMAP *source) {
++    const FREE_IMAGE_TYPE type = FreeImage_GetImageType(source);
++    Bitmap copy(FreeImage_Clone(source));
++    Bitmap preview(codec_example::MakeRGBPreview(source));
++    Require(copy && preview, "create typed-image preview");
++    Require(FreeImage_GetImageType(preview.get()) == FIT_BITMAP && FreeImage_GetBPP(preview.get()) == 24, "preview is 24-bit bitmap");
++    Require(FreeImage_GetWidth(preview.get()) == FreeImage_GetWidth(source) &&
++        FreeImage_GetHeight(preview.get()) == FreeImage_GetHeight(source), "preview dimensions");
++    Require(FreeImage_GetImageType(source) == type, "preserve native type");
++    for(unsigned y = 0; y < FreeImage_GetHeight(source); ++y)
++        Require(!std::memcmp(FreeImage_GetScanLine(source, y), FreeImage_GetScanLine(copy.get(), y),
++            FreeImage_GetLine(source)), "preserve native pixels including alpha");
++}
++Bitmap RGB16() {
++    Bitmap source(FreeImage_AllocateT(FIT_RGB16, 64, 48));
++    Require(bool(source), "allocate RGB16 fixture");
++    for(unsigned y = 0; y < 48; ++y) {
++        FIRGB16 *row = reinterpret_cast<FIRGB16 *>(FreeImage_GetScanLine(source.get(), y));
++        for(unsigned x = 0; x < 64; ++x) {
++            row[x].red = static_cast<WORD>(x * 1024);
++            row[x].green = static_cast<WORD>(y * 1024);
++            row[x].blue = 32768;
++        }
++    }
++    return source;
++}
++Bitmap RGBAF() {
++    Bitmap source(FreeImage_AllocateT(FIT_RGBAF, 64, 48));
++    Require(bool(source), "allocate HDR fixture");
++    for(unsigned y = 0; y < 48; ++y) {
++        FIRGBAF *row = reinterpret_cast<FIRGBAF *>(FreeImage_GetScanLine(source.get(), y));
++        for(unsigned x = 0; x < 64; ++x) {
++            row[x].red = 0.25f + float(x) / 8;
++            row[x].green = 0.25f + float(y) / 16;
++            row[x].blue = 0.5f;
++            row[x].alpha = (x & 1) ? 0.5f : 1.0f;
++        }
++    }
++    return source;
++}
++Memory Encode(FREE_IMAGE_FORMAT format, FIBITMAP *source, int flags) {
++    Memory stream(FreeImage_OpenMemory());
++    Require(stream && FreeImage_SaveToMemory(format, source, stream.get(), flags), "encode synthetic codec fixture");
++    Require(FreeImage_SeekMemory(stream.get(), 0, SEEK_SET), "rewind encoded fixture");
++    return stream;
++}
++void CheckDecode(FREE_IMAGE_FORMAT format, FREE_IMAGE_TYPE expected, Memory &stream) {
++    Require(FreeImage_GetFileTypeFromMemory(stream.get()) == format, "content-based memory detection");
++    Require(FreeImage_TellMemory(stream.get()) == 0, "detection preserves memory position");
++    Bitmap decoded(FreeImage_LoadFromMemory(format, stream.get()));
++    Require(decoded && FreeImage_HasPixels(decoded.get()), "decode synthetic fixture");
++    Require(FreeImage_GetImageType(decoded.get()) == expected, "preserve codec native type");
++    CheckPreview(decoded.get());
++}
++}
++
++int main(int argc, char **argv) {
++    Require(argc == 2, "temporary fixture filename argument");
++    FreeImage_Initialise();
++    {
++        Bitmap rgb = RGB16();
++        Bitmap hdr = RGBAF();
++        CheckPreview(rgb.get());
++        CheckPreview(hdr.get());
++#if FREEIMAGE_TEST_JP2
++        Memory jp2 = Encode(FIF_JP2, rgb.get(), 1);
++        CheckDecode(FIF_JP2, FIT_RGB16, jp2);
++        Memory j2k = Encode(FIF_J2K, rgb.get(), 1);
++        BYTE *data = NULL; DWORD size = 0;
++        Require(FreeImage_AcquireMemory(j2k.get(), &data, &size) && size, "raw codestream bytes");
++        {
++            std::ofstream file(argv[1], std::ios::binary);
++            Require(bool(file.write(reinterpret_cast<const char *>(data), size)), "write mislabeled codestream");
++        }
++        Require(FreeImage_GetFIFFromFilename(argv[1]) == FIF_JP2, "fixture has JP2 extension");
++        Require(FreeImage_GetFileType(argv[1]) == FIF_J2K, "signature overrides wrong extension");
++        Bitmap detected(FreeImage_Load(FreeImage_GetFileType(argv[1]), argv[1]));
++        Require(detected && FreeImage_HasPixels(detected.get()), "content-selected load succeeds");
++        CheckPreview(detected.get());
++        Require(std::remove(argv[1]) == 0, "remove temporary codestream");
++#endif
++#if FREEIMAGE_TEST_JXR
++        Memory jxr = Encode(FIF_JXR, hdr.get(), JXR_LOSSLESS);
++        CheckDecode(FIF_JXR, FIT_RGBAF, jxr);
++#endif
++    }
++    FreeImage_DeInitialise();
++    std::puts("Native codec types, content detection and explicit RGB previews passed");
++    return 0;
++}
+diff --git a/scripts/tests/run-codec-samples.py b/scripts/tests/run-codec-samples.py
+new file mode 100644
+index 0000000..496cf0e
+--- /dev/null
++++ b/scripts/tests/run-codec-samples.py
+@@ -0,0 +1,88 @@
++#!/usr/bin/env python3
++"""Run the display diagnostic on the pinned public archive linked in #198."""
++import argparse
++import hashlib
++from pathlib import Path
++import stat
++import subprocess
++import sys
++import urllib.request
++import zipfile
++
++URL = "https://drive.google.com/uc?export=download&id=1BEvAC9NV9sIbS43byLwGeRllawLRlPtg"
++SHA256 = "94f830c0aface6271cd3463eeb21dca547a6bd1b88dd833d9658556459bb21e7"
++MAX_ARCHIVE = 32 * 1024 * 1024
++EXPECTED = {"4px.jp2", "balloon.jp2", "sample1.jp2", "sample-photo.jp2",
++            "cyberpunk2077.jxr", "panel-hdr.jxr"}
++
++
++def main():
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument("--archive", type=Path, help="Use the saved archive instead of downloading")
++    parser.add_argument("--tool", type=Path, required=True, help="CodecDiagnostics executable")
++    parser.add_argument("--output", type=Path, required=True)
++    parser.add_argument("--previews", action="store_true", help="Also verify explicit RGB preview export")
++    args = parser.parse_args()
++    args.output.mkdir(parents=True, exist_ok=True)
++    archive = args.archive
++    if archive is None:
++        archive = args.output / "samples.zip"
++        request = urllib.request.Request(URL, headers={"User-Agent": "FreeImage-codec-check"})
++        with urllib.request.urlopen(request, timeout=60) as response:
++            data = response.read(MAX_ARCHIVE + 1)
++        if len(data) > MAX_ARCHIVE:
++            raise RuntimeError("sample download exceeded the expected archive size")
++        archive.write_bytes(data)
++    if archive.stat().st_size > MAX_ARCHIVE:
++        raise RuntimeError("sample archive exceeded the expected size")
++    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
++    if digest != SHA256:
++        raise RuntimeError("sample archive SHA-256 changed; this is an input/download failure, not a codec result")
++    print("archive.sha256=" + digest, flush=True)
++    destination = (args.output / "inputs").resolve()
++    destination.mkdir(exist_ok=True)
++    samples = {}
++    with zipfile.ZipFile(archive) as zipped:
++        for member in zipped.infolist():
++            path = (destination / member.filename).resolve()
++            if not path.is_relative_to(destination) or stat.S_ISLNK(member.external_attr >> 16):
++                raise RuntimeError("unsafe sample archive member")
++            if member.file_size > MAX_ARCHIVE:
++                raise RuntimeError("unexpectedly large sample archive member")
++            if member.is_dir():
++                continue
++            if path.suffix.lower() not in (".jp2", ".jxr"):
++                continue
++            if path.name in samples:
++                raise RuntimeError("duplicate sample filename")
++            path.parent.mkdir(parents=True, exist_ok=True)
++            path.write_bytes(zipped.read(member))
++            samples[path.name] = path
++    if set(samples) != EXPECTED:
++        raise RuntimeError("sample archive does not contain the six expected images")
++    tool = args.tool.resolve()
++    for name, sample in sorted(samples.items()):
++        command = [str(tool), "--memory", str(sample)]
++        if args.previews:
++            command.append(str(args.output.resolve() / (name + ".png")))
++        result = subprocess.run(command, capture_output=True, text=True, timeout=120)
++        log = result.stdout + result.stderr
++        (args.output / (name + ".log")).write_text(log, encoding="utf-8")
++        print("\n--- " + name + " ---\n" + log, flush=True)
++        if result.returncode:
++            raise RuntimeError(name + ": diagnostic exit " + str(result.returncode))
++        if "decode.file=success" not in log or "pixels_match=true" not in log:
++            raise RuntimeError(name + ": missing successful file/memory verification")
++        if name == "sample-photo.jp2" and "signature=J2K extension=JP2 selected=J2K" not in log:
++            raise RuntimeError("mislabeled raw J2K was not selected by content")
++        if args.previews and "preview=success" not in log:
++            raise RuntimeError(name + ": preview verification missing")
++    print("All six samples decoded from file and memory with matching pixels", flush=True)
++
++
++if __name__ == "__main__":
++    try:
++        main()
++    except (OSError, RuntimeError, zipfile.BadZipFile, subprocess.SubprocessError) as error:
++        print("sample-check: " + str(error), file=sys.stderr)
++        sys.exit(1)

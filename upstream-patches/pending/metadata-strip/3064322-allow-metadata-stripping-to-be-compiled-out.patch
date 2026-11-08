@@ -1,0 +1,215 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 068fbf0..6e87fa1 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -140,6 +140,7 @@ option(BUILD_JXR "Build JPEG-XR support" ${BUILD_JXR_DEFAULT})
+ option(BUILD_TESTS "Build the test suite" OFF)
+ option(FREEIMAGE_VS_ALL_PLATFORMS "Generate a portable Visual Studio solution for all Windows architectures" OFF)
+ option(FREEIMAGE_OPENJPH_SIMD "Enable runtime-dispatched x86 SIMD in bundled OpenJPH" ON)
++option(FREEIMAGE_METADATA_STRIP "Build FREEIMAGE_STRIP and FreeImage_StripMetadata support" ON)
+ option(BUILD_ZLIB "Build zlib from source or link" ON)
+ option(BUILD_LIBPNG "Build libpng from source or link" ON)
+ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
+@@ -1490,6 +1491,10 @@ endif()
+ if(UNIX AND NOT APPLE)
+     target_compile_definitions(${PROJECT_NAME} PRIVATE _FILE_OFFSET_BITS=64)
+ endif()
++# MetadataStrip.h defaults this to 1 for builds that do not run CMake.
++if(NOT FREEIMAGE_METADATA_STRIP)
++    target_compile_definitions(${PROJECT_NAME} PRIVATE FREEIMAGE_METADATA_STRIP=0)
++endif()
+ 
+ 
+ # Apple-specific settings
+diff --git a/README.md b/README.md
+index edafba0..3608b00 100644
+--- a/README.md
++++ b/README.md
+@@ -378,6 +378,11 @@ still parse container structures needed to decode images. Explicit EXIF
+ rotation requires parsing orientation metadata. Removing an ICC profile does
+ not convert pixel colors; color-managed display may therefore change.
+ 
++Configure with `-DFREEIMAGE_METADATA_STRIP=OFF` (or compile with
++`-DFREEIMAGE_METADATA_STRIP=0` outside CMake) to build without stripping.
++`FREEIMAGE_STRIP` is then ignored and `FreeImage_StripMetadata()` returns
++FALSE; both stay declared, so the ABI does not change.
++
+ ### Saving files safely
+ 
+ FreeImage_Save and FreeImage_SaveU stage encoder output beside the destination.
+diff --git a/Source/FreeImage/BitmapAccess.cpp b/Source/FreeImage/BitmapAccess.cpp
+index d1b49a7..cddd606 100644
+--- a/Source/FreeImage/BitmapAccess.cpp
++++ b/Source/FreeImage/BitmapAccess.cpp
+@@ -1377,6 +1377,10 @@ FreeImage_CloneMetadata(FIBITMAP *dst, FIBITMAP *src) {
+ 
+ BOOL DLL_CALLCONV
+ FreeImage_StripMetadata(FIBITMAP *dib) {
++#if !FREEIMAGE_METADATA_STRIP
++    (void)dib;
++    return FALSE;
++#else
+     if(!dib) return FALSE;
+     FreeImage_DestroyICCProfile(dib); // preserves the structural CMYK flag
+     FreeImage_SetThumbnail(dib, NULL);
+@@ -1392,8 +1396,10 @@ FreeImage_StripMetadata(FIBITMAP *dib) {
+         metadata->erase(model++);
+     }
+     return TRUE;
++#endif
+ }
+ 
++#if FREEIMAGE_METADATA_STRIP
+ FIBITMAP *FreeImageInternal::CreateStrippedView(FIBITMAP *source) {
+     if(!source || !FreeImage_HasPixels(source)) return NULL;
+     FIBITMAP *view = FreeImage_AllocateHeaderForBits(FreeImage_GetBits(source), FreeImage_GetPitch(source),
+@@ -1432,6 +1438,7 @@ FIBITMAP *FreeImageInternal::CreateStrippedView(FIBITMAP *source) {
+     }
+     return view;
+ }
++#endif
+ 
+ BOOL DLL_CALLCONV 
+ FreeImage_SetMetadata(FREE_IMAGE_MDMODEL model, FIBITMAP *dib, const char *key, FITAG *tag) {
+diff --git a/Source/FreeImage/MultiPage.cpp b/Source/FreeImage/MultiPage.cpp
+index a5ea7a6..dc8121c 100644
+--- a/Source/FreeImage/MultiPage.cpp
++++ b/Source/FreeImage/MultiPage.cpp
+@@ -222,7 +222,7 @@ FreeImage_InternalGetPageCount(FIMULTIBITMAP *bitmap) {
+ 		if (((MULTIBITMAPHEADER *)bitmap->data)->handle) {
+ 			MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);
+             FreeImageInternal::MetadataStripScope metadata_scope(
+-                (header->load_flags & FREEIMAGE_STRIP) != 0 || FreeImageInternal::IsStrippingMetadata());
++                FreeImageInternal::WantsMetadataStrip(header->load_flags));
+ 			
+ 			header->io.seek_proc(header->handle, 0, SEEK_SET);
+ 			
+@@ -396,7 +396,7 @@ FreeImage_OpenMultiBitmapFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_h
+ 
+ BOOL DLL_CALLCONV
+ FreeImage_SaveMultiBitmapToHandle(FREE_IMAGE_FORMAT fif, FIMULTIBITMAP *bitmap, FreeImageIO *io, fi_handle handle, int flags) {
+-    const bool save_strip = (flags & FREEIMAGE_STRIP) != 0 || FreeImageInternal::IsStrippingMetadata();
++    const bool save_strip = FreeImageInternal::WantsMetadataStrip(flags);
+     flags &= ~FREEIMAGE_STRIP;
+ 	if(!bitmap || !bitmap->data || !io || !handle) {
+ 		return FALSE;
+@@ -413,7 +413,7 @@ FreeImage_SaveMultiBitmapToHandle(FREE_IMAGE_FORMAT fif, FIMULTIBITMAP *bitmap,
+ 		if(node) {
+ 			MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);
+ 			
+-            const bool strip = save_strip || (header->load_flags & FREEIMAGE_STRIP) != 0;
++            const bool strip = save_strip || FreeImageInternal::WantsMetadataStrip(header->load_flags);
+             FreeImageInternal::MetadataStripScope metadata_scope(strip);
+ 			// dst data
+ 			void *data = FreeImage_Open(node, io, handle, FALSE);
+@@ -717,7 +717,7 @@ FIBITMAP * DLL_CALLCONV
+ FreeImage_LockPage(FIMULTIBITMAP *bitmap, int page) {
+ 	if (bitmap) {
+ 		MULTIBITMAPHEADER *header = FreeImage_GetMultiBitmapHeader(bitmap);
+-        const bool strip = (header->load_flags & FREEIMAGE_STRIP) != 0 || FreeImageInternal::IsStrippingMetadata();
++        const bool strip = FreeImageInternal::WantsMetadataStrip(header->load_flags);
+         FreeImageInternal::MetadataStripScope metadata_scope(strip);
+ 
+ 		// only lock if the page wasn't locked before...
+diff --git a/Source/FreeImage/Plugin.cpp b/Source/FreeImage/Plugin.cpp
+index 9fa2ad9..f5128c6 100644
+--- a/Source/FreeImage/Plugin.cpp
++++ b/Source/FreeImage/Plugin.cpp
+@@ -392,16 +392,18 @@ FreeImage_Close(PluginNode *node, FreeImageIO *io, fi_handle handle, void *data)
+ // Plugin System Load/Save Functions
+ // =====================================================================
+ 
++#if FREEIMAGE_METADATA_STRIP
+ namespace FreeImageInternal {
+ namespace { thread_local bool strip_metadata = false; }
+ bool IsStrippingMetadata() { return strip_metadata; }
+ MetadataStripScope::MetadataStripScope(bool strip) : previous_(strip_metadata) { strip_metadata = strip; }
+ MetadataStripScope::~MetadataStripScope() { strip_metadata = previous_; }
+ }
++#endif
+ 
+ FIBITMAP * DLL_CALLCONV
+ FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handle, int flags) {
+-    const bool strip = (flags & FREEIMAGE_STRIP) != 0 || FreeImageInternal::IsStrippingMetadata();
++    const bool strip = FreeImageInternal::WantsMetadataStrip(flags);
+     FreeImageInternal::MetadataStripScope metadata_scope(strip);
+     flags &= ~FREEIMAGE_STRIP;
+ 	if ((fif >= 0) && (fif < FreeImage_GetFIFCount())) {
+@@ -426,7 +428,7 @@ FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handl
+ 
+ FIBITMAP * DLL_CALLCONV
+ FreeImage_LoadFromHandle64(FREE_IMAGE_FORMAT fif, FreeImageIO64 *io, fi_handle handle, int flags) {
+-    const bool strip = (flags & FREEIMAGE_STRIP) != 0 || FreeImageInternal::IsStrippingMetadata();
++    const bool strip = FreeImageInternal::WantsMetadataStrip(flags);
+     FreeImageInternal::MetadataStripScope metadata_scope(strip);
+     flags &= ~FREEIMAGE_STRIP;
+ 	if (!s_plugins || s_plugin_reference_count <= 0 || fif != FIF_TIFF || !io || !handle ||
+@@ -495,7 +497,7 @@ FreeImage_LoadU(FREE_IMAGE_FORMAT fif, const wchar_t *filename, int flags) {
+ 
+ BOOL DLL_CALLCONV
+ FreeImage_SaveToHandle(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, FreeImageIO *io, fi_handle handle, int flags) {
+-    const bool strip = (flags & FREEIMAGE_STRIP) != 0 || FreeImageInternal::IsStrippingMetadata();
++    const bool strip = FreeImageInternal::WantsMetadataStrip(flags);
+     FreeImageInternal::MetadataStripScope metadata_scope(strip);
+     flags &= ~FREEIMAGE_STRIP;
+ 	// cannot save "header only" formats
+diff --git a/Source/Metadata/MetadataStrip.h b/Source/Metadata/MetadataStrip.h
+index ad64789..6d76c02 100644
+--- a/Source/Metadata/MetadataStrip.h
++++ b/Source/Metadata/MetadataStrip.h
+@@ -3,11 +3,23 @@
+ 
+ #include "../FreeImage.h"
+ 
++// Build with FREEIMAGE_METADATA_STRIP=0 to compile metadata stripping out.
++// FREEIMAGE_STRIP is then accepted and ignored, and FreeImage_StripMetadata
++// stays exported but returns FALSE, so the ABI does not change.
++#ifndef FREEIMAGE_METADATA_STRIP
++#define FREEIMAGE_METADATA_STRIP 1
++#endif
++
+ namespace FreeImageInternal {
+ 
++#if FREEIMAGE_METADATA_STRIP
++
+ // Per-operation policy for optional metadata readers, including nested loads.
+ // Decoder libraries may still parse container fields needed to decode pixels.
+ bool IsStrippingMetadata();
++inline bool WantsMetadataStrip(int flags) {
++    return (flags & FREEIMAGE_STRIP) != 0 || IsStrippingMetadata();
++}
+ class MetadataStripScope {
+     bool previous_;
+     MetadataStripScope(const MetadataStripScope &);
+@@ -21,5 +33,18 @@ public:
+ // FreeImage_Unload releases the view without freeing the borrowed pixels.
+ FIBITMAP *CreateStrippedView(FIBITMAP *source);
+ 
++#else // !FREEIMAGE_METADATA_STRIP
++
++// Constant false lets every reader-side check fold away.
++inline bool IsStrippingMetadata() { return false; }
++inline bool WantsMetadataStrip(int) { return false; }
++class MetadataStripScope {
++public:
++    explicit MetadataStripScope(bool) {}
++};
++inline FIBITMAP *CreateStrippedView(FIBITMAP *) { return NULL; }
++
++#endif // FREEIMAGE_METADATA_STRIP
++
+ }
+ #endif
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index 43e48e4..569178b 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -265,7 +265,7 @@ if(BUILD_TESTS)
+     endif()
+ endif()
+ 
+-if(BUILD_TESTS)
++if(BUILD_TESTS AND FREEIMAGE_METADATA_STRIP)
+     find_package(Threads REQUIRED)
+     add_executable(MetadataStripTest testMetadataStrip.cpp)
+     target_link_libraries(MetadataStripTest PRIVATE FreeImage Threads::Threads)

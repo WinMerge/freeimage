@@ -1,0 +1,47 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ecc4ac5b118a00209130d",
+  "mod_date": "2026-09-07 14:38:02.458000",
+  "labels": [],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "c52e2c937f",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "deb7",
+        "text": "SVN-style unified diff against FreeImage trunk r1911 is attached (CVE-2020-24295, psdParser::ReadImageLine destination writes).\n\nSame change: https://github.com/danoli3/FreeImage/pull/110\n\nSiblings: 170 (ICO), 171 (thumbnail), 173 (PFM). Original report: https://sourceforge.net/p/freeimage/discussion/36111/thread/afb98701eb/\n\nApply from the FreeImage tree root: patch -p0 < CVE-2020-24295.patch",
+        "subject": "#172 CVE-2020-24295: bound psdParser::ReadImageLine destination writes",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 14:53:29.858000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/c52e2c937f/",
+  "created_date": "2026-09-07 14:38:02.146000",
+  "ticket_num": 172,
+  "summary": "CVE-2020-24295: bound psdParser::ReadImageLine destination writes",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.18.0 / 3.19.0 [r1859/r1909]).\n\nCVE-2020-24295 — heap buffer overflow in psdParser::ReadImageLine() (PSDParser.cpp).\n\nReadImageData writes each channel row at dst_first_line + channelOffset via ReadImageLine() with no check that channelOffset + lineSize fits in the allocated DIB. A crafted PSD header can walk that write off the bitmap on both the raw and RLE paths.\n\nFix:\n- Reject pitch * height overflow.\n- Before ReadImageLine (raw and RLE loops), refuse a channel write that does not fit in dstLineSize * nHeight.\n- Unload the DIB and free line caches on failure so the throw does not leak.\n\nApply from the FreeImage tree root:\n\n  patch -p0 < CVE-2020-24295.patch\n\nIndependent of the CVE-2020-24293 patch; both apply to the same PSDParser.cpp (apply either order).\n\nCWE-120. CVSS 3.1 8.8 (AV:N/AC:L/PR:N/UI:R/S:U/C:H/I:H/A:H)\n\nReferences:\n- https://www.cve.org/CVERecord?id=CVE-2020-24295\n- https://nvd.nist.gov/vuln/detail/CVE-2020-24295\n- Original report: https://sourceforge.net/p/freeimage/discussion/36111/thread/afb98701eb/\n- GitHub fork PR: https://github.com/danoli3/FreeImage/pull/110\n\nLicense: same as FreeImage (GPL or FIPL).\n",
+  "reported_by": "*anonymous",
+  "assigned_to": null,
+  "reported_by_id": null,
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 1945,
+      "url": "https://sourceforge.net/p/freeimage/patches/172/attachment/CVE-2020-24295.patch"
+    }
+  ],
+  "custom_fields": {}
+}

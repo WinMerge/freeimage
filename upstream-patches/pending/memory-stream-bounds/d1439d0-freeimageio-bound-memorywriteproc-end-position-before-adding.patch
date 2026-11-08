@@ -1,0 +1,108 @@
+diff --git a/Source/FreeImage/FreeImageIO.cpp b/Source/FreeImage/FreeImageIO.cpp
+index c5c57c8..612c5a5 100644
+--- a/Source/FreeImage/FreeImageIO.cpp
++++ b/Source/FreeImage/FreeImageIO.cpp
+@@ -134,6 +134,17 @@ _MemoryWriteProc(void *buffer, unsigned size, unsigned count, fi_handle handle)
+ 	}
+ 	const long required_bytes = (long)required_total;
+ 
++	// NB: long is only 32 bits on Windows (LLP64), so current_position +
++	// required_bytes below is signed overflow there once the stream has
++	// been seeked near INT_MAX (e.g. seek to INT_MAX - 7, write 16 bytes):
++	// the wrapped sum skips the growth loop and memcpy writes far past the
++	// buffer. Refuse any write whose end the int stream positions cannot
++	// represent before forming that sum. current_position is never negative
++	// (_MemorySeekProc keeps it in [0, INT_MAX]), so the subtraction is safe.
++	if (required_bytes > (long)(std::numeric_limits<int>::max() - mem_header->current_position)) {
++		return 0;
++	}
++
+ 	// double the data block size if we need to
+ 	while( (mem_header->current_position + required_bytes) >= mem_header->data_length ) {
+ 		long newdatalen = 0;
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index f26bdd6..ee7371b 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -76,6 +76,17 @@ if (BUILD_TESTS)
+     endif()
+     add_test(NAME RasWordLoopTest COMMAND RasWordLoopTest)
+     set_tests_properties(RasWordLoopTest PROPERTIES TIMEOUT 10)
++
++    add_executable(MemWritePositionTest testMemWritePosition.cpp)
++    target_link_libraries(MemWritePositionTest PRIVATE FreeImage)
++    if(WIN32 AND NOT FREEIMAGE_STATIC)
++        add_custom_command(TARGET MemWritePositionTest POST_BUILD
++            COMMAND ${CMAKE_COMMAND} -E copy_if_different
++                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:MemWritePositionTest>
++            VERBATIM)
++    endif()
++    add_test(NAME MemWritePositionTest COMMAND MemWritePositionTest)
++    set_tests_properties(MemWritePositionTest PROPERTIES TIMEOUT 10)
+ endif ()
+ 
+ # These tests call vendored codec APIs directly to create inputs that exercise
+diff --git a/TestAPI/testMemWritePosition.cpp b/TestAPI/testMemWritePosition.cpp
+new file mode 100644
+index 0000000..adcc905
+--- /dev/null
++++ b/TestAPI/testMemWritePosition.cpp
+@@ -0,0 +1,58 @@
++#include "FreeImage.h"
++
++#include <climits>
++#include <cstdio>
++#include <cstring>
++
++// _MemoryWriteProc used to add current_position and the write size in a
++// long, which is 32 bits on Windows: a seek to INT_MAX - 7 followed by a
++// 16-byte write overflowed and wrote past the buffer.
++
++static bool fail(const char *message) {
++	std::fprintf(stderr, "Memory write position test failed: %s\n", message);
++	return false;
++}
++
++static bool run() {
++	FIMEMORY *memory = FreeImage_OpenMemory();
++	if(memory == NULL) {
++		return fail("could not open memory stream");
++	}
++
++	bool ok = true;
++	BYTE data[16];
++	std::memset(data, 0xA5, sizeof(data));
++
++	const long near_end = INT_MAX - 7;
++	if(!FreeImage_SeekMemory(memory, near_end, SEEK_SET)) {
++		ok = fail("seek to INT_MAX - 7 was rejected");
++	} else if(FreeImage_WriteMemory(data, 1, sizeof(data), memory) != 0) {
++		ok = fail("write ending past INT_MAX was accepted");
++	} else if(FreeImage_TellMemory(memory) != near_end) {
++		ok = fail("rejected write moved the stream position");
++	}
++
++	// The stream must stay usable for ordinary writes.
++	if(ok) {
++		BYTE *buffer = NULL;
++		DWORD size = 0;
++		if(!FreeImage_SeekMemory(memory, 0, SEEK_SET)) {
++			ok = fail("seek back to 0 was rejected");
++		} else if(FreeImage_WriteMemory(data, 1, sizeof(data), memory) != sizeof(data)) {
++			ok = fail("ordinary write after a rejected write failed");
++		} else if(!FreeImage_AcquireMemory(memory, &buffer, &size) || size != sizeof(data) ||
++			std::memcmp(buffer, data, sizeof(data)) != 0) {
++			ok = fail("ordinary write produced the wrong contents");
++		}
++	}
++
++	FreeImage_CloseMemory(memory);
++	return ok;
++}
++
++int main() {
++	FreeImage_Initialise();
++	const bool ok = run();
++	FreeImage_DeInitialise();
++	return ok ? 0 : 1;
++}

@@ -1,0 +1,77 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "56c4197df1fd8d7561f04790",
+  "mod_date": "2023-01-30 02:22:08.662000",
+  "labels": [
+    "iOS",
+    "OSX",
+    "xcode",
+    "arm64",
+    "x86_64"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "81e8bb25",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "9f16",
+        "text": "Hi,\r\n\r\nYour patch modifies some 3rd party libraries, so it will be difficult to apply it. \r\nModifications of these libraries should be done at the source (i.e. you should contact owners of each library). \r\nHowever, I'm interested by the LibJXR patch as we have an unsolved problem here with Linux OS. \r\nAre you able to load / save JXR files using this patch ? \r\n\r\nHervé\r\n",
+        "subject": "#115 Fixes for FreeImage - iOS, OSX, arm64 and x86_64",
+        "author": "drolon",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2016-03-20 17:54:31.322000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "d012",
+        "text": "@drolon Hi! I ended up getting most of these patches applied in dependancies \r\nYes JXR saved in Linux ",
+        "subject": "#115 Fixes for FreeImage - iOS, OSX, arm64 and x86_64",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2022-01-28 04:09:11.190000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "e153",
+        "text": "Please add Apple Silicon M1/M2 support",
+        "subject": "#115 Fixes for FreeImage - iOS, OSX, arm64 and x86_64",
+        "author": "*anonymous",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2023-01-30 02:22:07.005000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/81e8bb25/",
+  "created_date": "2016-02-17 06:55:57.689000",
+  "ticket_num": 115,
+  "summary": "Fixes for FreeImage - iOS, OSX, arm64 and x86_64",
+  "description": "Updated version of https://sourceforge.net/p/freeimage/patches/96/ (3.16.0) patch.\r\n\r\nThe following code changes where made to successfully compile FreeImage for ARM64, armv7, i386, x86_64 for iOS using Xcode 6/7 on OS X 10.10 / 10.11  using Clang\r\n* Fixes: ARM64 issues.\r\n* Fixes: x86_64 issues\r\n* Fixes: tvOS issues\r\n* Updates Not updated CMakeLists with new dependancies\r\n* Updates Makefile.srcs with new dependancies\r\n* Fixes undefined types for LibJXR for OS X (including stdlib sources)\r\n* Fixes LibRawLite static casting issue (would not compile in clang without change)\r\n* Patches OpenEXR use of DEBUG preprocessor - will break for static release libraries\r\n* Patches ZLib use of DEBUG preprocessor - will break for static release libraries (patched for upstream https://github.com/madler/zlib/pull/80 )\r\n\r\nAll the above external patches have been since patched at the original repositories as well, so this should be automatically fixed for all the externals except for LibJXR (Microsoft) \r\n\r\nAll changes can be found on this Clone repo found here:\r\nhttps://github.com/danoli3/FreeImage master is the current 3.17.0 fix.\r\n\r\nAttached is a patch file of the changes from core 3.17.0 to 3.17.0 patched with the fixes.",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "open",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 189010,
+      "url": "https://sourceforge.net/p/freeimage/patches/115/attachment/FreeImage3.17.0.patch"
+    }
+  ],
+  "custom_fields": {
+    "_priority": "5"
+  }
+}

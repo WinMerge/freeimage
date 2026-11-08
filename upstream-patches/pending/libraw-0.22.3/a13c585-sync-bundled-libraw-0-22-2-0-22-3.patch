@@ -1,0 +1,657 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 630efbe..149db7c 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -10,6 +10,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
+ - Allow bundled HEIF builds without AOM using `FREEIMAGE_BUNDLE_AOM=OFF`, retaining HEVC support while omitting AVIF and AOM's Perl requirement. (#195)
+ - Detect logical CPU count for nested codec builds and honor `CMAKE_BUILD_PARALLEL_LEVEL`, with an optional `FREEIMAGE_CODEC_BUILD_JOBS` override. (#202)
+ - Fix non-Windows JPEG XR builds by defining `__ANSI__` for bundled JXR sources and adding missing C declarations. Add JP2/JXR file, memory and display-preview diagnostics, synthetic regression tests and supplied-sample CI. Native high-bit-depth/HDR pixel types remain unchanged. (#198, #207)
++- Update bundled LibRaw from 0.22.2 to 0.22.3: 64-bit offsets and a clamped qParam index in the CRX decoder, 64-bit TIFF strip-size checks, size and offset checks in the X3F loader, a CIFF 32->64-bit conversion fix, a masked Sony YCbCr decode-cache index, a masked shift in the Panasonic 8 decoder, and X-Trans interpolation fixes.
+ - Refresh the supported-format table, bundled library versions and optional-codec build instructions in the README.
+ 
+ ## 3.19.26 — 22 Oct 2026
+diff --git a/README.md b/README.md
+index 470a553..1fa6a33 100644
+--- a/README.md
++++ b/README.md
+@@ -33,7 +33,7 @@ The bundled libtiff is fully synced to 4.7.2, including its integer-overflow har
+ | JPEG 2000 (J2K/JP2) | [OpenJPEG](https://github.com/uclouvain/openjpeg) | 2.5.4 | on | `BUILD_LIBOPENJPEG` |
+ | OpenEXR (HDR) | [OpenEXR](https://openexr.com/) | 3.5.2 | on for C++17+ | `BUILD_OPENEXR` |
+ | WebP | [libwebp](https://developers.google.com/speed/webp) | 1.6.0 | on | `BUILD_WEBP` |
+-| Camera RAW (including CR3 and X3F) | [LibRaw](https://www.libraw.org/) | 0.22.2 | on | `BUILD_LIBRAWLITE` |
++| Camera RAW (including CR3 and X3F) | [LibRaw](https://www.libraw.org/) | 0.22.3 | on | `BUILD_LIBRAWLITE` |
+ | JPEG XR (JXR/WDP/HDP) | [jxrlib](https://github.com/4creators/jxrlib) | unversioned snapshot | on for Windows; optional elsewhere | `BUILD_JXR` |
+ | HEIF/HEIC/HIF and AVIF | [libheif](https://github.com/strukturag/libheif) | 1.23.6 | off | `BUILD_LIBHEIF` |
+ | JPEG XL (JXL) | [libjxl](https://github.com/libjxl/libjxl) | 0.12.0 | off | `BUILD_LIBJXL` |
+diff --git a/Source/LibRawLite/internal/losslessjpeg.h b/Source/LibRawLite/internal/losslessjpeg.h
+index eced82b..47f3323 100644
+--- a/Source/LibRawLite/internal/losslessjpeg.h
++++ b/Source/LibRawLite/internal/losslessjpeg.h
+@@ -133,6 +133,7 @@ struct BitPumpJpeg : public BitPump
+ 
+ 
+ const uint32_t LIBRAW_DECODE_CACHE_BITS = 13;
++const uint32_t LIBRAW_DECODE_CACHE_MASK = (1<< LIBRAW_DECODE_CACHE_BITS)-1;
+ const uint64_t LIBRAW_CACHE_PRESENT_FLAG = 0x100000000L;
+ 
+ struct HuffTable
+@@ -151,7 +152,7 @@ struct HuffTable
+ 
+ 	int32_t decode(BitPump& pump)
+     {
+-      uint64_t cached = disable_cache ? 0 : decodecache[pump.peek(LIBRAW_DECODE_CACHE_BITS)];
++      uint64_t cached = disable_cache ? 0 : decodecache[pump.peek(LIBRAW_DECODE_CACHE_BITS) & LIBRAW_DECODE_CACHE_MASK];
+       if (cached & LIBRAW_CACHE_PRESENT_FLAG)
+       {
+         uint32_t _bits = (cached >> 16) & 0xff;
+diff --git a/Source/LibRawLite/libraw/libraw_version.h b/Source/LibRawLite/libraw/libraw_version.h
+index 519c760..9214f4a 100644
+--- a/Source/LibRawLite/libraw/libraw_version.h
++++ b/Source/LibRawLite/libraw/libraw_version.h
+@@ -22,7 +22,7 @@ it under the terms of the one of two licenses as you choose:
+ 
+ #define LIBRAW_MAJOR_VERSION 0
+ #define LIBRAW_MINOR_VERSION 22
+-#define LIBRAW_PATCH_VERSION 2
++#define LIBRAW_PATCH_VERSION 3
+ #define LIBRAW_VERSION_TAIL Release
+ 
+ #define LIBRAW_SHLIB_CURRENT 25
+diff --git a/Source/LibRawLite/src/decoders/crx.cpp b/Source/LibRawLite/src/decoders/crx.cpp
+index ac8cc14..cb8523f 100644
+--- a/Source/LibRawLite/src/decoders/crx.cpp
++++ b/Source/LibRawLite/src/decoders/crx.cpp
+@@ -1112,7 +1112,7 @@ int crxDecodeLineWithIQuantization(CrxSubband *band, CrxQStep *qStep)
+   else
+   {
+     // prev. version
+-    int32_t qScale = q_step_tbl[band->qParam % 6] >> (6 - band->qParam / 6);
++    int32_t qScale = q_step_tbl[MAX(0, band->qParam % 6)] >> (6 - band->qParam / 6);
+     if (band->qParam / 6 >= 6)
+       qScale = q_step_tbl[band->qParam % 6] * (1 << (band->qParam / 6 + 26));
+ 
+@@ -1661,7 +1661,7 @@ void crxConvertPlaneLine(CrxImage *img, int imageRow, int imageCol = 0, int plan
+ {
+   if (lineData)
+   {
+-    uint64_t rawOffset = 4 * img->planeWidth * imageRow + 2 * imageCol;
++    uint64_t rawOffset = 4ULL * uint64_t(img->planeWidth) * uint64_t(imageRow) + 2ULL * uint64_t(imageCol);
+     if (img->encType == 1)
+     {
+       int32_t maxVal = 1 << (img->nBits - 1);
+@@ -1703,7 +1703,7 @@ void crxConvertPlaneLine(CrxImage *img, int imageRow, int imageCol = 0, int plan
+ 
+     int32_t median = (1 << (img->medianBits - 1)) << 10;
+     int32_t maxVal = (1 << img->medianBits) - 1;
+-    uint32_t rawLineOffset = 4 * img->planeWidth * imageRow;
++    uint64_t rawLineOffset = 4ULL * uint64_t(img->planeWidth) * uint64_t(imageRow);
+ 
+     // for this stage - all except imageRow is ignored
+     for (int i = 0; i < img->planeWidth; i++)
+@@ -2035,7 +2035,7 @@ int crxMakeQStep(CrxImage *img, CrxTile *tile, int32_t *qpTable, uint32_t /*tota
+         if (quantVal / 6 >= 6)
+           *qStepTbl = q_step_tbl[quantVal % 6] << ((quantVal / 6 - 6 ) & 0x1f);
+         else
+-          *qStepTbl = q_step_tbl[quantVal % 6] >> (6 - quantVal / 6);
++          *qStepTbl = q_step_tbl[MAX(0,quantVal % 6)] >> (6 - quantVal / 6);
+       }
+     }
+     // continue to the next level - we always decode all levels
+@@ -2055,7 +2055,7 @@ int crxMakeQStep(CrxImage *img, CrxTile *tile, int32_t *qpTable, uint32_t /*tota
+         if (quantVal / 6 >= 6)
+           *qStepTbl = q_step_tbl[quantVal % 6] << ((quantVal / 6 - 6) & 0x1f);
+         else
+-          *qStepTbl = q_step_tbl[quantVal % 6] >> (6 - quantVal / 6);
++          *qStepTbl = q_step_tbl[MAX(0,quantVal % 6)] >> (6 - quantVal / 6);
+       }
+     }
+     // continue to the next level - we always decode all levels
+@@ -2069,7 +2069,7 @@ int crxMakeQStep(CrxImage *img, CrxTile *tile, int32_t *qpTable, uint32_t /*tota
+         if (*qpTable / 6 >= 6)
+           *qStepTbl = q_step_tbl[*qpTable % 6] << ((*qpTable / 6 - 6) & 0x1f);
+         else
+-          *qStepTbl = q_step_tbl[*qpTable % 6] >> (6 - *qpTable / 6);
++          *qStepTbl = q_step_tbl[MAX(0,(*qpTable % 6))] >> (6 - *qpTable / 6);
+ 
+     break;
+   }
+diff --git a/Source/LibRawLite/src/decoders/dng.cpp b/Source/LibRawLite/src/decoders/dng.cpp
+index 5980551..a5d7244 100644
+--- a/Source/LibRawLite/src/decoders/dng.cpp
++++ b/Source/LibRawLite/src/decoders/dng.cpp
+@@ -82,6 +82,8 @@ void LibRaw::lossless_dng_load_raw()
+       switch (jh.algo)
+       {
+       case 0xc1:
++		if (tiff_samples > 1)
++			throw LIBRAW_EXCEPTION_IO_CORRUPT;
+         jh.vpred[0] = 16384;
+         getbits(-1);
+         for (jrow = 0; jrow + 7 < (unsigned)jh.high; jrow += 8)
+@@ -197,6 +199,12 @@ void LibRaw::lossy_dng_load_raw()
+   ushort cur[4][256];
+   double coeff[9], tot;
+ 
++  // Initialize the whole curve table with the default gamma curve first:
++  // an OpcodeList2 tag (meta_offset) carrying zero opcodes, or none of type
++  // PolynomialMap(8), must not leave cur[][] uninitialized.
++  gamma_curve(1 / 2.4, 12.92, 1, 255);
++  FORC4 memcpy(cur[c], curve, sizeof cur[0]);
++
+   if (meta_offset)
+   {
+     fseek(ifp, meta_offset, SEEK_SET);
+@@ -229,11 +237,6 @@ void LibRaw::lossy_dng_load_raw()
+     }
+     order = sorder;
+   }
+-  else
+-  {
+-    gamma_curve(1 / 2.4, 12.92, 1, 255);
+-    FORC4 memcpy(cur[c], curve, sizeof cur[0]);
+-  }
+ 
+   struct jpeg_error_mgr pub;
+   cinfo.err = jpeg_std_error(&pub);
+diff --git a/Source/LibRawLite/src/decoders/pana8.cpp b/Source/LibRawLite/src/decoders/pana8.cpp
+index 3343d74..be1c398 100644
+--- a/Source/LibRawLite/src/decoders/pana8.cpp
++++ b/Source/LibRawLite/src/decoders/pana8.cpp
+@@ -253,7 +253,7 @@ bool pana8_param_t::DecodeC8(pana8_bufio_t &bufio, unsigned int width, unsigned
+ 			  uint32_t hc = huff_coeff[huff_index];
+ 			  int64_t v38 = pixbits << (((hc >> 16) & 0xffffu) & 0x1F);
+ 			  uint64_t v90 = (uint32_t)(huff_index - v37);
+-			  int32_t v39 = (uint16_t)((uint64_t)v38 >> ((uint8_t)v37 - (uint8_t)huff_index)) << ((huff_coeff[huff_index] >> 24) & 0xffu);
++			  int32_t v39 = (uint16_t)((uint64_t)v38 >> (((uint8_t)v37 - (uint8_t)huff_index)&63)) << ((huff_coeff[huff_index] >> 24) & 63);
+ 
+ 			  if (huff_index - v37 <= 0)
+ 				  v39 &= 0xffff0000u;
+diff --git a/Source/LibRawLite/src/demosaic/misc_demosaic.cpp b/Source/LibRawLite/src/demosaic/misc_demosaic.cpp
+index 5e860c2..16cc98a 100644
+--- a/Source/LibRawLite/src/demosaic/misc_demosaic.cpp
++++ b/Source/LibRawLite/src/demosaic/misc_demosaic.cpp
+@@ -31,6 +31,24 @@ void LibRaw::pre_interpolate()
+       width = iwidth;
+       if (filters == 9)
+       {
++        /* Find the all-green half-size phase from the CFA layout: scanning
++           pixel values for R == B == 0 picks a wrong phase when the top-left
++           corner is dark and noisy. */
++        int grow = -1, gcol = -1;
++        for (int r = 0; r < 3 && grow < 0; r++)
++          for (int k = 0; k < 3 && grow < 0; k++)
++            if (fcol(2 * r, 2 * k) == 1 && fcol(2 * r, 2 * k + 1) == 1 &&
++                fcol(2 * r + 1, 2 * k) == 1 && fcol(2 * r + 1, 2 * k + 1) == 1)
++            {
++              grow = r;
++              gcol = k ? k : 3; /* the fill below reads img[-1] */
++            }
++        if (grow >= 0)
++        {
++          row = grow;
++          col = gcol;
++          goto break2;
++        }
+         for (row = 0; row < 3; row++)
+           for (col = 1; col < 4; col++)
+             if (!(image[row * width + col][0] | image[row * width + col][2]))
+diff --git a/Source/LibRawLite/src/demosaic/xtrans_demosaic.cpp b/Source/LibRawLite/src/demosaic/xtrans_demosaic.cpp
+index ca98dc3..01fd232 100644
+--- a/Source/LibRawLite/src/demosaic/xtrans_demosaic.cpp
++++ b/Source/LibRawLite/src/demosaic/xtrans_demosaic.cpp
+@@ -173,9 +173,13 @@ void LibRaw::xtrans_interpolate(int passes)
+ 
+   size_t buffer_size = LIBRAW_AHD_TILE * LIBRAW_AHD_TILE * (ndir * 11 + 6);
+   char** buffers = malloc_omp_buffers(buffer_count, buffer_size);
++  INT64 allocate_sz = (INT64(iheight) + 6) * (INT64(iwidth) + 6) * sizeof(ushort)*4LL;
++    ushort (*destimage)[4] = (ushort(*)[4])calloc(allocate_sz, 1);
++  // For border interpolate: keep original pixels
++  memmove(destimage,image,allocate_sz);
+ 
+ #if defined(LIBRAW_USE_OPENMP)
+-# pragma omp parallel for schedule(dynamic) default(none) firstprivate(buffers, allhex, passes, sgrow, sgcol, ndir) shared(dir) 
++# pragma omp parallel for schedule(dynamic) default(none) firstprivate(buffers, allhex, passes, sgrow, sgcol, ndir) shared(dir, destimage) 
+ #endif
+     for (int top = 3; top < height - 19; top += LIBRAW_AHD_TILE - 16)
+     {
+@@ -420,7 +424,7 @@ void LibRaw::xtrans_interpolate(int passes)
+                             FORC3 avg[c] += rgb[dd][row][col][c];
+                             avg[3]++;
+                         }
+-                    FORC3 image[(row + top) * width + col + left][c] = avg[c] / avg[3];
++                    FORC3 destimage[(row + top) * width + col + left][c] = avg[c] / avg[3];
+                 }
+         }
+     }
+@@ -430,6 +434,8 @@ void LibRaw::xtrans_interpolate(int passes)
+ #endif
+ 
+     free_omp_buffers(buffers, buffer_count);
++    free(image);
++    image = destimage;
+ 
+     border_interpolate(8);
+ }
+diff --git a/Source/LibRawLite/src/libraw_datastream.cpp b/Source/LibRawLite/src/libraw_datastream.cpp
+index 6faae8a..e73d6a3 100644
+--- a/Source/LibRawLite/src/libraw_datastream.cpp
++++ b/Source/LibRawLite/src/libraw_datastream.cpp
+@@ -464,7 +464,7 @@ int LibRaw_buffer_datastream::jpeg_src(void *jpegdata)
+ 
+ // == LibRaw_bigfile_datastream
+ LibRaw_bigfile_datastream::LibRaw_bigfile_datastream(const char *fname)
+-    : filename(fname)
++    : filename(fname),_fsize(0)
+ #ifdef LIBRAW_WIN32_UNICODEPATHS
+       ,
+       wfilename()
+@@ -498,7 +498,7 @@ LibRaw_bigfile_datastream::LibRaw_bigfile_datastream(const char *fname)
+ 
+ #ifdef LIBRAW_WIN32_UNICODEPATHS
+ LibRaw_bigfile_datastream::LibRaw_bigfile_datastream(const wchar_t *fname)
+-    : filename(), wfilename(fname)
++    : filename(), _fsize(0), wfilename(fname)
+ {
+   if (wfilename.size() > 0)
+   {
+diff --git a/Source/LibRawLite/src/metadata/ciff.cpp b/Source/LibRawLite/src/metadata/ciff.cpp
+index 4c29ceb..a1cdff8 100644
+--- a/Source/LibRawLite/src/metadata/ciff.cpp
++++ b/Source/LibRawLite/src/metadata/ciff.cpp
+@@ -124,7 +124,8 @@ void LibRaw::parse_ciff(INT64 offset, int length, int depth)
+     {
+       fread(make, 64, 1, ifp);
+       make[63] = 0;
+-      fseek(ifp, strbuflen(make) - 63, SEEK_CUR);
++	  int mlen = (int)strbuflen(make);
++      fseek(ifp, mlen - 63, SEEK_CUR);
+       fread(model, 64, 1, ifp);
+       model[63] = 0;
+ 
+diff --git a/Source/LibRawLite/src/metadata/hasselblad_model.cpp b/Source/LibRawLite/src/metadata/hasselblad_model.cpp
+index 2abbe8e..8deb82a 100644
+--- a/Source/LibRawLite/src/metadata/hasselblad_model.cpp
++++ b/Source/LibRawLite/src/metadata/hasselblad_model.cpp
+@@ -103,6 +103,8 @@ static const char *Hasselblad_SensorEnclosures[] = {
+   int add_MP_toName = 1;
+   int norm_model_isSet = 0;
+ 
++  memset(tmp_model, 0, sizeof(tmp_model));
++
+   if (model[0] == ' ')
+     memmove(model, model+1, MIN(sizeof(model)-1,strlen(model)));
+ 
+@@ -187,14 +189,15 @@ static const char *Hasselblad_SensorEnclosures[] = {
+   FORC(int(sizeof Hasselblad_Ctrl / sizeof *Hasselblad_Ctrl)) {
+     if (strcasestr(model, Hasselblad_Ctrl[c])) {
+ // yes, fill 'model' with sensor unit data
+-      strncpy(model, tmp_model,63);
++	  if(strlen(tmp_model))
++		strncpy(model, tmp_model,63);
+       model[63] = 0;
+       break;
+     }
+   }
+ 
+-  if (!imHassy.HostBody[0]) {
+-    ps = strchr(model, '-');
++  if (!imHassy.HostBody[0] && strlen(model) > 2 ) {
++    ps = strchr(model+2, '-');
+     if (ps) {                  // check if model contains both host body and sensor version, resolution, MS info
+       strncpy(imHassy.SensorUnit, model,63);
+       memcpy(imHassy.HostBody, model, ps-model);
+@@ -208,7 +211,8 @@ static const char *Hasselblad_SensorEnclosures[] = {
+       strncpy(imHassy.HostBody, model,63);
+       imHassy.HostBody[63] = 0;
+   // fill 'model' with sensor unit data
+-      strncpy(model, tmp_model,63);
++      if (strlen(tmp_model))
++        strncpy(model, tmp_model, 63);
+       model[63] = 0;
+     }
+   }
+diff --git a/Source/LibRawLite/src/metadata/kodak.cpp b/Source/LibRawLite/src/metadata/kodak.cpp
+index d4e3170..1bbfde7 100644
+--- a/Source/LibRawLite/src/metadata/kodak.cpp
++++ b/Source/LibRawLite/src/metadata/kodak.cpp
+@@ -168,7 +168,8 @@ void LibRaw::parse_kodak_ifd(INT64 base)
+             {
+               c++;
+             }
+-            strcpy(ilm.body, pkti + c);
++            strncpy(ilm.body, pkti + c,63);
++			ilm.body[63] = 0;
+           }
+           c = 5;
+           if (((int)strlen(pkti) > c) && (!strncasecmp(pkti, "Lens:", c)))
+diff --git a/Source/LibRawLite/src/metadata/normalize_model.cpp b/Source/LibRawLite/src/metadata/normalize_model.cpp
+index 29ef12b..85fa9bd 100644
+--- a/Source/LibRawLite/src/metadata/normalize_model.cpp
++++ b/Source/LibRawLite/src/metadata/normalize_model.cpp
+@@ -400,7 +400,7 @@ void LibRaw::GetNormalizedModel()
+       { SonyID_ILME_FX2,       "ILME-FX2"},
+ };
+ 
+-  static const char *orig;
++   const char *orig = NULL;
+ 
+   static const char fujialias[][16] = {
+     "@DBP for GX680", "DX-2000",
+diff --git a/Source/LibRawLite/src/postprocessing/postprocessing_aux.cpp b/Source/LibRawLite/src/postprocessing/postprocessing_aux.cpp
+index 426ce58..f7fc08c 100644
+--- a/Source/LibRawLite/src/postprocessing/postprocessing_aux.cpp
++++ b/Source/LibRawLite/src/postprocessing/postprocessing_aux.cpp
+@@ -147,6 +147,7 @@ void LibRaw::wavelet_denoise()
+   maximum <<= --scale;
+   black <<= scale;
+   FORC4 cblack[c] <<= scale;
++  size = iheight * iwidth;
+   fimg = (float *)malloc((size * 3 + iheight + iwidth) * sizeof *fimg);
+   temp = fimg + size * 3;
+   if ((nc = colors) == 3 && filters)
+diff --git a/Source/LibRawLite/src/utils/open.cpp b/Source/LibRawLite/src/utils/open.cpp
+index ffd439e..5f5e02b 100644
+--- a/Source/LibRawLite/src/utils/open.cpp
++++ b/Source/LibRawLite/src/utils/open.cpp
+@@ -148,6 +148,7 @@ int LibRaw::libraw_openfile_tail(LibRaw_abstract_datastream *stream)
+     {
+         delete stream;
+         ID.input_internal = 0;
++		imgdata.progress_flags = LIBRAW_PROGRESS_START;
+     }
+     return ret;
+ }
+@@ -168,6 +169,11 @@ int LibRaw::open_file(const char *fname)
+         recycle();
+         return LIBRAW_UNSUFFICIENT_MEMORY;
+     }
++    if (!stream->valid())
++    {
++      delete stream;
++      return LIBRAW_IO_ERROR;
++    }
+     if ((stream->size() > (INT64)LIBRAW_MAX_NONDNG_RAW_FILE_SIZE) 
+ 		&& (stream->size() > (INT64)LIBRAW_MAX_DNG_RAW_FILE_SIZE)
+ 		&& (stream->size() > (INT64)LIBRAW_MAX_CR3_RAW_FILE_SIZE)
+@@ -202,6 +208,11 @@ int LibRaw::open_file(const wchar_t *fname)
+         recycle();
+         return LIBRAW_UNSUFFICIENT_MEMORY;
+     }
++    if (!stream->valid())
++    {
++      delete stream;
++      return LIBRAW_IO_ERROR;
++    }
+     if ((stream->size() > (INT64)LIBRAW_MAX_DNG_RAW_FILE_SIZE) 
+ 		&& (stream->size() > (INT64)LIBRAW_MAX_NONDNG_RAW_FILE_SIZE) &&
+         (stream->size() > (INT64)LIBRAW_MAX_CR3_RAW_FILE_SIZE)
+diff --git a/Source/LibRawLite/src/utils/read_utils.cpp b/Source/LibRawLite/src/utils/read_utils.cpp
+index 0be9964..25bd337 100644
+--- a/Source/LibRawLite/src/utils/read_utils.cpp
++++ b/Source/LibRawLite/src/utils/read_utils.cpp
+@@ -17,6 +17,14 @@
+  */
+ 
+ #include "../../internal/dcraw_defs.h"
++#include <math.h>
++
++#if defined(_MSC_VER) && (_MSC_VER <= 1600) 
++#include <float.h>
++#define isnan(a) _isnan(a)
++#define isinf(x) (!_finite(x) && !_isnan(x))
++#endif
++
+ 
+ ushort LibRaw::sget2Rev(uchar *s) // specific to some Canon Makernotes fields,
+                                   // where they have endian in reverse
+@@ -79,6 +87,8 @@ float libraw_int_to_float(int i)
+     float f;
+   } u;
+   u.i = i;
++  if (isnan(u.f) || isinf(u.f))
++	  return 0.f;
+   return u.f;
+ }
+ 
+@@ -116,6 +126,8 @@ double LibRaw::getreal(int type)
+     rev = 7 * ((order == 0x4949) == (ntohs(0x1234) == 0x1234));
+     for (i = 0; i < 8; i++)
+       u.c[i ^ rev] = fgetc(ifp);
++    if (isnan(u.d) || isinf(u.d))
++      return 0.f;
+     return u.d;
+   default:
+     return fgetc(ifp);
+diff --git a/Source/LibRawLite/src/write/file_write.cpp b/Source/LibRawLite/src/write/file_write.cpp
+index ce8672c..a4d1a6c 100644
+--- a/Source/LibRawLite/src/write/file_write.cpp
++++ b/Source/LibRawLite/src/write/file_write.cpp
+@@ -53,6 +53,30 @@ void LibRaw::tiff_set(struct tiff_hdr *th, ushort *ntag, ushort tag,
+   tt->tag = tag;
+ }
+ 
++// local strnlen: we cannot use LibRaw::strnlen b/c it is protected
++static size_t local_static_strnlen(const char *s, size_t n)
++{
++#if !defined(__FreeBSD__) && !defined(__OpenBSD__)
++  const char *p = (const char *)memchr(s, 0, n);
++  return (p ? p - s : n);
++#else
++  return strnlen(s, n);
++#endif
++}
++
++
++static void tiff_set_str4(struct tiff_hdr *th, ushort *ntag, ushort tag, ushort type, int count, const uchar* val)
++{
++  struct libraw_tiff_tag *tt;
++  int c;
++  tt = (struct libraw_tiff_tag *)(ntag + 1) + (*ntag)++;
++  count = int(local_static_strnlen((const char*)val, count-1)) + 1;
++  FORC(4) tt->val.c[c] = val[c];
++  tt->count = count;
++  tt->type = type;
++  tt->tag = tag;
++}
++
+ #define TOFF(ptr) int((char *)(&(ptr)) - (char *)th)
+ 
+ void LibRaw::tiff_head(struct tiff_hdr *th, int full)
+@@ -100,8 +124,11 @@ void LibRaw::tiff_head(struct tiff_hdr *th, int full)
+     tiff_set(th, &th->ntag, 273, 4, 1, sizeof *th + psize);
+     tiff_set(th, &th->ntag, 277, 3, 1, colors);
+     tiff_set(th, &th->ntag, 278, 4, 1, height);
+-    tiff_set(th, &th->ntag, 279, 4, 1,
+-             height * width * colors * output_bps / 8);
++	INT64 strip_bytes = INT64(height) * INT64(width) * INT64(colors) * INT64(output_bps) / 8LL;
++	if (strip_bytes >= 2147483647LL)
++		throw LIBRAW_EXCEPTION_TOOBIG; // bigtiff is not supported...
++	int strip_bytes_32 = strip_bytes;
++	tiff_set(th, &th->ntag, 279, 4, 1, strip_bytes_32);
+   }
+   else
+     tiff_set(th, &th->ntag, 274, 3, 1, "12435867"[flip] - '0');
+@@ -125,9 +152,9 @@ void LibRaw::tiff_head(struct tiff_hdr *th, int full)
+           lonref[4] = { (uchar)(gpsdata[30]),0,0,0 };
+     tiff_set(th, &th->ntag, 34853, 4, 1, TOFF(th->ngps));
+     tiff_set(th, &th->ngps, 0, 1, 4, 0x202);
+-    tiff_set(th, &th->ngps, 1, 2, 2, TOFF(latref));
++    tiff_set_str4(th, &th->ngps, 1, 2, 2, latref);
+     tiff_set(th, &th->ngps, 2, 5, 3, TOFF(th->gps[0]));
+-    tiff_set(th, &th->ngps, 3, 2, 2, TOFF(lonref));
++    tiff_set_str4(th, &th->ngps, 3, 2, 2, lonref);
+     tiff_set(th, &th->ngps, 4, 5, 3, TOFF(th->gps[6]));
+     tiff_set(th, &th->ngps, 5, 1, 1, gpsdata[31]);
+     tiff_set(th, &th->ngps, 6, 5, 1, TOFF(th->gps[18]));
+diff --git a/Source/LibRawLite/src/x3f/x3f_parse_process.cpp b/Source/LibRawLite/src/x3f/x3f_parse_process.cpp
+index 5322e4d..2a1712b 100644
+--- a/Source/LibRawLite/src/x3f/x3f_parse_process.cpp
++++ b/Source/LibRawLite/src/x3f/x3f_parse_process.cpp
+@@ -377,7 +377,7 @@ void LibRaw::x3f_thumb_loader()
+       for (int row = 0; row < (int)ID->rows; row++)
+       {
+         int offset = row * ID->row_stride;
+-        if (offset + ID->columns * 3 > ID->data_size)
++        if (offset + ID->columns * 3 > ID->data_size || offset < 0)
+           break;
+         char *dest = &imgdata.thumbnail.thumb[row * ID->columns * 3];
+         char *src = &src0[offset];
+@@ -618,7 +618,11 @@ void LibRaw::x3f_load_raw()
+       goto end;
+     }
+ 
+-    size_t datasize = S.raw_height * S.raw_width * 3 * sizeof(unsigned short);
++    INT64 datasize = INT64(S.raw_height) * INT64(S.raw_width) * 3LL * sizeof(unsigned short);
++
++	if (datasize > LIBRAW_X3F_ALLOC_LIMIT_MB * 1024ULL * 1024ULL)
++      throw LIBRAW_EXCEPTION_TOOBIG;
++
+     S.raw_pitch = S.raw_width * 3 * sizeof(unsigned short);
+     if (!(imgdata.rawdata.raw_alloc = malloc(datasize)))
+       throw LIBRAW_EXCEPTION_ALLOC;
+diff --git a/Source/LibRawLite/src/x3f/x3f_utils_patched.cpp b/Source/LibRawLite/src/x3f/x3f_utils_patched.cpp
+index ec850b0..f185aed 100644
+--- a/Source/LibRawLite/src/x3f/x3f_utils_patched.cpp
++++ b/Source/LibRawLite/src/x3f/x3f_utils_patched.cpp
+@@ -879,13 +879,15 @@ static void print_huffman_tree(x3f_huffnode_t *t, int length, uint32_t code)
+ typedef struct bit_state_s
+ {
+   uint8_t *next_address;
++  uint8_t *last_address;
+   uint8_t bit_offset;
+   uint8_t bits[8];
+ } bit_state_t;
+ 
+-static void set_bit_state(bit_state_t *BS, uint8_t *address)
++static void set_bit_state(bit_state_t *BS, uint8_t *address, uint8_t* last_addr)
+ {
+   BS->next_address = address;
++  BS->last_address = last_addr;
+   BS->bit_offset = 8;
+ }
+ 
+@@ -902,6 +904,8 @@ static uint8_t get_bit(bit_state_t *BS)
+       byte = byte >> 1;
+     }
+     BS->next_address++;
++	if (BS->next_address > BS->last_address) 
++		throw LIBRAW_EXCEPTION_IO_CORRUPT;
+     BS->bit_offset = 0;
+   }
+ 
+@@ -977,7 +981,7 @@ static void true_decode_one_color(x3f_image_data_t *ID, int color)
+   x3f_area16_t *area = &TRU->x3rgb16;
+   uint16_t *dst = area->data + color;
+ 
+-  set_bit_state(&BS, TRU->plane_address[color]);
++  set_bit_state(&BS, TRU->plane_address[color],(uint8_t*)ID->data+ID->data_size);
+ 
+   row_start_acc[0][0] = seed;
+   row_start_acc[0][1] = seed;
+@@ -1083,7 +1087,7 @@ static void huffman_decode_row(x3f_info_t * /*I*/, x3f_directory_entry_t *DE,
+ 
+   if (HUF->row_offsets.element[row] > ID->data_size - 1)
+ 	  throw LIBRAW_EXCEPTION_IO_CORRUPT;
+-  set_bit_state(&BS, (uint8_t *)ID->data + HUF->row_offsets.element[row]);
++  set_bit_state(&BS, (uint8_t *)ID->data + HUF->row_offsets.element[row], (uint8_t*)ID->data+ID->data_size);
+ 
+   for (col = 0; col < (int)ID->columns; col++)
+   {
+@@ -1389,6 +1393,14 @@ static void x3f_load_true(x3f_info_t *I, x3f_directory_entry_t *DE)
+ #endif
+ 
+   TRU->plane_address[0] = (uint8_t *)ID->data;
++  // Check for total plane size
++  uint64_t psz = 0;
++  for (i = 0; i < TRUE_PLANES; i++)
++	  psz += (((TRU->plane_size.element[i] + 15) / 16) * 16);
++
++  if (psz > ID->data_size)
++	  throw LIBRAW_EXCEPTION_IO_CORRUPT;
++
+   for (i = 1; i < TRUE_PLANES; i++)
+     TRU->plane_address[i] = TRU->plane_address[i - 1] +
+                             (((TRU->plane_size.element[i - 1] + 15) / 16) * 16);
+@@ -1679,7 +1691,7 @@ static void camf_decode_type4(x3f_camf_t *CAMF)
+   dst = (uint8_t *)CAMF->decoded_data;
+   dst_end = dst + dst_size;
+ 
+-  set_bit_state(&BS, CAMF->decoding_start);
++  set_bit_state(&BS, CAMF->decoding_start,(uint8_t*)CAMF->data+CAMF->data_size);
+ 
+   row_start_acc[0][0] = seed;
+   row_start_acc[0][1] = seed;
+@@ -1797,7 +1809,7 @@ static void camf_decode_type5(x3f_camf_t *CAMF)
+ 
+   dst = (uint8_t *)CAMF->decoded_data;
+ 
+-  set_bit_state(&BS, CAMF->decoding_start);
++  set_bit_state(&BS, CAMF->decoding_start,(uint8_t*)CAMF->data+CAMF->data_size);
+ 
+   for (i = 0; i < (int)CAMF->decoded_data_size; i++)
+   {
+@@ -1977,7 +1989,7 @@ static void get_matrix_copy(camf_entry_t *entry)
+ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
+ {
+   int i;
+-  int totalsize = 1;
++  INT64 totalsize = 1LL;
+ 
+   uint8_t *e = (uint8_t *)entry->entry;
+   uint8_t *v = (uint8_t *)entry->value_address;
+@@ -1998,13 +2010,17 @@ static void x3f_setup_camf_matrix_entry(camf_entry_t *entry)
+     {
+     }
+ 
+-    totalsize *= size;
++    totalsize *=  INT64(size);
+   }
+ 
+   set_matrix_element_info(type, &entry->matrix_element_size,
+                           &entry->matrix_decoded_type);
+   entry->matrix_data = (void *)(e + off);
+ 
++  INT64 alloc_size = (entry->matrix_decoded_type == M_FLOAT ? sizeof(double) : sizeof(uint32_t)) * totalsize;
++  if (alloc_size > LIBRAW_X3F_ALLOC_LIMIT_MB * 1024ULL * 1024ULL)
++    throw LIBRAW_EXCEPTION_TOOBIG;
++
+   entry->matrix_elements = totalsize;
+   entry->matrix_used_space = entry->entry_size - off;
+ 
+diff --git a/THIRD_PARTY_VERSIONS.md b/THIRD_PARTY_VERSIONS.md
+index 1d0d962..cb01a5e 100644
+--- a/THIRD_PARTY_VERSIONS.md
++++ b/THIRD_PARTY_VERSIONS.md
+@@ -18,7 +18,7 @@ these libraries has a newer stable upstream release.
+ | LibJPEG (IJG) | `Source/LibJPEG` | 10.0 (25-Jan-2026) | 10.0 (25-Jan-2026) | up to date | `jversion.h` |
+ | LibOpenJPEG | `Source/LibOpenJPEG` | 2.5.4 | 2.5.4 | up to date | `opj_config_private.h` |
+ | LibPNG | `Source/LibPNG` | 1.6.59 | 1.6.59 (2026-09-28) | up to date | `png.h` |
+-| LibRawLite | `Source/LibRawLite` | 0.22.2 | 0.22.2 (2026-07-16) | up to date | `libraw/libraw_version.h` |
++| LibRawLite | `Source/LibRawLite` | 0.22.3 | 0.22.3 (2026-10-24) | up to date | `libraw/libraw_version.h` |
+ | LibTIFF4 | `Source/LibTIFF4` | 4.7.2 | 4.7.2 (2026-06-27) | up to date; full library sync | `tiffvers.h` |
+ | LibWebP | `Source/LibWebP` | 1.6.0 (30-Jun-2025) | 1.6.0 | up to date | `NEWS` |
+ | LibJXR | `Source/LibJXR` | unversioned jxrlib snapshot | n/a — unmaintained (last active fork: [4creators/jxrlib](https://github.com/4creators/jxrlib)) | no upstream to track | `README` |
+@@ -27,8 +27,9 @@ these libraries has a newer stable upstream release.
+ OpenEXR, LibDeflate, and LibTIFF4 re-synced against their upstream release
+ tags on 2026-10-02 for issue #137. All vendored version entries, including
+ OpenEXR's auxiliary codecs below, were rechecked against their source headers
+-on 2026-10-25 for FreeImage 3.19.27. The source-tree versions above and
+-OpenEXR's auxiliary codecs are unchanged from 3.19.26. The optional libheif
++on 2026-10-25 for FreeImage 3.19.27. LibRaw moved from 0.22.2 to 0.22.3 on
++2026-10-27; the other source-tree versions above and OpenEXR's auxiliary
++codecs are unchanged from 3.19.26. The optional libheif
+ archive below was updated from 1.23.5 to 1.23.6 in #203; all eight bundled
+ archive versions and SHA-256 digests were rechecked against `sources.json`.
+ The existing vendored versions above are unchanged from 3.19.23. HEIF/AVIF and
+diff --git a/debian/changelog b/debian/changelog
+index 477a724..8f8e786 100644
+--- a/debian/changelog
++++ b/debian/changelog
+@@ -5,6 +5,7 @@ freeimage-maintained (3.19.27-1) unstable; urgency=medium
+   * Fix portable JPEG XR builds and add JP2/JXR diagnostic tests.
+   * Improve MSVC PDB installation and bundled codec build configuration.
+   * Refresh supported formats and bundled library documentation.
++  * Update bundled LibRaw to 0.22.3.
+   * Prepare tagged Linux package builds for FreeImage 3.19.27.
+ 
+  -- FreeImage Packaging Contributors <noreply@github.com>  Sun, 25 Oct 2026 00:00:00 +1100

@@ -1,0 +1,29 @@
+diff --git a/Source/LibWebP/src/dsp/cpu.h b/Source/LibWebP/src/dsp/cpu.h
+index 7f87d7d..e3f635d 100644
+--- a/Source/LibWebP/src/dsp/cpu.h
++++ b/Source/LibWebP/src/dsp/cpu.h
+@@ -47,18 +47,21 @@
+ // x86 defines.
+ 
+ #if !defined(HAVE_CONFIG_H)
++// _M_X64 is also defined for ARM64EC. MSVC's emmintrin.h / smmintrin.h /
++// immintrin.h then error unless included through <intrin.h>. Those SSE/AVX
++// files are the wrong ISA there; NEON is selected below.
+ #if defined(_MSC_VER) && _MSC_VER > 1310 && \
+-    (defined(_M_X64) || defined(_M_IX86))
++    (defined(_M_X64) || defined(_M_IX86)) && !defined(_M_ARM64EC)
+ #define WEBP_MSC_SSE2  // Visual C++ SSE2 targets
+ #endif
+ 
+ #if defined(_MSC_VER) && _MSC_VER >= 1500 && \
+-    (defined(_M_X64) || defined(_M_IX86))
++    (defined(_M_X64) || defined(_M_IX86)) && !defined(_M_ARM64EC)
+ #define WEBP_MSC_SSE41  // Visual C++ SSE4.1 targets
+ #endif
+ 
+ #if defined(_MSC_VER) && _MSC_VER >= 1700 && \
+-    (defined(_M_X64) || defined(_M_IX86))
++    (defined(_M_X64) || defined(_M_IX86)) && !defined(_M_ARM64EC)
+ #define WEBP_MSC_AVX2  // Visual C++ AVX2 targets
+ #endif
+ #endif

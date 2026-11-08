@@ -1,0 +1,245 @@
+diff --git a/.github/workflows/bundled-codecs.yml b/.github/workflows/bundled-codecs.yml
+index 9130004..41f1669 100644
+--- a/.github/workflows/bundled-codecs.yml
++++ b/.github/workflows/bundled-codecs.yml
+@@ -28,6 +28,12 @@ jobs:
+       matrix:
+         os: [ubuntu-24.04, macos-latest, windows-latest]
+         static: ["ON", "OFF"]
++        heif_export: ["ON"]
++        # Read-only HEIF/AVIF: no save functions, Kvazaar or AV1 encoder.
++        # heif_export is a matrix key, so these add jobs rather than extend one.
++        include:
++          - {os: ubuntu-24.04, static: "ON", heif_export: "OFF"}
++          - {os: windows-latest, static: "OFF", heif_export: "OFF"}
+     runs-on: ${{ matrix.os }}
+     defaults:
+       run:
+@@ -44,6 +50,7 @@ jobs:
+           -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=${{ matrix.static }}
+           -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+           -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
++          -DFREEIMAGE_HEIF_EXPORT=${{ matrix.heif_export }}
+           -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+       - name: Build from bundled archives
+         run: cmake --build build --config Release
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index f6c06b4..d1c424b 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,10 @@
+ 
+ Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
+ 
++## Unreleased
++
++- Add `FREEIMAGE_HEIF_EXPORT` (default ON). Turning it off builds HEIF/AVIF as read-only: the save functions are not compiled, and bundled builds skip Kvazaar and libaom's AV1 encoder.
++
+ ## 3.19.29 — Unreleased
+ 
+ Large-file TIFF input, stream hardening and Windows build improvements.
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 60f82b1..a6108ca 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -185,6 +185,9 @@ option(USE_SYSTEM_JXR "Link against system jxrlib instead of the bundled copy" $
+ # Modern codecs remain optional; enabled codecs use bundled source archives
+ # unless their system-library switch (or the master switch) selects an SDK.
+ option(BUILD_LIBHEIF "Enable HEIF/AVIF support" OFF)
++# OFF builds HEIF/AVIF as read-only: no save functions, and bundled builds
++# skip the kvazaar HEVC encoder and build libaom without its AV1 encoder.
++option(FREEIMAGE_HEIF_EXPORT "Build HEIF/AVIF saving" ON)
+ option(BUILD_LIBJXL "Enable JPEG XL support" OFF)
+ option(FREEIMAGE_BUNDLE_AOM "Build bundled libaom for AV1 support in bundled libheif" ON)
+ option(USE_SYSTEM_LIBHEIF "Use an installed libheif SDK" ${FREEIMAGE_SYSTEM_DEFAULT})
+@@ -208,6 +211,9 @@ foreach(codec HEIF JXL)
+         endif()
+         list(APPEND FreeImage_LIBS FreeImageCodec::${codec})
+         add_compile_definitions(FREEIMAGE_LIB${codec})
++        if(codec STREQUAL "HEIF" AND NOT FREEIMAGE_HEIF_EXPORT)
++            add_compile_definitions(FREEIMAGE_HEIF_EXPORT=0)
++        endif()
+     endif()
+ endforeach()
+ if((BUILD_LIBHEIF AND NOT USE_SYSTEM_LIBHEIF) OR (BUILD_LIBJXL AND NOT USE_SYSTEM_LIBJXL))
+diff --git a/README.md b/README.md
+index 842424f..9618ab0 100644
+--- a/README.md
++++ b/README.md
+@@ -323,6 +323,12 @@ For an external SDK, also select `-DUSE_SYSTEM_LIBHEIF=ON` and install
+ `brew install libheif pkg-config`. Available decoders and encoders depend on
+ the SDK's backends. The legacy make build registers unsupported format stubs.
+ 
++Set `-DFREEIMAGE_HEIF_EXPORT=OFF` for read-only HEIF/AVIF. The save
++functions are not compiled, so `FreeImage_FIFSupportsWriting` returns FALSE
++for both formats and saving fails. Bundled builds also skip Kvazaar and build
++libaom without its AV1 encoder. With a system SDK only the plugin changes.
++`FREEIMAGE_HEIF_EXPORT` defaults to ON.
++
+ Use `FIF_HEIF` for HEIF/HEIC/HIF and `FIF_AVIF` for AVIF, or detect the format
+ with `FreeImage_GetFileType`. The decoder loads the primary still image as
+ 8-bit RGB or RGBA, including alpha and ICC profiles, and supports
+diff --git a/Source/FreeImage/PluginHEIF.cpp b/Source/FreeImage/PluginHEIF.cpp
+index 48e86ef..8c5ddce 100644
+--- a/Source/FreeImage/PluginHEIF.cpp
++++ b/Source/FreeImage/PluginHEIF.cpp
+@@ -22,6 +22,12 @@
+ #include "Utilities.h"
+ #include <cstring>
+ 
++// Build with FREEIMAGE_HEIF_EXPORT=0 to compile HEIF/AVIF saving out.
++// The plugins then register as read-only.
++#ifndef FREEIMAGE_HEIF_EXPORT
++#define FREEIMAGE_HEIF_EXPORT 1
++#endif
++
+ static const char * DLL_CALLCONV HeifFormat() { return "HEIF"; }
+ static const char * DLL_CALLCONV AvifFormat() { return "AVIF"; }
+ static const char * DLL_CALLCONV HeifDescription() { return "HEIF image"; }
+@@ -197,6 +203,7 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int
+         return NULL;
+     }
+ }
++#if FREEIMAGE_HEIF_EXPORT
+ static heif_error WriteEncoded(heif_context *, const void *bytes, size_t size, void *opaque) {
+     Reader &stream = *static_cast<Reader *>(opaque);
+     const BYTE *p = static_cast<const BYTE *>(bytes);
+@@ -279,6 +286,7 @@ static BOOL DLL_CALLCONV Save(FreeImageIO *io, FIBITMAP *dib, fi_handle output,
+         return TRUE;
+     } catch(const std::exception &error) { FreeImage_OutputMessageProc(Format, "%s", error.what()); return FALSE; }
+ }
++#endif // FREEIMAGE_HEIF_EXPORT
+ 
+ #endif
+ 
+@@ -291,11 +299,13 @@ static void Init(Plugin *plugin, bool avif) {
+ #ifdef FREEIMAGE_LIBHEIF
+     plugin->validate_proc = avif ? ValidateAVIF : ValidateHEIF;
+     plugin->load_proc = avif ? Load<FIF_AVIF> : Load<FIF_HEIF>;
++#if FREEIMAGE_HEIF_EXPORT
+     // Registration can run from FreeImage's shared-library initializer before
+     // the bundled libheif C++ globals. Query encoders only from runtime calls.
+     plugin->save_proc = avif ? Save<heif_compression_AV1, FIF_AVIF> : Save<heif_compression_HEVC, FIF_HEIF>;
+     plugin->supports_export_bpp_proc = avif ? SupportsDepth<heif_compression_AV1> : SupportsDepth<heif_compression_HEVC>;
+     plugin->supports_export_type_proc = avif ? SupportsType<heif_compression_AV1> : SupportsType<heif_compression_HEVC>;
++#endif
+     plugin->supports_no_pixels_proc = SupportsNoPixels;
+     plugin->supports_icc_profiles_proc = SupportsICC;
+ #endif
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index 9e8e5cd..33cc5dd 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -148,6 +148,8 @@ endif()
+ if(BUILD_TESTS AND BUILD_LIBHEIF)
+     add_executable(HeifCodecTest testHeif.cpp)
+     target_link_libraries(HeifCodecTest PRIVATE FreeImage)
++    target_compile_definitions(HeifCodecTest PRIVATE
++        FREEIMAGE_TEST_HEIF_EXPORT=$<BOOL:${FREEIMAGE_HEIF_EXPORT}>)
+     if(NOT USE_SYSTEM_LIBHEIF)
+         target_compile_definitions(HeifCodecTest PRIVATE FREEIMAGE_TEST_BUNDLED_HEIF)
+         if(FREEIMAGE_BUNDLE_AOM)
+diff --git a/TestAPI/testHeif.cpp b/TestAPI/testHeif.cpp
+index 52eec78..106dad6 100644
+--- a/TestAPI/testHeif.cpp
++++ b/TestAPI/testHeif.cpp
+@@ -46,6 +46,16 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
+         Require(without_exif && !FreeImage_GetMetadata(FIMD_EXIF_RAW,without_exif,"ExifRaw",&tag),"invalid EXIF offset ignored");
+         FreeImage_Unload(without_exif); FreeImage_CloseMemory(malformed);
+     }
++#if !FREEIMAGE_TEST_HEIF_EXPORT
++    if(encode) {
++        // Built with FREEIMAGE_HEIF_EXPORT=OFF: the plugin must be read-only.
++        Require(!FreeImage_FIFSupportsWriting(format), "read-only build reports no writer");
++        Require(!FreeImage_FIFSupportsExportBPP(format, alpha ? 32 : 24), "read-only build exports no depth");
++        FIMEMORY *encoded = FreeImage_OpenMemory();
++        Require(!FreeImage_SaveToMemory(format, dib, encoded, 0), "read-only build rejects save");
++        FreeImage_CloseMemory(encoded);
++    }
++#else
+     if(encode && FreeImage_FIFSupportsWriting(format)) {
+         const BYTE exif[] = {'E','x','i','f',0,0,'I','I',42,0,8,0,0,0,1,0,0x12,1,3,0,1,0,0,0,1,0,0,0,0,0,0,0};
+         FITAG *tag = FreeImage_CreateTag();
+@@ -83,6 +93,7 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
+         FreeImage_Unload(roundtrip); FreeImage_CloseMemory(encoded);
+         }
+     }
++#endif
+     FreeImage_Unload(dib);
+     FreeImage_SeekMemory(memory, 0, SEEK_SET);
+     dib = FreeImage_LoadFromMemory(format, memory, FIF_LOAD_NOPIXELS);
+diff --git a/cmake/FreeImageBundledCodecs.cmake b/cmake/FreeImageBundledCodecs.cmake
+index 423deae..467cf75 100644
+--- a/cmake/FreeImageBundledCodecs.cmake
++++ b/cmake/FreeImageBundledCodecs.cmake
+@@ -142,22 +142,41 @@ function(freeimage_build_bundled_codec codec)
+             554228bd17788c99a7e63b37ab5634722190e6e2bf60c1dcb01cef328e133905
+             ARGS -DENABLE_DECODER=OFF -DENABLE_ENCODER=OFF -DENABLE_SDL=OFF
+                  -DENABLE_SIMD=OFF -DENABLE_AVX2=OFF -DENABLE_AVX512=OFF)
+-        freeimage_bundled_project(kvazaar kvazaar-2.3.2.tar.gz
+-            ddd0038696631ca5368d8e40efee36d2bbb805854b9b1dda8b12ea9b397ea951
+-            ARGS -DBUILD_TESTS=OFF -DBUILD_KVAZAAR_BINARY=OFF -DUSE_CRYPTO=OFF -DGIT_SUBMODULE=OFF)
++        # kvazaar is an HEVC encoder only; read-only builds leave it out.
++        set(kvazaar_args -DWITH_KVAZAAR=OFF)
++        set(kvazaar_names)
++        set(kvazaar_depends)
++        if(FREEIMAGE_HEIF_EXPORT)
++            freeimage_bundled_project(kvazaar kvazaar-2.3.2.tar.gz
++                ddd0038696631ca5368d8e40efee36d2bbb805854b9b1dda8b12ea9b397ea951
++                ARGS -DBUILD_TESTS=OFF -DBUILD_KVAZAAR_BINARY=OFF -DUSE_CRYPTO=OFF -DGIT_SUBMODULE=OFF)
++            set(kvazaar_args -DWITH_KVAZAAR=ON
++                -DKVAZAAR_INCLUDE_DIR:PATH=${_codec_prefix}/include
++                -DKVAZAAR_LIBRARY:FILEPATH=${lib}/${kvazaar})
++            set(kvazaar_names "${kvazaar}")
++            set(kvazaar_depends freeimage_kvazaar)
++        endif()
+         set(aom_args -DWITH_AOM_DECODER=OFF -DWITH_AOM_ENCODER=OFF)
+         set(aom_names)
+         set(aom_depends)
+         if(FREEIMAGE_BUNDLE_AOM)
++            if(FREEIMAGE_HEIF_EXPORT)
++                set(aom_encoder ON)
++                set(aom_config_encoder 1)
++            else()
++                set(aom_encoder OFF)
++                set(aom_config_encoder 0)
++            endif()
+             # libaom's RTCD generator requires Perl even for the generic CPU
+             # target. Keep AV1 enabled by default, but allow HEIF-only builds
+             # on toolchains where Perl is unavailable.
+             freeimage_bundled_project(aom libaom-3.15.2.tar.gz
+                 67bb54b245f33ed98600e08269e6139986e48114e14042474ddd8885801dfddc
+                 ARGS -DAOM_TARGET_CPU=generic -DENABLE_NASM=OFF -DCONFIG_RUNTIME_CPU_DETECT=0
++                     -DCONFIG_AV1_ENCODER=${aom_config_encoder}
+                      -DENABLE_APPS=OFF -DENABLE_DOCS=OFF -DENABLE_EXAMPLES=OFF
+                      -DENABLE_TESTDATA=OFF -DENABLE_TESTS=OFF -DENABLE_TOOLS=OFF)
+-            set(aom_args -DWITH_AOM_DECODER=ON -DWITH_AOM_ENCODER=ON
++            set(aom_args -DWITH_AOM_DECODER=ON -DWITH_AOM_ENCODER=${aom_encoder}
+                 -DAOM_INCLUDE_DIR:PATH=${_codec_prefix}/include
+                 -DAOM_LIBRARY:FILEPATH=${lib}/${pre}aom${ext}
+                 -DCMAKE_DISABLE_FIND_PACKAGE_AOM=FALSE -DAOM_DIR:PATH=${lib}/cmake/AOM
+@@ -167,7 +186,7 @@ function(freeimage_build_bundled_codec codec)
+         endif()
+         freeimage_bundled_project(heif libheif-1.23.7.tar.gz
+             f7483e818503ea6224c8863e4a56ac02c7089021a98472c811c12aa19faf2475
+-            DEPENDS ${aom_depends} freeimage_de265 freeimage_kvazaar
++            DEPENDS ${aom_depends} freeimage_de265 ${kvazaar_depends}
+             ARGS -DCMAKE_CXX_STANDARD=20 -DBUILD_DOCUMENTATION=OFF -DENABLE_PLUGIN_LOADING=OFF -DWITH_EXAMPLES=OFF
+                  -DWITH_GDK_PIXBUF=OFF -DWITH_FUZZERS=OFF -DENABLE_EXPERIMENTAL_FEATURES=OFF
+                  -DWITH_HEADER_COMPRESSION=OFF -DWITH_UNCOMPRESSED_CODEC=OFF
+@@ -178,13 +197,11 @@ function(freeimage_build_bundled_codec codec)
+                  -DWITH_OpenJPEG_DECODER=OFF -DWITH_OpenJPEG_ENCODER=OFF
+                  -DWITH_OPENJPH_ENCODER=OFF -DWITH_FFMPEG_DECODER=OFF
+                  -DWITH_LIBSHARPYUV=OFF
+-                 -DWITH_LIBDE265=ON -DWITH_KVAZAAR=ON ${aom_args}
++                 -DWITH_LIBDE265=ON ${kvazaar_args} ${aom_args}
+                  -DLIBDE265_INCLUDE_DIR:PATH=${_codec_prefix}/include
+                  -DLIBDE265_LIBRARY:FILEPATH=${lib}/${de265}
+-                 -DKVAZAAR_INCLUDE_DIR:PATH=${_codec_prefix}/include
+-                 -DKVAZAAR_LIBRARY:FILEPATH=${lib}/${kvazaar}
+                  "-DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS} -DLIBDE265_STATIC_BUILD=1 -DKVZ_STATIC_LIB=1")
+-        set(names "${pre}heif${ext}" "${de265}" "${kvazaar}" ${aom_names})
++        set(names "${pre}heif${ext}" "${de265}" ${kvazaar_names} ${aom_names})
+         set(project heif)
+         set(defines LIBHEIF_STATIC_BUILD)
+     elseif(codec STREQUAL "JXL")

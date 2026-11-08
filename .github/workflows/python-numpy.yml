@@ -1,8 +1,12 @@
 name: Python and NumPy bindings
 on:
   push:
+    paths-ignore:
+      - upstream-patches/**
     branches: [master]
   pull_request:
+    paths-ignore:
+      - upstream-patches/**
   workflow_dispatch:
 permissions:
   contents: read

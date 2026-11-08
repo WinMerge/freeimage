@@ -313,6 +313,11 @@ LoadStandardIcon(FreeImageIO *io, fi_handle handle, int flags, BOOL header_only)
 	if ((width <= 0) || (height <= 0)) {
 		return NULL;
 	}
+	// Reject icons whose pixel count exceeds the allocation limit. Divide
+	// before multiplying so malformed dimensions cannot overflow an int.
+	if (width > (4096 * 1024) / height) {
+		return NULL;
+	}
 
 	unsigned line   = CalculateLine(width, bit_count);
 	unsigned pitch  = CalculatePitch(line);

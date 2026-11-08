@@ -27,8 +27,9 @@ BEGIN
             VALUE "FileDescription", "FreeImage library\0"
             VALUE "FileVersion", "@FREEIMAGE_VERSION_STRING@\0"
             VALUE "InternalName", "FreeImage\0"
-            VALUE "LegalCopyright", "Copyright © 2003-@FREEIMAGE_COPYRIGHT_YEAR@ by FreeImage\0"
-            VALUE "LegalTrademarks", "See https://freeimage.sourceforge.net\0"
+            // Use a wide Unicode escape to avoid the build host's code page.
+            VALUE "LegalCopyright", L"Copyright \x00A9 2003-@FREEIMAGE_COPYRIGHT_YEAR@ by FreeImage\0"
+            VALUE "LegalTrademarks", "See https://github.com/danoli3/FreeImage and https://freeimage.sourceforge.net\0"
             VALUE "OriginalFilename", "FreeImage.dll\0"
             VALUE "PrivateBuild", "\0"
             VALUE "ProductName", "FreeImage\0"

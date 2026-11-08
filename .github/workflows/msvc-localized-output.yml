@@ -1,0 +1,53 @@
+name: Localized MSVC build output
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/msvc-localized-output.yml'
+      - '.github/tests/test-codec-build-output.py'
+      - 'cmake/BuildBundledCodec.cmake'
+      - 'cmake/FreeImageBundledCodecs.cmake'
+  pull_request:
+    paths:
+      - '.github/workflows/msvc-localized-output.yml'
+      - '.github/tests/test-codec-build-output.py'
+      - 'cmake/BuildBundledCodec.cmake'
+      - 'cmake/FreeImageBundledCodecs.cmake'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: localized-msvc-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  chinese-compiler:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install actual Chinese compiler resources
+        run: |
+          $installerRoot = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer"
+          $instance = & "$installerRoot/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | ConvertFrom-Json | Select-Object -First 1
+          $arguments = @('modify', '--installPath', ('"' + $instance.installationPath + '"'), '--addProductLang', 'zh-CN', '--quiet', '--norestart')
+          $setup = Start-Process -FilePath "$installerRoot/setup.exe" -ArgumentList $arguments -Wait -PassThru
+          if ($setup.ExitCode -notin @(0, 3010)) { throw "Chinese language installation failed: $($setup.ExitCode)" }
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Require localized control output and clean English nested output
+        run: |
+          foreach ($generator in @('Visual Studio 17 2022', 'Ninja')) {
+            foreach ($codepage in @(936, 65001)) {
+              $name = if ($generator -eq 'Ninja') { 'ninja' } else { 'vs2022' }
+              python .github/tests/test-codec-build-output.py --generator "$generator" --require-localized-compiler --code-page $codepage --log-dir "output-audit/$name-$codepage"
+              if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: msvc-localized-output-audit
+          path: output-audit/
+          if-no-files-found: warn

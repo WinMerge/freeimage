@@ -1,0 +1,60 @@
+{
+  "openjpeg-2.5.4-project": {
+    "number": 190,
+    "url": "https://sourceforge.net/p/freeimage/patches/190/",
+    "attachment": "openjpeg-2.5.4-project.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3",
+    "cross_linked": false
+  },
+  "zlib-1.3.2": {
+    "number": 191,
+    "url": "https://sourceforge.net/p/freeimage/patches/191/",
+    "attachment": "zlib-1.3.2.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3"
+  },
+  "libpng-1.6.59": {
+    "number": 192,
+    "url": "https://sourceforge.net/p/freeimage/patches/192/",
+    "attachment": "libpng-1.6.59.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3"
+  },
+  "webp-1.6.0": {
+    "number": 193,
+    "url": "https://sourceforge.net/p/freeimage/patches/193/",
+    "attachment": "webp-1.6.0.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3"
+  },
+  "libtiff-4.7.2": {
+    "number": 194,
+    "url": "https://sourceforge.net/p/freeimage/patches/194/",
+    "attachment": "libtiff-4.7.2.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3"
+  },
+  "libraw-0.22.2": {
+    "number": 195,
+    "url": "https://sourceforge.net/p/freeimage/patches/195/",
+    "attachment": "libraw-0.22.2.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3"
+  },
+  "jpeg-10.0": {
+    "number": 196,
+    "url": "https://sourceforge.net/p/freeimage/patches/196/",
+    "attachment": "jpeg-10.0.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3"
+  },
+  "openexr-3.5.2": {
+    "number": 197,
+    "url": "https://sourceforge.net/p/freeimage/patches/197/",
+    "attachment": "openexr-3.5.2.patch.gz",
+    "verified": true,
+    "reported_by": "danoli3",
+    "cross_linked": false
+  }
+}

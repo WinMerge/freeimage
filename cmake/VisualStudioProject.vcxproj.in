@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+@project_configurations@  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{@project_guid@}</ProjectGuid>
+    <RootNamespace>FreeImage</RootNamespace>
+    <Keyword>MakeFileProj</Keyword>
+    <VCProjectVersion>@vs_major@.0</VCProjectVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset>@vs_toolset@</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <PropertyGroup>
+    <FreeImageSourceDir>$(MSBuildThisFileDirectory)@source_relative@</FreeImageSourceDir>
+    <FreeImageCMakeExecutable Condition="'$(FreeImageCMakeExecutable)' == ''">cmake</FreeImageCMakeExecutable>
+    <OutDir>$(MSBuildThisFileDirectory)artifacts\@platform@\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildThisFileDirectory).vs-int\@platform@\$(Configuration)\</IntDir>
+    <NMakeOutput>$(OutDir)@artifact@</NMakeOutput>
+    <NMakeBuildCommandLine>"$(FreeImageCMakeExecutable)" "-DFREEIMAGE_VS_PROJECT_DIR:PATH=$(MSBuildProjectDirectory)" "-DFREEIMAGE_VS_PLATFORM:STRING=@platform@" "-DFREEIMAGE_VS_CONFIG:STRING=$(Configuration)" -DFREEIMAGE_VS_ACTION=build -P "$(FreeImageSourceDir)cmake\BuildVisualStudio.cmake"</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>"$(FreeImageCMakeExecutable)" "-DFREEIMAGE_VS_PROJECT_DIR:PATH=$(MSBuildProjectDirectory)" "-DFREEIMAGE_VS_PLATFORM:STRING=@platform@" "-DFREEIMAGE_VS_CONFIG:STRING=$(Configuration)" -DFREEIMAGE_VS_ACTION=rebuild -P "$(FreeImageSourceDir)cmake\BuildVisualStudio.cmake"</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>"$(FreeImageCMakeExecutable)" "-DFREEIMAGE_VS_PROJECT_DIR:PATH=$(MSBuildProjectDirectory)" "-DFREEIMAGE_VS_PLATFORM:STRING=@platform@" "-DFREEIMAGE_VS_CONFIG:STRING=$(Configuration)" -DFREEIMAGE_VS_ACTION=clean -P "$(FreeImageSourceDir)cmake\BuildVisualStudio.cmake"</NMakeCleanCommandLine>
+    <NMakeIncludeSearchPath>@project_includes@;$(NMakeIncludeSearchPath)</NMakeIncludeSearchPath>
+    <NMakePreprocessorDefinitions>@project_definitions@;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <ItemGroup>
+@project_items@  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+</Project>

@@ -39,6 +39,16 @@ fixes for that release are already merged. Open the PR, merge it, then
 tag **that merge commit**. Do not tag the branch tip before the PR
 lands, and do not tag an earlier commit that only bumped the header.
 
+Use `scripts/bump-version.sh --dry-run` to preview the next patch bump,
+then `scripts/bump-version.sh` to apply it. Pass an explicit version for
+other releases, for example `scripts/bump-version.sh 3.20.0`. The Bash
+script requires Python 3 for byte-preserving edits and validates all version
+fields before writing. It updates the header, CMake fallback and adjacent
+examples, both checked-in resource files, and README version sentences.
+Recheck vendored versions and update `THIRD_PARTY_VERSIONS.md` separately;
+the script does not certify that review, commit, tag, or publish. Run its
+checks with `python3 scripts/tests/test-bump-version.py`.
+
 PR [#129](https://github.com/danoli3/FreeImage/pull/129)
 (`release/3.19.17`) is the pattern. The version bump is the commit
 titled `FreeImage 3.19.17`. A later commit on the same PR only

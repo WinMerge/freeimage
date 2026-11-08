@@ -377,7 +377,7 @@ void LibRaw::x3f_thumb_loader()
       for (int row = 0; row < (int)ID->rows; row++)
       {
         int offset = row * ID->row_stride;
-        if (offset + ID->columns * 3 > ID->data_size)
+        if (offset + ID->columns * 3 > ID->data_size || offset < 0)
           break;
         char *dest = &imgdata.thumbnail.thumb[row * ID->columns * 3];
         char *src = &src0[offset];
@@ -618,7 +618,11 @@ void LibRaw::x3f_load_raw()
       goto end;
     }
 
-    size_t datasize = S.raw_height * S.raw_width * 3 * sizeof(unsigned short);
+    INT64 datasize = INT64(S.raw_height) * INT64(S.raw_width) * 3LL * sizeof(unsigned short);
+
+	if (datasize > LIBRAW_X3F_ALLOC_LIMIT_MB * 1024ULL * 1024ULL)
+      throw LIBRAW_EXCEPTION_TOOBIG;
+
     S.raw_pitch = S.raw_width * 3 * sizeof(unsigned short);
     if (!(imgdata.rawdata.raw_alloc = malloc(datasize)))
       throw LIBRAW_EXCEPTION_ALLOC;

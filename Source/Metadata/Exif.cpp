@@ -34,6 +34,7 @@
 #endif
 
 #include "FreeImage.h"
+#include "MetadataStrip.h"
 #include "Utilities.h"
 #include "FreeImageTag.h"
 
@@ -898,6 +899,7 @@ Read and decode JPEG_APP1 marker (Exif profile)
 */
 BOOL  
 jpeg_read_exif_profile(FIBITMAP *dib, const BYTE *data, unsigned length) {
+    if(FreeImageInternal::IsStrippingMetadata()) return TRUE;
     // marker identifying string for Exif = "Exif\0\0"
     BYTE exif_signature[6] = { 0x45, 0x78, 0x69, 0x66, 0x00, 0x00 };
 	BYTE lsb_first[4] = { 0x49, 0x49, 0x2A, 0x00 };		// Classic TIFF signature - little-endian order
@@ -977,6 +979,7 @@ Read JPEG_APP1 marker (Exif profile)
 */
 BOOL  
 jpeg_read_exif_profile_raw(FIBITMAP *dib, const BYTE *profile, unsigned length) {
+    if(FreeImageInternal::IsStrippingMetadata()) return TRUE;
     // marker identifying string for Exif = "Exif\0\0"
     BYTE exif_signature[6] = { 0x45, 0x78, 0x69, 0x66, 0x00, 0x00 };
 
@@ -1021,6 +1024,7 @@ Read and decode JPEG-XR Exif IFD
 */
 BOOL  
 jpegxr_read_exif_profile(FIBITMAP *dib, const BYTE *profile, unsigned length, unsigned file_offset) {
+    if(FreeImageInternal::IsStrippingMetadata()) return TRUE;
 	// assume Little Endian order
 	BOOL bBigEndian = FALSE;
 	
@@ -1038,6 +1042,7 @@ Read and decode JPEG-XR Exif-GPS IFD
 */
 BOOL  
 jpegxr_read_exif_gps_profile(FIBITMAP *dib, const BYTE *profile, unsigned length, unsigned file_offset) {
+    if(FreeImageInternal::IsStrippingMetadata()) return TRUE;
 	// assume Little Endian order
 	BOOL bBigEndian = FALSE;
 	

@@ -1,0 +1,47 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 692c610..d0b88ed 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -137,7 +137,6 @@ endif()
+ 
+ if(FREEIMAGE_STATIC)
+     message(STATUS "Building FreeImage as a static library.")
+-    add_definitions(-DFREEIMAGE_LIB)
+ else()
+     message(STATUS "Building FreeImage as a shared library.")
+ endif()
+@@ -1094,6 +1093,21 @@ if (DEFINED FreeImage_LIBS)
+     target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
+ endif()
+ 
++# Public header for add_subdirectory() and the installed package. Copying
++# just FreeImage.h keeps Source/'s internal headers off the consumer's
++# include path. BUILD_INTERFACE is the build tree; INSTALL_INTERFACE
++# matches install(FILES Source/FreeImage.h DESTINATION include).
++file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
++configure_file(
++    "${CMAKE_CURRENT_SOURCE_DIR}/Source/FreeImage.h"
++    "${CMAKE_CURRENT_BINARY_DIR}/include/FreeImage.h"
++    COPYONLY
++)
++target_include_directories(${PROJECT_NAME} PUBLIC
++    $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
++    $<INSTALL_INTERFACE:include>
++)
++
+ # Preprocessor definitions
+ target_compile_definitions(${PROJECT_NAME} PUBLIC
+     DISABLE_PERF_MEASUREMENT
+@@ -1101,6 +1115,12 @@ target_compile_definitions(${PROJECT_NAME} PUBLIC
+     NO_LCMS
+     NO_WINDOWS
+ )
++# Static consumers must see this or FreeImage.h uses dllimport for the
++# symbols they are linking directly. Directory add_definitions() does not
++# propagate out of add_subdirectory().
++if(FREEIMAGE_STATIC)
++    target_compile_definitions(${PROJECT_NAME} PUBLIC FREEIMAGE_LIB)
++endif()
+ 
+ 
+ # Apple-specific settings

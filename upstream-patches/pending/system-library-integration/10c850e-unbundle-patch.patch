@@ -1,0 +1,906 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index f435c5e..7e21bd2 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,10 +8,36 @@ option(BUILD_TESTS "Build the test suite" OFF)
+ option(BUILD_ZLIB "Build zlib from source or link" ON)
+ option(BUILD_LIBPNG "Build libpng from source or link" ON)
+ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
++option(BUILD_LIBJPEG "Build libjpeg from source or link" ON)
++option(BUILD_LIBOPENJPEG "Build OpenJPEG from source or link" ON)
+ option(BUILD_WEBP "Build webp from source or link" ON)
+ option(BUILD_LIBRAWLITE "Build librawlite from source or link" OFF)
+ option(BUILD_OPENEXR "Build OpenEXR from source or link" OFF)
+ 
++# When ON, sets the default for every USE_SYSTEM_* option below to ON (each
++# can still be overridden individually). Mirrors what MSYS2's
++# mingw-w64-freeimage package does by unbundling all vendored sub-deps.
++option(FREEIMAGE_USE_SYSTEM_LIBS "Link against system copies of vendored sub-dependencies instead of bundling them" OFF)
++if(FREEIMAGE_USE_SYSTEM_LIBS)
++    set(FREEIMAGE_SYSTEM_DEFAULT ON)
++else()
++    set(FREEIMAGE_SYSTEM_DEFAULT OFF)
++endif()
++
++# Per-library toggles: only take effect when the matching BUILD_* option is
++# ON. They select whether that dependency is compiled from the bundled
++# Source/Lib* copy (OFF, default) or located on the system via
++# find_package()/pkg-config (ON).
++option(USE_SYSTEM_ZLIB "Link against system zlib instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_LIBPNG "Link against system libpng instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_LIBTIFF "Link against system libtiff instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_LIBJPEG "Link against system libjpeg instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_LIBOPENJPEG "Link against system openjpeg instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_WEBP "Link against system libwebp instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_LIBRAWLITE "Link against system libraw instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_OPENEXR "Link against system OpenEXR/Imath instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++option(USE_SYSTEM_JXR "Link against system jxrlib instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
++
+ if(BUILD_SHARED_LIBS)
+     message(STATUS "Building FreeImage as a shared library.")
+ else()
+@@ -34,31 +60,6 @@ else()
+     add_definitions(-DFREEIMAGE_LIB)
+ endif()
+ 
+-# Fetch and set external library paths
+-if (DEFINED PNG_ROOT)
+-    set(PNG_ROOT ${PNG_ROOT} CACHE PATH "Path to libpng root")
+-endif()
+-
+-if (DEFINED PNG_INCLUDE_DIR)
+-    set(FreeImage_LIBPNG_SRCS ${PNG_INCLUDE_DIR} CACHE PATH "Path to libpng include directory")
+-endif()
+-
+-if (DEFINED PNG_LIBRARY)
+-    set(PNG_LIBRARY ${PNG_LIBRARY} CACHE FILEPATH "Path to libpng library")
+-endif()
+-
+-if (DEFINED ZLIB_ROOT)
+-    set(ZLIB_ROOT ${ZLIB_ROOT} CACHE PATH "Path to zlib root")
+-endif()
+-
+-if (DEFINED ZLIB_LIBRARY)
+-    set(ZLIB_LIBRARY ${ZLIB_LIBRARY} CACHE FILEPATH "Path to zlib library")
+-endif()
+-
+-if (DEFINED ZLIB_INCLUDE_DIRS)
+-    set(FreeImage_ZLIB_SRCS ${ZLIB_INCLUDE_DIRS} CACHE PATH "Path to zlib include directories")
+-endif()
+-
+ #set(NO_BUILD_OPTIONS LIBRAWLITE LIBTIFF)
+ 
+ foreach(opt ${NO_BUILD_OPTIONS})
+@@ -117,64 +118,96 @@ set(FreeImage_SOURCES
+     ./Source/FreeImageToolkit/CopyPaste.cpp ./Source/FreeImageToolkit/Display.cpp
+     ./Source/FreeImageToolkit/Flip.cpp ./Source/FreeImageToolkit/JPEGTransform.cpp
+     ./Source/FreeImageToolkit/MultigridPoissonSolver.cpp ./Source/FreeImageToolkit/Rescale.cpp
+-    ./Source/FreeImageToolkit/Resize.cpp Source/LibJPEG/jaricom.c Source/LibJPEG/jcapimin.c
+-    Source/LibJPEG/jcapistd.c Source/LibJPEG/jcarith.c Source/LibJPEG/jccoefct.c
+-    Source/LibJPEG/jccolor.c Source/LibJPEG/jcdctmgr.c Source/LibJPEG/jchuff.c
+-    Source/LibJPEG/jcinit.c Source/LibJPEG/jcmainct.c Source/LibJPEG/jcmarker.c
+-    Source/LibJPEG/jcmaster.c Source/LibJPEG/jcomapi.c Source/LibJPEG/jcparam.c
+-    Source/LibJPEG/jcprepct.c Source/LibJPEG/jcsample.c Source/LibJPEG/jctrans.c
+-    Source/LibJPEG/jdapimin.c Source/LibJPEG/jdapistd.c Source/LibJPEG/jdarith.c
+-    Source/LibJPEG/jdatadst.c Source/LibJPEG/jdatasrc.c Source/LibJPEG/jdcoefct.c
+-    Source/LibJPEG/jdcolor.c Source/LibJPEG/jddctmgr.c Source/LibJPEG/jdhuff.c
+-    Source/LibJPEG/jdinput.c Source/LibJPEG/jdmainct.c Source/LibJPEG/jdmarker.c
+-    Source/LibJPEG/jdmaster.c Source/LibJPEG/jdmerge.c Source/LibJPEG/jdpostct.c
+-    Source/LibJPEG/jdsample.c Source/LibJPEG/jdtrans.c Source/LibJPEG/jerror.c
+-    Source/LibJPEG/jfdctflt.c Source/LibJPEG/jfdctfst.c Source/LibJPEG/jfdctint.c
+-    Source/LibJPEG/jidctflt.c Source/LibJPEG/jidctfst.c Source/LibJPEG/jidctint.c
+-    Source/LibJPEG/jmemmgr.c Source/LibJPEG/jmemnobs.c Source/LibJPEG/jquant1.c
+-    Source/LibJPEG/jquant2.c Source/LibJPEG/jutils.c Source/LibJPEG/transupp.c
+-    Source/LibOpenJPEG/bio.c Source/LibOpenJPEG/cio.c Source/LibOpenJPEG/dwt.c
+-    Source/LibOpenJPEG/event.c Source/LibOpenJPEG/function_list.c Source/LibOpenJPEG/image.c
+-    Source/LibOpenJPEG/invert.c Source/LibOpenJPEG/j2k.c Source/LibOpenJPEG/jp2.c
+-    Source/LibOpenJPEG/mct.c Source/LibOpenJPEG/mqc.c Source/LibOpenJPEG/openjpeg.c
+-    Source/LibOpenJPEG/opj_clock.c Source/LibOpenJPEG/pi.c Source/LibOpenJPEG/raw.c
+-    Source/LibOpenJPEG/t1.c Source/LibOpenJPEG/t2.c Source/LibOpenJPEG/tcd.c
+-    Source/LibOpenJPEG/tgt.c ./Source/CacheFile.h ./Source/FreeImage ./Source/FreeImage.h
+-    ./Source/FreeImageIO.h ./Source/LibJPEG/cderror.h ./Source/LibJPEG/cdjpeg.h
+-    ./Source/LibJPEG/jconfig.h ./Source/LibJPEG/jdct.h ./Source/LibJPEG/jerror.h
+-    ./Source/LibJPEG/jinclude.h ./Source/LibJPEG/jpegint.h ./Source/LibJPEG/jpeglib.h
+-    ./Source/LibJPEG/jmemsys.h ./Source/LibJPEG/jmorecfg.h ./Source/LibJPEG/transupp.h
+-    ./Source/LibJPEG/jversion.h ./Source/LibOpenJPEG/bio.c ./Source/LibOpenJPEG/cio.c
+-    ./Source/LibOpenJPEG/dwt.c ./Source/LibOpenJPEG/event.c ./Source/LibOpenJPEG/function_list.c
+-    ./Source/LibOpenJPEG/image.c ./Source/LibOpenJPEG/invert.c ./Source/LibOpenJPEG/j2k.c
+-    ./Source/LibOpenJPEG/jp2.c ./Source/LibOpenJPEG/mct.c ./Source/LibOpenJPEG/mqc.c
+-    ./Source/LibOpenJPEG/openjpeg.c ./Source/LibOpenJPEG/opj_clock.c ./Source/LibOpenJPEG/pi.c
+-    ./Source/LibOpenJPEG/raw.c ./Source/LibOpenJPEG/t1.c ./Source/LibOpenJPEG/t2.c
+-    ./Source/LibOpenJPEG/tcd.c ./Source/LibOpenJPEG/tgt.c ./Source/MapIntrospector.h
++    ./Source/FreeImageToolkit/Resize.cpp
++    ./Source/CacheFile.h ./Source/FreeImage ./Source/FreeImage.h
++    ./Source/FreeImageIO.h ./Source/MapIntrospector.h
+     ./Source/Metadata/FIRational.h ./Source/Metadata/FreeImageTag.h ./Source/Plugin.h
+     ./Source/Quantizers.h ./Source/ToneMapping.h ./Source/Utilities.h ./TestAPI/TestSuite.h
+ )
+ 
++if(BUILD_LIBJPEG)
++    if(USE_SYSTEM_LIBJPEG)
++        find_package(JPEG REQUIRED)
++        list(APPEND FreeImage_LIBS JPEG::JPEG)
++        add_definitions(-DFREEIMAGE_SYSTEM_LIBJPEG)
++    else()
++        set(FreeImage_LIBJPEG_SRCS
++            Source/LibJPEG/jaricom.c Source/LibJPEG/jcapimin.c
++            Source/LibJPEG/jcapistd.c Source/LibJPEG/jcarith.c Source/LibJPEG/jccoefct.c
++            Source/LibJPEG/jccolor.c Source/LibJPEG/jcdctmgr.c Source/LibJPEG/jchuff.c
++            Source/LibJPEG/jcinit.c Source/LibJPEG/jcmainct.c Source/LibJPEG/jcmarker.c
++            Source/LibJPEG/jcmaster.c Source/LibJPEG/jcomapi.c Source/LibJPEG/jcparam.c
++            Source/LibJPEG/jcprepct.c Source/LibJPEG/jcsample.c Source/LibJPEG/jctrans.c
++            Source/LibJPEG/jdapimin.c Source/LibJPEG/jdapistd.c Source/LibJPEG/jdarith.c
++            Source/LibJPEG/jdatadst.c Source/LibJPEG/jdatasrc.c Source/LibJPEG/jdcoefct.c
++            Source/LibJPEG/jdcolor.c Source/LibJPEG/jddctmgr.c Source/LibJPEG/jdhuff.c
++            Source/LibJPEG/jdinput.c Source/LibJPEG/jdmainct.c Source/LibJPEG/jdmarker.c
++            Source/LibJPEG/jdmaster.c Source/LibJPEG/jdmerge.c Source/LibJPEG/jdpostct.c
++            Source/LibJPEG/jdsample.c Source/LibJPEG/jdtrans.c Source/LibJPEG/jerror.c
++            Source/LibJPEG/jfdctflt.c Source/LibJPEG/jfdctfst.c Source/LibJPEG/jfdctint.c
++            Source/LibJPEG/jidctflt.c Source/LibJPEG/jidctfst.c Source/LibJPEG/jidctint.c
++            Source/LibJPEG/jmemmgr.c Source/LibJPEG/jmemnobs.c Source/LibJPEG/jquant1.c
++            Source/LibJPEG/jquant2.c Source/LibJPEG/jutils.c Source/LibJPEG/transupp.c
++            ./Source/LibJPEG/cderror.h ./Source/LibJPEG/cdjpeg.h
++            ./Source/LibJPEG/jconfig.h ./Source/LibJPEG/jdct.h ./Source/LibJPEG/jerror.h
++            ./Source/LibJPEG/jinclude.h ./Source/LibJPEG/jpegint.h ./Source/LibJPEG/jpeglib.h
++            ./Source/LibJPEG/jmemsys.h ./Source/LibJPEG/jmorecfg.h ./Source/LibJPEG/transupp.h
++            ./Source/LibJPEG/jversion.h
++        )
++        list(APPEND FreeImage_SOURCES ${FreeImage_LIBJPEG_SRCS})
++        include_directories(Source/LibJPEG)
++    endif()
++endif()
++
++if(BUILD_LIBOPENJPEG)
++    if(USE_SYSTEM_LIBOPENJPEG)
++        find_package(PkgConfig REQUIRED)
++        pkg_check_modules(OPENJPEG REQUIRED IMPORTED_TARGET libopenjp2)
++        list(APPEND FreeImage_LIBS PkgConfig::OPENJPEG)
++        add_definitions(-DFREEIMAGE_SYSTEM_LIBOPENJPEG)
++    else()
++        set(FreeImage_LIBOPENJPEG_SRCS
++            Source/LibOpenJPEG/bio.c Source/LibOpenJPEG/cio.c Source/LibOpenJPEG/dwt.c
++            Source/LibOpenJPEG/event.c Source/LibOpenJPEG/function_list.c Source/LibOpenJPEG/image.c
++            Source/LibOpenJPEG/invert.c Source/LibOpenJPEG/j2k.c Source/LibOpenJPEG/jp2.c
++            Source/LibOpenJPEG/mct.c Source/LibOpenJPEG/mqc.c Source/LibOpenJPEG/openjpeg.c
++            Source/LibOpenJPEG/opj_clock.c Source/LibOpenJPEG/pi.c Source/LibOpenJPEG/raw.c
++            Source/LibOpenJPEG/t1.c Source/LibOpenJPEG/t2.c Source/LibOpenJPEG/tcd.c
++            Source/LibOpenJPEG/tgt.c
++        )
++        list(APPEND FreeImage_SOURCES ${FreeImage_LIBOPENJPEG_SRCS})
++        include_directories(Source/LibOpenJPEG)
++    endif()
++endif()
++
+ if(BUILD_LIBPNG)
+-    set(FreeImage_LIBPNG_SRCS
+-        Source/LibPNG/png.c Source/LibPNG/pngerror.c Source/LibPNG/pngget.c
+-        Source/LibPNG/pngmem.c Source/LibPNG/pngpread.c Source/LibPNG/pngread.c
+-        Source/LibPNG/pngrio.c Source/LibPNG/pngrtran.c Source/LibPNG/pngrutil.c
+-        Source/LibPNG/pngset.c Source/LibPNG/pngtrans.c Source/LibPNG/pngwio.c
+-        Source/LibPNG/pngwrite.c Source/LibPNG/pngwtran.c Source/LibPNG/pngwutil.c
+-        ./Source/LibPNG/png.h ./Source/LibPNG/pngconf.h ./Source/LibPNG/pngdebug.h
+-        ./Source/LibPNG/pnginfo.h ./Source/LibPNG/pnglibconf.h ./Source/LibPNG/pngpriv.h
+-        ./Source/LibPNG/pngstruct.h
+-    )
+-    list(APPEND FreeImage_SOURCES ${FreeImage_LIBPNG_SRCS})
+-    include_directories(Source/LibPNG)
+-elseif (DEFINED PNG_LIBRARY)
+-    list(APPEND FreeImage_LIBS ${PNG_LIBRARY})
+-    include_directories(${FreeImage_LIBPNG_SRCS})
++    if(USE_SYSTEM_LIBPNG)
++        find_package(PNG REQUIRED)
++        list(APPEND FreeImage_LIBS PNG::PNG)
++        add_definitions(-DFREEIMAGE_SYSTEM_LIBPNG)
++    else()
++        set(FreeImage_LIBPNG_SRCS
++            Source/LibPNG/png.c Source/LibPNG/pngerror.c Source/LibPNG/pngget.c
++            Source/LibPNG/pngmem.c Source/LibPNG/pngpread.c Source/LibPNG/pngread.c
++            Source/LibPNG/pngrio.c Source/LibPNG/pngrtran.c Source/LibPNG/pngrutil.c
++            Source/LibPNG/pngset.c Source/LibPNG/pngtrans.c Source/LibPNG/pngwio.c
++            Source/LibPNG/pngwrite.c Source/LibPNG/pngwtran.c Source/LibPNG/pngwutil.c
++            ./Source/LibPNG/png.h ./Source/LibPNG/pngconf.h ./Source/LibPNG/pngdebug.h
++            ./Source/LibPNG/pnginfo.h ./Source/LibPNG/pnglibconf.h ./Source/LibPNG/pngpriv.h
++            ./Source/LibPNG/pngstruct.h
++        )
++        list(APPEND FreeImage_SOURCES ${FreeImage_LIBPNG_SRCS})
++        include_directories(Source/LibPNG)
++    endif()
+ endif()
+ 
+ if(BUILD_LIBTIFF)
+-    set(FreeImage_LIBTIFF_SRCS 
++    if(USE_SYSTEM_LIBTIFF)
++        find_package(TIFF REQUIRED)
++        list(APPEND FreeImage_LIBS TIFF::TIFF)
++        add_definitions(-DFREEIMAGE_SYSTEM_LIBTIFF)
++    else()
++    set(FreeImage_LIBTIFF_SRCS
+         Source/LibTIFF4/tif_error.c Source/LibTIFF4/tif_aux.c
+         Source/LibTIFF4/tif_close.c Source/LibTIFF4/tif_codec.c Source/LibTIFF4/tif_color.c
+         Source/LibTIFF4/tif_compress.c Source/LibTIFF4/tif_config.h
+@@ -201,10 +234,17 @@ if(BUILD_LIBTIFF)
+         list(APPEND FreeImage_LIBTIFF_SRCS Source/LibTIFF4/tif_win32.c)
+     endif()
+     list(APPEND FreeImage_SOURCES ${FreeImage_LIBTIFF_SRCS})
++    include_directories(Source/LibTIFF4)
+     add_definitions(-DINCLUDE_LIB_TIFF4)
++    endif()
+ endif()
+ 
+ if(BUILD_ZLIB)
++    if(USE_SYSTEM_ZLIB)
++        find_package(ZLIB REQUIRED)
++        list(APPEND FreeImage_LIBS ZLIB::ZLIB)
++        add_definitions(-DFREEIMAGE_SYSTEM_ZLIB)
++    else()
+     set(FreeImage_ZLIB_SRCS
+         Source/ZLib/adler32.c Source/ZLib/compress.c Source/ZLib/crc32.c Source/ZLib/deflate.c
+         Source/ZLib/gzclose.c Source/ZLib/gzlib.c Source/ZLib/gzread.c Source/ZLib/gzwrite.c
+@@ -213,7 +253,7 @@ if(BUILD_ZLIB)
+         ./Source/ZLib/crc32.h ./Source/ZLib/deflate.h ./Source/ZLib/gzguts.h
+         ./Source/ZLib/inffast.h ./Source/ZLib/inffixed.h ./Source/ZLib/inflate.h
+         ./Source/ZLib/inftrees.h ./Source/ZLib/trees.h ./Source/ZLib/zconf.h
+-        ./Source/ZLib/zlib.h ./Source/ZLib/zutil.h 
++        ./Source/ZLib/zlib.h ./Source/ZLib/zutil.h
+     )
+     list(APPEND FreeImage_SOURCES ${FreeImage_ZLIB_SRCS})
+     include_directories(Source/ZLib)
+@@ -225,12 +265,17 @@ if(BUILD_ZLIB)
+         # its sources directly rather than through that build system.
+         add_definitions(-DHAVE_UNISTD_H)
+     endif()
+-elseif (DEFINED ZLIB_LIBRARY)
+-    list(APPEND FreeImage_LIBS ${ZLIB_LIBRARY})
+-    include_directories(${FreeImage_ZLIB_SRCS})
++    endif()
+ endif()
+ 
+ if(BUILD_JXR)
++    if(USE_SYSTEM_JXR)
++        find_package(PkgConfig REQUIRED)
++        pkg_check_modules(JXR REQUIRED IMPORTED_TARGET libjxr)
++        list(APPEND FreeImage_LIBS PkgConfig::JXR)
++        list(APPEND FreeImage_SOURCES ./Source/FreeImage/PluginJXR.cpp)
++        add_definitions(-DFREEIMAGE_SYSTEM_JXR -DINCLUDE_LIB_JXR)
++    else()
+     set(FreeImage_JXR_SRCS
+         ./Source/LibJXR/image/decode/decode.c ./Source/LibJXR/image/decode/JXRTranscode.c
+         ./Source/LibJXR/image/decode/postprocess.c ./Source/LibJXR/image/decode/segdec.c
+@@ -246,16 +291,35 @@ if(BUILD_JXR)
+         ./Source/LibJXR/image/sys/strTransform.h ./Source/LibJXR/image/sys/windowsmediaphoto.h
+         ./Source/LibJXR/image/sys/xplatform_image.h ./Source/LibJXR/image/x86/x86.h
+         ./Source/LibJXR/jxrgluelib/JXRGlue.h ./Source/LibJXR/jxrgluelib/JXRMeta.h
+-    )    
++    )
+     list(APPEND FreeImage_SOURCES ${FreeImage_JXR_SRCS})
+     include_directories(Source/LibJXR)
+     include_directories(Source/LibJXR/image/sys)
+     include_directories(Source/LibJXR/common/include)
+     include_directories(Source/LibJXR/jxrgluelib)
+     add_definitions(-DINCLUDE_LIB_JXR)
++    endif()
+ endif()
+ 
+ if(BUILD_WEBP)
++    if(USE_SYSTEM_WEBP)
++        find_package(WebP CONFIG QUIET)
++        if(NOT WebP_FOUND)
++            find_package(PkgConfig REQUIRED)
++            pkg_check_modules(WEBP REQUIRED IMPORTED_TARGET libwebp libwebpdemux libwebpmux)
++            list(APPEND FreeImage_LIBS PkgConfig::WEBP)
++        else()
++            # The mux target's name has varied across libwebp CMake config
++            # versions (WebP::webpmux vs. WebP::libwebpmux) - probe for both.
++            list(APPEND FreeImage_LIBS WebP::webp WebP::webpdemux)
++            if(TARGET WebP::webpmux)
++                list(APPEND FreeImage_LIBS WebP::webpmux)
++            elseif(TARGET WebP::libwebpmux)
++                list(APPEND FreeImage_LIBS WebP::libwebpmux)
++            endif()
++        endif()
++        add_definitions(-DFREEIMAGE_SYSTEM_WEBP -DINCLUDE_LIB_WEBP)
++    else()
+     set(FreeImage_WEBP_SRCS
+         Source/LibWebP/src/dec/alpha_dec.c Source/LibWebP/src/dec/buffer_dec.c
+         Source/LibWebP/src/dec/frame_dec.c Source/LibWebP/src/dec/idec_dec.c
+@@ -343,10 +407,21 @@ if(BUILD_WEBP)
+     )
+     list(APPEND FreeImage_SOURCES ${FreeImage_WEBP_SRCS})
+     include_directories(Source/LibWebP)
++    # LibWebP's own sources include each other as "src/dec/foo.h" (relative
++    # to Source/LibWebP above), but PluginWebP.cpp includes the public API
++    # as <webp/decode.h>, which needs Source/LibWebP/src on the path too.
++    include_directories(Source/LibWebP/src)
+     add_definitions(-DINCLUDE_LIB_WEBP)
++    endif()
+ endif()
+ 
+ if(BUILD_LIBRAWLITE)
++    if(USE_SYSTEM_LIBRAWLITE)
++        find_package(PkgConfig REQUIRED)
++        pkg_check_modules(LIBRAW REQUIRED IMPORTED_TARGET libraw)
++        list(APPEND FreeImage_LIBS PkgConfig::LIBRAW)
++        add_definitions(-DFREEIMAGE_SYSTEM_LIBRAWLITE -DINCLUDE_LIB_RAW)
++    else()
+     set(FreeImage_LIBRAWLITE_SRCS
+         Source/LibRawLite/src/decoders/canon_600.cpp Source/LibRawLite/src/decoders/crx.cpp
+         Source/LibRawLite/src/decoders/decoders_dcraw.cpp Source/LibRawLite/src/decoders/decoders_libraw.cpp
+@@ -402,6 +477,7 @@ if(BUILD_LIBRAWLITE)
+     include_directories(Source/LibRawLite/libraw)
+     include_directories(Source/LibRawLite/src)
+     add_definitions(-DINCLUDE_LIB_RAW)
++    endif()
+ endif()
+ 
+ set(FreeImage_OPENEXR_HALF_SRCS
+@@ -410,9 +486,20 @@ set(FreeImage_OPENEXR_HALF_SRCS
+     ./Source/OpenEXR/Half/halfFunction.h ./Source/OpenEXR/Half/halfLimits.h ./Source/OpenEXR/Half/toFloat.h
+ )
+ list(APPEND FreeImage_SOURCES ${FreeImage_OPENEXR_HALF_SRCS})
+-include_directories(Source/OpenEXR/Half)
++# Not added to the global include path: half.cpp/eLut.cpp/toFloat.cpp include
++# their own headers with quotes (resolved relative to their own directory),
++# and PluginTIFF.cpp/PluginEXR.cpp's bundled-mode "../OpenEXR/Half/half.h"
++# include is likewise a quoted relative path. Keeping this off the global -I
++# search path avoids it winning over system Imath's <half.h> when
++# USE_SYSTEM_OPENEXR pulls in an unqualified <half.h> transitively.
+ 
+ if(BUILD_OPENEXR)
++    if(USE_SYSTEM_OPENEXR)
++        find_package(Imath CONFIG REQUIRED)
++        find_package(OpenEXR CONFIG REQUIRED)
++        list(APPEND FreeImage_LIBS OpenEXR::OpenEXR Imath::Imath)
++        add_definitions(-DFREEIMAGE_SYSTEM_OPENEXR -DINCLUDE_LIB_OPENEXR)
++    else()
+     set(FreeImage_OPENEXR_SRCS
+         Source/OpenEXR/IexMath/IexMathFpu.cpp Source/OpenEXR/IlmImf/b44ExpLogTable.cpp
+         Source/OpenEXR/IlmImf/ImfAcesFile.cpp Source/OpenEXR/IlmImf/ImfAttribute.cpp
+@@ -561,16 +648,15 @@ if(BUILD_OPENEXR)
+     include_directories(Source/OpenEXR/IexMath)
+     include_directories(Source/OpenEXR/Imath)
+     add_definitions(-DINCLUDE_LIB_OPENEXR)
++    endif()
+ endif()
+ 
+-# Need include directories for FreeImage and all the sub libs
++# Need include directories for FreeImage itself. Per-sub-lib include dirs
++# (bundled Source/Lib* vs. system) are added above, inside each BUILD_*
++# block, so a system-lib build doesn't also see the bundled headers.
+ include_directories(Source)
+ include_directories(Source/Metadata)
+ include_directories(Source/FreeImageToolkit)
+-include_directories(Source/LibJPEG)
+-
+-include_directories(Source/LibTIFF4)
+-include_directories(Source/LibOpenJPEG)
+ 
+ if(BUILD_SHARED_LIBS)
+     add_library(${PROJECT_NAME} SHARED 
+diff --git a/Source/FreeImage/J2KHelper.cpp b/Source/FreeImage/J2KHelper.cpp
+index 35730b2..54841d6 100644
+--- a/Source/FreeImage/J2KHelper.cpp
++++ b/Source/FreeImage/J2KHelper.cpp
+@@ -21,7 +21,7 @@
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
+-#include "../LibOpenJPEG/openjpeg.h"
++#include <openjpeg.h>
+ #include "J2KHelper.h"
+ 
+ // --------------------------------------------------------------------------
+diff --git a/Source/FreeImage/PluginEXR.cpp b/Source/FreeImage/PluginEXR.cpp
+index 21d1d82..4c755b7 100644
+--- a/Source/FreeImage/PluginEXR.cpp
++++ b/Source/FreeImage/PluginEXR.cpp
+@@ -2,7 +2,7 @@
+ // EXR Loader and writer
+ //
+ // Design and implementation by 
+-// - Hervé Drolon (drolon@infonie.fr)
++// - Hervï¿½ Drolon (drolon@infonie.fr)
+ // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
+ //
+ // This file is part of FreeImage 3
+@@ -30,6 +30,22 @@
+ #pragma warning (disable : 4800) // ImfVersion.h - 'const int' : forcing value to bool 'true' or 'false' (performance warning)
+ #endif 
+ 
++#ifdef FREEIMAGE_SYSTEM_OPENEXR
++// The bundled Source/OpenEXR/Half type isn't binary-compatible with a system
++// OpenEXR build's own Imath::half (which its Imf* API surface is built
++// against), so this file - unlike PluginTIFF.cpp's standalone LogLuv use of
++// half.h - must switch to the matching system Imath header too.
++#include <OpenEXR/ImfIO.h>
++#include <OpenEXR/Iex.h>
++#include <OpenEXR/ImfOutputFile.h>
++#include <OpenEXR/ImfInputFile.h>
++#include <OpenEXR/ImfRgbaFile.h>
++#include <OpenEXR/ImfChannelList.h>
++#include <OpenEXR/ImfRgba.h>
++#include <OpenEXR/ImfArray.h>
++#include <OpenEXR/ImfPreviewImage.h>
++#include <Imath/half.h>
++#else
+ #include "../OpenEXR/IlmImf/ImfIO.h"
+ #include "../OpenEXR/Iex/Iex.h"
+ #include "../OpenEXR/IlmImf/ImfOutputFile.h"
+@@ -40,6 +56,7 @@
+ #include "../OpenEXR/IlmImf/ImfArray.h"
+ #include "../OpenEXR/IlmImf/ImfPreviewImage.h"
+ #include "../OpenEXR/Half/half.h"
++#endif
+ 
+ 
+ // ==========================================================
+@@ -48,6 +65,16 @@
+ 
+ static int s_format_id;
+ 
++// IStream/OStream's tellg/seekg/tellp/seekp use Imath::Int64 in the bundled
++// (OpenEXR 2.x-era) headers, but that type was removed from Imath 3.x in
++// favor of plain uint64_t, which is what a system OpenEXR 3.x's ImfIO.h
++// virtuals now use.
++#ifdef FREEIMAGE_SYSTEM_OPENEXR
++typedef uint64_t exr_offset_t;
++#else
++typedef Imath::Int64 exr_offset_t;
++#endif
++
+ // ----------------------------------------------------------
+ 
+ /**
+@@ -68,11 +95,11 @@ public:
+ 		return ((unsigned)n != _io->read_proc(c, 1, n, _handle));
+ 	}
+ 
+-	virtual Imath::Int64 tellg() {
++	virtual exr_offset_t tellg() {
+ 		return _io->tell_proc(_handle);
+ 	}
+ 
+-	virtual void seekg(Imath::Int64 pos) {
++	virtual void seekg(exr_offset_t pos) {
+ 		_io->seek_proc(_handle, (unsigned)pos, SEEK_SET);
+ 	}
+ 
+@@ -102,11 +129,11 @@ public:
+ 		}
+ 	}
+ 
+-	virtual Imath::Int64 tellp() {
++	virtual exr_offset_t tellp() {
+ 		return _io->tell_proc(_handle);
+ 	}
+ 
+-	virtual void seekp(Imath::Int64 pos) {
++	virtual void seekp(exr_offset_t pos) {
+ 		_io->seek_proc(_handle, (unsigned)pos, SEEK_SET);
+ 	}
+ };
+diff --git a/Source/FreeImage/PluginG3.cpp b/Source/FreeImage/PluginG3.cpp
+index 4680aa3..71a2c39 100644
+--- a/Source/FreeImage/PluginG3.cpp
++++ b/Source/FreeImage/PluginG3.cpp
+@@ -2,7 +2,7 @@
+ // G3 Fax Loader
+ //
+ // Design and implementation by
+-// - Hervé Drolon (drolon@infonie.fr)
++// - Hervï¿½ Drolon (drolon@infonie.fr)
+ // - Petr Pytelka (pyta@lightcomp.com)
+ //
+ // This file is part of FreeImage 3
+@@ -20,7 +20,11 @@
+ // Use at your own risk!
+ // ==========================================================
+ 
++#ifdef FREEIMAGE_SYSTEM_LIBTIFF
++#include <tiffio.h>
++#else
+ #include "../LibTIFF4/tiffiop.h"
++#endif
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
+@@ -99,7 +103,11 @@ G3ReadFile(FreeImageIO *io, fi_handle handle, uint8_t *tif_rawdata, tmsize_t tif
+ // Internal functions
+ // ==========================================================
+ 
+-static int 
++#ifndef FREEIMAGE_SYSTEM_LIBTIFF
++// Manipulates libtiff's private TIFF struct fields directly (tif_rawdata,
++// tif_decoderow, ...), which a system libtiff's public tiffio.h doesn't
++// expose - only compiled in the bundled-libtiff build (see Load() below).
++static int
+ copyFaxFile(FreeImageIO *io, fi_handle handle, TIFF* tifin, uint32_t xsize, int stretch, FIMEMORY *memory) {
+ 	BYTE *rowbuf = NULL;
+ 	BYTE *refbuf = NULL;
+@@ -192,6 +200,7 @@ copyFaxFile(FreeImageIO *io, fi_handle handle, TIFF* tifin, uint32_t xsize, int
+ 
+ 	return (row);
+ }
++#endif // !FREEIMAGE_SYSTEM_LIBTIFF
+ 
+ 
+ // ==========================================================
+@@ -232,6 +241,13 @@ SupportsExportDepth(int depth) {
+ 
+ static FIBITMAP * DLL_CALLCONV
+ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
++#ifdef FREEIMAGE_SYSTEM_LIBTIFF
++	// This decoder manipulates libtiff's private TIFF struct fields directly
++	// (tif_rawdata, tif_decoderow, ...), which aren't reachable through a
++	// system libtiff's public tiffio.h - report cleanly unsupported instead.
++	FreeImage_OutputMessageProc(s_format_id, "G3 fax loading is unavailable in this build (built against system libtiff)");
++	return NULL;
++#else
+ 	TIFF *faxTIFF = NULL;
+ 	FIBITMAP *dib = NULL;
+ 	FIMEMORY *memory = NULL;
+@@ -405,6 +421,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 
+ 	return dib;
+ 
++#endif // FREEIMAGE_SYSTEM_LIBTIFF
+ }
+ 
+ // ==========================================================
+diff --git a/Source/FreeImage/PluginJ2K.cpp b/Source/FreeImage/PluginJ2K.cpp
+index 0bb4c8b..a127635 100644
+--- a/Source/FreeImage/PluginJ2K.cpp
++++ b/Source/FreeImage/PluginJ2K.cpp
+@@ -21,7 +21,7 @@
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
+-#include "../LibOpenJPEG/openjpeg.h"
++#include <openjpeg.h>
+ #include "J2KHelper.h"
+ 
+ // ==========================================================
+diff --git a/Source/FreeImage/PluginJP2.cpp b/Source/FreeImage/PluginJP2.cpp
+index 8ab3bcd..e7483a6 100644
+--- a/Source/FreeImage/PluginJP2.cpp
++++ b/Source/FreeImage/PluginJP2.cpp
+@@ -21,7 +21,7 @@
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
+-#include "../LibOpenJPEG/openjpeg.h"
++#include <openjpeg.h>
+ #include "J2KHelper.h"
+ 
+ // ==========================================================
+diff --git a/Source/FreeImage/PluginJPEG.cpp b/Source/FreeImage/PluginJPEG.cpp
+index 8db177d..93cdb13 100644
+--- a/Source/FreeImage/PluginJPEG.cpp
++++ b/Source/FreeImage/PluginJPEG.cpp
+@@ -7,7 +7,7 @@
+ // - Jan L. Nauta (jln@magentammt.com)
+ // - Markus Loibl (markus.loibl@epost.de)
+ // - Karl-Heinz Bussian (khbussian@moss.de)
+-// - Hervé Drolon (drolon@infonie.fr)
++// - Hervï¿½ Drolon (drolon@infonie.fr)
+ // - Jascha Wetzel (jascha@mainia.de)
+ // - Mihail Naydenov (mnaydenov@users.sourceforge.net)
+ //
+@@ -35,9 +35,15 @@ extern "C" {
+ #undef FAR
+ #include <setjmp.h>
+ 
++#ifdef FREEIMAGE_SYSTEM_LIBJPEG
++#include <stdio.h>
++#include <jpeglib.h>
++#include <jerror.h>
++#else
+ #include "../LibJPEG/jinclude.h"
+ #include "../LibJPEG/jpeglib.h"
+ #include "../LibJPEG/jerror.h"
++#endif
+ }
+ 
+ #include "FreeImage.h"
+@@ -503,7 +509,7 @@ marker_is_icc(jpeg_saved_marker_ptr marker) {
+   return FALSE.  You might want to issue an error message instead.
+ */
+ static BOOL 
+-jpeg_read_icc_profile(j_decompress_ptr cinfo, JOCTET **icc_data_ptr, unsigned *icc_data_len) {
++fi_jpeg_read_icc_profile(j_decompress_ptr cinfo, JOCTET **icc_data_ptr, unsigned *icc_data_len) {
+ 	jpeg_saved_marker_ptr marker;
+ 	int num_markers = 0;
+ 	int seq_no;
+@@ -745,7 +751,7 @@ read_markers(j_decompress_ptr cinfo, FIBITMAP *dib) {
+ 	BYTE *icc_profile = NULL;
+ 	unsigned icc_length = 0;
+ 
+-	if( jpeg_read_icc_profile(cinfo, &icc_profile, &icc_length) ) {
++	if( fi_jpeg_read_icc_profile(cinfo, &icc_profile, &icc_length) ) {
+ 		// copy ICC profile data
+ 		FreeImage_CreateICCProfile(dib, icc_profile, icc_length);
+ 		// clean up
+diff --git a/Source/FreeImage/PluginJXR.cpp b/Source/FreeImage/PluginJXR.cpp
+index d45c0bb..ca380da 100644
+--- a/Source/FreeImage/PluginJXR.cpp
++++ b/Source/FreeImage/PluginJXR.cpp
+@@ -25,7 +25,7 @@
+ #include "Utilities.h"
+ #include "../Metadata/FreeImageTag.h"
+ 
+-#include "../LibJXR/jxrgluelib/JXRGlue.h"
++#include <JXRGlue.h>
+ 
+ // ==========================================================
+ // Plugin Interface
+diff --git a/Source/FreeImage/PluginPNG.cpp b/Source/FreeImage/PluginPNG.cpp
+index 661f160..504fafe 100644
+--- a/Source/FreeImage/PluginPNG.cpp
++++ b/Source/FreeImage/PluginPNG.cpp
+@@ -40,8 +40,8 @@
+ 
+ // ----------------------------------------------------------
+ 
+-#include "../ZLib/zlib.h"
+-#include "../LibPNG/png.h"
++#include <zlib.h>
++#include <png.h>
+ 
+ // ----------------------------------------------------------
+ 
+diff --git a/Source/FreeImage/PluginRAW.cpp b/Source/FreeImage/PluginRAW.cpp
+index 52b19f4..d65ed8c 100644
+--- a/Source/FreeImage/PluginRAW.cpp
++++ b/Source/FreeImage/PluginRAW.cpp
+@@ -2,7 +2,7 @@
+ // RAW camera image loader
+ //
+ // Design and implementation by 
+-// - Hervé Drolon (drolon@infonie.fr)
++// - Hervï¿½ Drolon (drolon@infonie.fr)
+ //
+ // This file is part of FreeImage 3
+ //
+@@ -21,7 +21,7 @@
+ 
+ #if INCLUDE_LIB_RAW
+ 
+-#include "../LibRawLite/libraw/libraw.h"
++#include <libraw/libraw.h>
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
+diff --git a/Source/FreeImage/PluginTIFF.cpp b/Source/FreeImage/PluginTIFF.cpp
+index 578a00b..6e04348 100644
+--- a/Source/FreeImage/PluginTIFF.cpp
++++ b/Source/FreeImage/PluginTIFF.cpp
+@@ -37,7 +37,7 @@
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
+-#include "../LibTIFF4/tiffiop.h"
++#include <tiffio.h>
+ #include "../Metadata/FreeImageTag.h"
+ #include "../OpenEXR/Half/half.h"
+ 
+diff --git a/Source/FreeImage/PluginWebP.cpp b/Source/FreeImage/PluginWebP.cpp
+index b70337f..19bd681 100644
+--- a/Source/FreeImage/PluginWebP.cpp
++++ b/Source/FreeImage/PluginWebP.cpp
+@@ -26,9 +26,9 @@
+ 
+ #include "../Metadata/FreeImageTag.h"
+ 
+-#include "../LibWebP/src/webp/decode.h"
+-#include "../LibWebP/src/webp/encode.h"
+-#include "../LibWebP/src/webp/mux.h"
++#include <webp/decode.h>
++#include <webp/encode.h>
++#include <webp/mux.h>
+ 
+ // ==========================================================
+ // Plugin Interface
+diff --git a/Source/FreeImage/ZLibInterface.cpp b/Source/FreeImage/ZLibInterface.cpp
+index 3ab6d32..c8727e3 100644
+--- a/Source/FreeImage/ZLibInterface.cpp
++++ b/Source/FreeImage/ZLibInterface.cpp
+@@ -19,10 +19,16 @@
+ // Use at your own risk!
+ // ==========================================================
+ 
++#ifdef FREEIMAGE_SYSTEM_ZLIB
++#include <zlib.h>
++#else
+ #include "../ZLib/zlib.h"
++#endif
+ #include "FreeImage.h"
+ #include "Utilities.h"
++#ifndef FREEIMAGE_SYSTEM_ZLIB
+ #include "../ZLib/zutil.h"	/* must be the last header because of error C3163 in VS2008 (_vsnprintf defined in stdio.h) */
++#endif
+ 
+ /**
+ Compresses a source buffer into a target buffer, using the ZLib library. 
+@@ -115,7 +121,12 @@ FreeImage_ZLibGZip(BYTE *target, DWORD target_size, BYTE *source, DWORD source_s
+ 			return 0;
+         case Z_OK: {
+             // patch header, setup crc and length (stolen from mod_trace_output)
+-            BYTE *p = target + 8; *p++ = 2; *p = OS_CODE; // xflags, os_code
++#ifdef FREEIMAGE_SYSTEM_ZLIB
++            const BYTE gzip_os_code = 0x03; // unix - zutil.h's OS_CODE isn't part of zlib's public API
++#else
++            const BYTE gzip_os_code = OS_CODE;
++#endif
++            BYTE *p = target + 8; *p++ = 2; *p = gzip_os_code; // xflags, os_code
+  	        crc = crc32(crc, source, source_size);
+ 	        memcpy(target + 4 + dest_len, &crc, 4);
+ 	        memcpy(target + 8 + dest_len, &source_size, 4);
+diff --git a/Source/FreeImageToolkit/JPEGTransform.cpp b/Source/FreeImageToolkit/JPEGTransform.cpp
+index 6f9ba8e..65bef1c 100644
+--- a/Source/FreeImageToolkit/JPEGTransform.cpp
++++ b/Source/FreeImageToolkit/JPEGTransform.cpp
+@@ -26,10 +26,19 @@ extern "C" {
+ #undef FAR
+ #include <setjmp.h>
+ 
++#ifdef FREEIMAGE_SYSTEM_LIBJPEG
++#include <stdio.h>
++#include <jpeglib.h>
++#include <jerror.h>
++// transupp.h isn't installed by system libjpeg/libjpeg-turbo packages; the
++// jtransform_*/jpeg_transform_info API it declares is only used in the
++// bundled-libjpeg branch below.
++#else
+ #include "../LibJPEG/jinclude.h"
+ #include "../LibJPEG/jpeglib.h"
+ #include "../LibJPEG/jerror.h"
+ #include "../LibJPEG/transupp.h"
++#endif
+ }
+ 
+ #include "FreeImage.h"
+@@ -148,6 +157,17 @@ getCropString(char* crop, int* left, int* top, int* right, int* bottom, int widt
+ 	return TRUE;
+ }
+ 
++#ifdef FREEIMAGE_SYSTEM_LIBJPEG
++// Lossless JPEG transforms need transupp.h's jtransform_* API, which isn't
++// installed by system libjpeg/libjpeg-turbo packages (it ships only as
++// jpegtran example source, not a public dev header) - report cleanly
++// unsupported rather than failing the build.
++static BOOL
++JPEGTransformFromHandle(FreeImageIO* src_io, fi_handle src_handle, FreeImageIO* dst_io, fi_handle dst_handle, FREE_IMAGE_JPEG_OPERATION operation, int* left, int* top, int* right, int* bottom, BOOL perfect) {
++	FreeImage_OutputMessageProc(FIF_JPEG, "Lossless JPEG transforms are unavailable in this build (built against system libjpeg)");
++	return FALSE;
++}
++#else
+ static BOOL
+ JPEGTransformFromHandle(FreeImageIO* src_io, fi_handle src_handle, FreeImageIO* dst_io, fi_handle dst_handle, FREE_IMAGE_JPEG_OPERATION operation, int* left, int* top, int* right, int* bottom, BOOL perfect) {
+ 	const BOOL onlyReturnCropRect = (dst_io == NULL) || (dst_handle == NULL);
+@@ -361,6 +381,7 @@ JPEGTransformFromHandle(FreeImageIO* src_io, fi_handle src_handle, FreeImageIO*
+ 
+ 	return TRUE;
+ }
++#endif // FREEIMAGE_SYSTEM_LIBJPEG
+ 
+ // ----------------------------------------------------------
+ //   FreeImage interface
+diff --git a/Source/Metadata/XTIFF.cpp b/Source/Metadata/XTIFF.cpp
+index bed457a..cc593f5 100644
+--- a/Source/Metadata/XTIFF.cpp
++++ b/Source/Metadata/XTIFF.cpp
+@@ -29,7 +29,11 @@
+ #pragma warning (disable : 4786) // identifier was truncated to 'number' characters
+ #endif
+ 
++#ifdef FREEIMAGE_SYSTEM_LIBTIFF
++#include <tiffio.h>
++#else
+ #include "../LibTIFF4/tiffiop.h"
++#endif
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
+@@ -40,6 +44,38 @@
+ //   Extended TIFF Directory GEO Tag Support
+ // ----------------------------------------------------------
+ 
++#ifdef FREEIMAGE_SYSTEM_LIBTIFF
++// System libtiff doesn't expose the private TIFFDirectory struct (tif_dir,
++// tif_fields, tif_nfields) that tiff_read_exif_tags/tiff_write_exif_tags
++// below use to walk every registered core tag, so fall back to probing this
++// fixed list of known EXIF tags through the public TIFFFieldWithTag() API.
++static const uint32_t xtiff_known_exif_tags[] = {
++	EXIFTAG_EXPOSURETIME, EXIFTAG_FNUMBER, EXIFTAG_EXPOSUREPROGRAM,
++	EXIFTAG_SPECTRALSENSITIVITY, EXIFTAG_ISOSPEEDRATINGS, EXIFTAG_OECF,
++	EXIFTAG_EXIFVERSION, EXIFTAG_DATETIMEORIGINAL, EXIFTAG_DATETIMEDIGITIZED,
++	EXIFTAG_COMPONENTSCONFIGURATION, EXIFTAG_COMPRESSEDBITSPERPIXEL,
++	EXIFTAG_SHUTTERSPEEDVALUE, EXIFTAG_APERTUREVALUE,
++	EXIFTAG_BRIGHTNESSVALUE, EXIFTAG_EXPOSUREBIASVALUE,
++	EXIFTAG_MAXAPERTUREVALUE, EXIFTAG_SUBJECTDISTANCE, EXIFTAG_METERINGMODE,
++	EXIFTAG_LIGHTSOURCE, EXIFTAG_FLASH, EXIFTAG_FOCALLENGTH,
++	EXIFTAG_SUBJECTAREA, EXIFTAG_MAKERNOTE, EXIFTAG_USERCOMMENT,
++	EXIFTAG_SUBSECTIME, EXIFTAG_SUBSECTIMEORIGINAL,
++	EXIFTAG_SUBSECTIMEDIGITIZED, EXIFTAG_FLASHPIXVERSION, EXIFTAG_COLORSPACE,
++	EXIFTAG_PIXELXDIMENSION, EXIFTAG_PIXELYDIMENSION,
++	EXIFTAG_RELATEDSOUNDFILE, EXIFTAG_FLASHENERGY,
++	EXIFTAG_SPATIALFREQUENCYRESPONSE, EXIFTAG_FOCALPLANEXRESOLUTION,
++	EXIFTAG_FOCALPLANEYRESOLUTION, EXIFTAG_FOCALPLANERESOLUTIONUNIT,
++	EXIFTAG_SUBJECTLOCATION, EXIFTAG_EXPOSUREINDEX, EXIFTAG_SENSINGMETHOD,
++	EXIFTAG_FILESOURCE, EXIFTAG_SCENETYPE, EXIFTAG_CFAPATTERN,
++	EXIFTAG_CUSTOMRENDERED, EXIFTAG_EXPOSUREMODE, EXIFTAG_WHITEBALANCE,
++	EXIFTAG_DIGITALZOOMRATIO, EXIFTAG_FOCALLENGTHIN35MMFILM,
++	EXIFTAG_SCENECAPTURETYPE, EXIFTAG_GAINCONTROL, EXIFTAG_CONTRAST,
++	EXIFTAG_SATURATION, EXIFTAG_SHARPNESS, EXIFTAG_DEVICESETTINGDESCRIPTION,
++	EXIFTAG_SUBJECTDISTANCERANGE, EXIFTAG_IMAGEUNIQUEID
++};
++static const size_t xtiff_known_exif_tags_count = sizeof(xtiff_known_exif_tags) / sizeof(xtiff_known_exif_tags[0]);
++#endif // FREEIMAGE_SYSTEM_LIBTIFF
++
+ /**
+   Tiff info structure.
+   Entry format:
+@@ -258,7 +294,10 @@ tiff_read_exif_tag(TIFF *tif, uint32_t tag_id, FIBITMAP *dib, TagLib::MDMODEL md
+ 		return TRUE;
+ 	}
+ 
+-	const TIFFField *fip = TIFFFieldWithTag(tif, tag_id);
++	// TIFFFindField() is the silent lookup (TIFFFieldWithTag() would emit a
++	// warning for tags absent from this TIFF's field set - expected here
++	// since not every tag_id we're asked about is registered on every file).
++	const TIFFField *fip = TIFFFindField(tif, tag_id, TIFF_ANY);
+ 	if(fip == NULL) {
+ 		return TRUE;
+ 	}
+@@ -573,6 +612,15 @@ tiff_read_exif_tags(TIFF *tif, TagLib::MDMODEL md_model, FIBITMAP *dib) {
+ 
+ 	// we want to know values of standard tags too!!
+ 
++#ifdef FREEIMAGE_SYSTEM_LIBTIFF
++	// System libtiff: no private struct access available, probe the fixed
++	// known-tag list instead (see xtiff_known_exif_tags above).
++	if(md_model == TagLib::EXIF_MAIN) {
++		for(size_t i = 0; i < xtiff_known_exif_tags_count; i++) {
++			tiff_read_exif_tag(tif, xtiff_known_exif_tags[i], dib, md_model);
++		}
++	}
++#else
+ 	// loop over all Core Directory Tags
+ 	// ### uses private data, but there is no other way
+ 	if(md_model == TagLib::EXIF_MAIN) {
+@@ -615,6 +663,7 @@ tiff_read_exif_tags(TIFF *tif, TagLib::MDMODEL md_model, FIBITMAP *dib) {
+ 		}
+ 
+ 	}
++#endif // FREEIMAGE_SYSTEM_LIBTIFF
+ 
+ 	return TRUE;
+ }
+@@ -722,13 +771,26 @@ tiff_write_exif_tags(TIFF *tif, TagLib::MDMODEL md_model, FIBITMAP *dib) {
+ 	}
+ 	
+ 	TagLib& tag_lib = TagLib::instance();
+-	
++
++#ifdef FREEIMAGE_SYSTEM_LIBTIFF
++	// System libtiff: no private struct access available, probe the fixed
++	// known-tag list instead (see xtiff_known_exif_tags above).
++	for(size_t fi = 0; fi < xtiff_known_exif_tags_count; fi++) {
++		const uint32_t tag_id = xtiff_known_exif_tags[fi];
++		const TIFFField *fld = TIFFFindField(tif, tag_id, TIFF_ANY);
++		if(fld == NULL) {
++			continue;
++		}
++
++		if(skip_write_field(tif, tag_id)) {
++#else
+ 	for (int fi = 0, nfi = (int)tif->tif_nfields; nfi > 0; nfi--, fi++) {
+ 		const TIFFField *fld = tif->tif_fields[fi];
+-		
++
+ 		const uint32_t tag_id = TIFFFieldTag(fld);
+ 
+ 		if(skip_write_field(tif, tag_id)) {
++#endif // FREEIMAGE_SYSTEM_LIBTIFF
+ 			// skip tags that are already handled by the LibTIFF writing process
+ 			continue;
+ 		}

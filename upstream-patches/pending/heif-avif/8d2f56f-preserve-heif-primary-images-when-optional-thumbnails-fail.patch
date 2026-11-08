@@ -1,0 +1,158 @@
+diff --git a/Source/FreeImage/PluginHEIF.cpp b/Source/FreeImage/PluginHEIF.cpp
+index 6185dfc..48e86ef 100644
+--- a/Source/FreeImage/PluginHEIF.cpp
++++ b/Source/FreeImage/PluginHEIF.cpp
+@@ -177,13 +177,18 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int
+             }
+         }
+         if(!(flags & FIF_LOAD_NOPIXELS) && heif_image_handle_get_number_of_thumbnails(image_handle.get()) > 0) {
+-            heif_item_id id;
+-            if(heif_image_handle_get_list_of_thumbnail_IDs(image_handle.get(), &id, 1) == 1) {
+-                heif_image_handle *raw_thumbnail = NULL;
+-                Check(heif_image_handle_get_thumbnail(image_handle.get(), id, &raw_thumbnail));
+-                std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> thumbnail_handle(raw_thumbnail, heif_image_handle_release);
+-                std::unique_ptr<FIBITMAP, void (*)(FIBITMAP *)> thumbnail(DecodeImage(thumbnail_handle.get(), 0, stream.length), FreeImage_Unload);
+-                if(thumbnail) FreeImage_SetThumbnail(dib.get(), thumbnail.get());
++            // A broken or unsupported thumbnail must not discard the decoded main image.
++            try {
++                heif_item_id id;
++                if(heif_image_handle_get_list_of_thumbnail_IDs(image_handle.get(), &id, 1) == 1) {
++                    heif_image_handle *raw_thumbnail = NULL;
++                    Check(heif_image_handle_get_thumbnail(image_handle.get(), id, &raw_thumbnail));
++                    std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> thumbnail_handle(raw_thumbnail, heif_image_handle_release);
++                    std::unique_ptr<FIBITMAP, void (*)(FIBITMAP *)> thumbnail(DecodeImage(thumbnail_handle.get(), 0, stream.length), FreeImage_Unload);
++                    if(thumbnail) FreeImage_SetThumbnail(dib.get(), thumbnail.get());
++                }
++            } catch(const std::exception &error) {
++                FreeImage_OutputMessageProc(Format, "Ignoring embedded thumbnail: %s", error.what());
+             }
+         }
+         return dib.release();
+diff --git a/TestAPI/heif/README.md b/TestAPI/heif/README.md
+index 6f8ccc6..6132400 100644
+--- a/TestAPI/heif/README.md
++++ b/TestAPI/heif/README.md
+@@ -13,3 +13,37 @@ x265 and AOM encoders, build the `GenerateHeifFixtures` target, and run it with
+ this directory as its working directory. These fixtures were generated using
+ libheif 1.23.2. Encoded bytes can differ across codec versions; tests compare
+ pixel values with a tolerance for lossy colour conversion.
++
++Two additional fixtures are derived from the checked-in `metadata.heic`:
++
++- `bad-thumbnail.heic` replaces the thumbnail's 201-byte payload (offset 875)
++  with zeroes. The primary image and Exif are unchanged.
++- `thumbnail-size-mismatch.heic` adds an `ispe` property for thumbnail item 3
++  declaring a coded size of 64x63, while its actual bitstream is 64x64. The
++  existing crop still declares a 16x12 thumbnail. This reproduces libheif's
++  "Decoded image does not have the size signaled in the file" error. Older
++  libheif versions may accept it; the primary image must remain usable either way.
++
++Both cases verify that primary pixels and Exif survive thumbnail errors, and
++that header-only loading still works. No encoder or reported photograph is
++needed to recreate them from the checked-in fixture:
++
++```python
++from pathlib import Path
++original = Path("metadata.heic").read_bytes()
++assert len(original) == 1076
++Path("bad-thumbnail.heic").write_bytes(original[:875] + bytes(201))
++data = bytearray(original)
++assert data[511:515] == b"ispe"
++assert data[519:527] == bytes.fromhex("0000004000000040")
++assert data[647:654] == bytes.fromhex("00030481030586")
++prop = bytearray(data[507:527])
++prop[-4:] = (63).to_bytes(4, "big")
++data[651] = 7  # Item 3 uses the new ispe property, not the primary's property.
++for offset in (28, 234, 242):  # meta, iprp, ipco box sizes
++    data[offset:offset+4] = (int.from_bytes(data[offset:offset+4], "big") + 20).to_bytes(4, "big")
++for offset in (93, 111, 129):  # iloc base offsets after extending meta
++    data[offset:offset+4] = (int.from_bytes(data[offset:offset+4], "big") + 20).to_bytes(4, "big")
++data[623:623] = prop
++Path("thumbnail-size-mismatch.heic").write_bytes(data)
++```
+diff --git a/TestAPI/heif/bad-thumbnail.heic b/TestAPI/heif/bad-thumbnail.heic
+new file mode 100644
+index 0000000000000000000000000000000000000000..c4b7a5925caaed553ba73ceb4e2baed6fd9ed595
+GIT binary patch
+literal 1076
+zcmZQzV30{GsVvAy%}izhg51nBLl8SRGck>UfoWE5YDpqU90(LMQgVtQOa_L6%;XXn
+z8%Dcj=H!D7adBW^W?%#fGwp-WKxRJ!6G(*F7cL?PR0R^rhKrm8a(y#1^MF=^B!E~H
+z$Vmlj1e%vomTU-;fC(~!jC8HY1S^LLg7v{v@)cy3<bt$-tYBP{Sx{5}q-!$^lJkLL
+zr9frQjLbkGD3JTW@aON39}Eoq%n3jp5)O<!jQ{_G6fiSP02|EAAh(OjArUC4>BI=u
+ziX^i@p^<gkt97%UJy2Y5pn-vb2Z)&&T9SaO*<2V879Z>c+S8MqpHoy&ln-(=P#!->
+zOfE*a4!=@zWJNNI3sRvP9e^|lYb56+g6vcPVo)4Pfaw4K|33iIOhEbuhz4STg3O9c
+zAkDzc!NCEfVEP1rY>+-45Dip+0Z4=NodMB6ET37Bn+T*qfQf;TwULRLwS|G1rIDGn
+z4Jf3MS(FNieg+1<<douMkRq^wd?gvVNx<*~^BC)LQxZWbuv>$1J=-Svgn|nb*Xuw2
+z^~rkfspIPFo{5BfE9JL-SO0wXs}F}y`bV5EskWZG>ZyC`T<PXT=2wkx^gep$bu#{G
+z?t9b7V|)GWt^d3IZ?V7NA)&uoJ|y(0dvc=B=~L&bg%>Va8z%2I`GNVH>jr<sJ^#xJ
+z#7_Bb_@g21>b1;YN0}z1tWxmR54{jCmSJ%(5acCKPb~&ea4<3mF+wr{C@_W<004+)
+Bv7P_`
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestAPI/heif/thumbnail-size-mismatch.heic b/TestAPI/heif/thumbnail-size-mismatch.heic
+new file mode 100644
+index 0000000000000000000000000000000000000000..4eae1eac25373bb3fe038cc85c538c7251481e2b
+GIT binary patch
+literal 1096
+zcmZQzV30{GsVvAy%}izhg51nBLl8SRGck>UfoWZCYDpqU90(LMQgVtQOa_L6%;XXn
+z8%Dcj=H!D7adBW^W?%#fGhKqvKxRJ!6G((P5iTMJR0R^Lhl`v9a(y#1^MF=^B!E~H
+z$Vmlj1e%vomTU-;fC(~!jC8HY1S^LLg7v{v@)cy3<bt$-tYF-cSx{5}q$g$;B<BOg
+zN`cCp8JU4XP$2h#;m_Y6KNuMJnG=9IBpeud82|qVDPU%p05+JJL2eh51IQ1WPK;o!
+zNHPl)8d;~kS~u(21H}ag8W<ROfS8$~B?+jS&4uw`@xe}@Jw3_!IYk9U`5;FF<?(~W
+z<YI*D@GB)pRwT2yAQh_70Z4<eMsiLf$W8?y2F0NSi2nco{{tY+1f*|(Xdo6S$gIc&
+z(hSTT92`IjrcVIK2I=Dg(LnVVfHX+o84wM`=yuuz#pE*!aub0x2rw})vNkd?v$ilW
+zvox}^wgH7SGK*3nNrHiaFFB<+8Keko313M@ZW1tz!92#g+>}I6s_fQaT+g;iKB3^k
+z#P#}*e|@r^d+NCQx@RIG-%9zd-_<|g{p!Qvll~FsORBBsu6pX8I#;@Rk@;2Q8@-R-
+zd7X@Zn)}`~^4MN~d+Yyh|6A-Ycu454mJbO%>YkkFbNbY|YT<=T)`rQuO@3hh=DNWj
+zanJv<0<lwm8~$iWyLv72*HNYkDXSEG^+PYji)C2c3j}$|(^HE96hw>+LX41%0SX`}
+zI0|+w#}alnpaI4E^y;-|OYW=Qx3=$ITI;PF!Jcm4O0TSMm>-aL&|6-s)BaM!f`YfF
+ziW$~@EnH<8^2;W>bN9n}W+l;bdjnc-h;u9K@t*W1HnYZg!(6@jD@)l8uBD{^eU|f{
+zCuPl)t<}z(9%cq}%6KzaH5U7nd%P5In75_1<MMW^`n1+1*>5z2vXk8#f7Z$KT1Iq5
+z2v#nflvN#i+40&Mj~U{9p>KP#q${c~#K}a;f7kq|5NY*T?s{Z~!_J`ZJ&p|kU33wX
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestAPI/testHeif.cpp b/TestAPI/testHeif.cpp
+index be17c8d..52eec78 100644
+--- a/TestAPI/testHeif.cpp
++++ b/TestAPI/testHeif.cpp
+@@ -100,6 +100,25 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
+     Require(FreeImage_LoadFromMemory(format, memory) == NULL, "truncated input rejected");
+     FreeImage_CloseMemory(memory);
+ }
++// Primary pixels and metadata must survive errors in an optional thumbnail.
++static void TestBadThumbnail(const char *filename, bool must_reject_thumbnail) {
++    FIBITMAP *reference = FreeImage_Load(FIF_HEIF, "metadata.heic");
++    FIBITMAP *dib = FreeImage_Load(FIF_HEIF, filename);
++    Require(reference && dib, "invalid thumbnail must not discard main image");
++    Require(FreeImage_GetWidth(dib) == 32 && FreeImage_GetHeight(dib) == 24, "bad-thumbnail main dimensions");
++    Require(FreeImage_GetBPP(dib) == 24 && FreeImage_HasPixels(dib), "bad-thumbnail main pixels");
++    for(unsigned y = 0; y < 24; ++y)
++        Require(!std::memcmp(FreeImage_GetScanLine(reference, y), FreeImage_GetScanLine(dib, y),
++            FreeImage_GetLine(reference)), "thumbnail failure preserves main pixels");
++    if(must_reject_thumbnail) Require(FreeImage_GetThumbnail(dib) == NULL, "invalid thumbnail omitted");
++    FITAG *tag = NULL;
++    Require(FreeImage_GetMetadata(FIMD_EXIF_MAIN, dib, "Orientation", &tag), "thumbnail failure preserves EXIF");
++    FreeImage_Unload(reference);
++    FreeImage_Unload(dib);
++    dib = FreeImage_Load(FIF_HEIF, filename, FIF_LOAD_NOPIXELS);
++    Require(dib && !FreeImage_HasPixels(dib) && FreeImage_GetWidth(dib) == 32, "bad-thumbnail header-only");
++    FreeImage_Unload(dib);
++}
+ int main(int argc, char **) {
+     encode = argc > 1;
+     FreeImage_Initialise();
+@@ -113,6 +132,10 @@ int main(int argc, char **) {
+     Test("rgba.avif", FIF_AVIF, true);
+ #endif
+     Test("metadata.heic", FIF_HEIF, false);
++    TestBadThumbnail("bad-thumbnail.heic", true);
++    // Older libheif versions may accept the inconsistent dimensions. Either
++    // way, a thumbnail must not make loading the primary image fail.
++    TestBadThumbnail("thumbnail-size-mismatch.heic", false);
+     FreeImage_DeInitialise();
+ #if defined(FREEIMAGE_TEST_BUNDLED_HEIF) && !defined(FREEIMAGE_TEST_BUNDLED_AOM)
+     std::puts("HEIF RGB, alpha, orientation, header-only and truncated-input tests passed (AVIF backend disabled)");

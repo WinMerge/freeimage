@@ -1,0 +1,584 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 0d98660..dd3bb08 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1471,6 +1471,9 @@ elseif(WIN32)
+     # objects are built dllimport and the link fails (issue #127).
+     target_compile_definitions(${PROJECT_NAME} PRIVATE FREEIMAGE_EXPORTS)
+ endif()
++if(UNIX AND NOT APPLE)
++    target_compile_definitions(${PROJECT_NAME} PRIVATE _FILE_OFFSET_BITS=64)
++endif()
+ 
+ 
+ # Apple-specific settings
+diff --git a/Source/FreeImage.h b/Source/FreeImage.h
+index a5d23f1..38699a7 100644
+--- a/Source/FreeImage.h
++++ b/Source/FreeImage.h
+@@ -37,6 +37,7 @@
+ // Compiler options ---------------------------------------------------------
+ 
+ #include <wchar.h>	// needed for UNICODE functions
++#include <stdint.h>	// fixed-width types for large-file I/O
+ 
+ #if defined(FREEIMAGE_LIB)
+ 	#define DLL_API
+@@ -640,6 +641,19 @@ FI_STRUCT(FreeImageIO) {
+     FI_TellProc  tell_proc;     //! pointer to the function used to aquire the current position
+ };
+ 
++// Large-file I/O callbacks. These are additive; FreeImageIO remains ABI stable.
++typedef uint64_t (DLL_CALLCONV *FI_ReadProc64) (void *buffer, uint64_t size, uint64_t count, fi_handle handle);
++typedef uint64_t (DLL_CALLCONV *FI_WriteProc64) (void *buffer, uint64_t size, uint64_t count, fi_handle handle);
++typedef int (DLL_CALLCONV *FI_SeekProc64) (fi_handle handle, int64_t offset, int origin);
++typedef int64_t (DLL_CALLCONV *FI_TellProc64) (fi_handle handle);
++
++FI_STRUCT(FreeImageIO64) {
++    FI_ReadProc64 read_proc;
++    FI_WriteProc64 write_proc;
++    FI_SeekProc64 seek_proc;
++    FI_TellProc64 tell_proc;
++};
++
+ #if (defined(_WIN32) || defined(__WIN32__))
+ #pragma pack(pop)
+ #else
+@@ -674,6 +688,9 @@ typedef BOOL (DLL_CALLCONV *FI_SupportsExportBPPProc)(int bpp);
+ typedef BOOL (DLL_CALLCONV *FI_SupportsExportTypeProc)(FREE_IMAGE_TYPE type);
+ typedef BOOL (DLL_CALLCONV *FI_SupportsICCProfilesProc)(void);
+ typedef BOOL (DLL_CALLCONV *FI_SupportsNoPixelsProc)(void);
++typedef void *(DLL_CALLCONV *FI_OpenProc64)(FreeImageIO64 *io, fi_handle handle, BOOL read);
++typedef void (DLL_CALLCONV *FI_CloseProc64)(FreeImageIO64 *io, fi_handle handle, void *data);
++typedef FIBITMAP *(DLL_CALLCONV *FI_LoadProc64)(FreeImageIO64 *io, fi_handle handle, int page, int flags, void *data);
+ 
+ FI_STRUCT (Plugin) {
+ 	FI_FormatProc format_proc;
+@@ -692,6 +709,9 @@ FI_STRUCT (Plugin) {
+ 	FI_SupportsExportTypeProc supports_export_type_proc;
+ 	FI_SupportsICCProfilesProc supports_icc_profiles_proc;
+ 	FI_SupportsNoPixelsProc supports_no_pixels_proc;
++	FI_OpenProc64 open64_proc;
++	FI_CloseProc64 close64_proc;
++	FI_LoadProc64 load64_proc;
+ };
+ 
+ typedef void (DLL_CALLCONV *FI_InitProc)(Plugin *plugin, int format_id);
+@@ -865,8 +885,11 @@ DLL_API BOOL DLL_CALLCONV FreeImage_HasPixels(FIBITMAP *dib);
+ // Load / Save routines -----------------------------------------------------
+ 
+ DLL_API FIBITMAP *DLL_CALLCONV FreeImage_Load(FREE_IMAGE_FORMAT fif, const char *filename, int flags FI_DEFAULT(0));
++DLL_API FIBITMAP *DLL_CALLCONV FreeImage_Load64(FREE_IMAGE_FORMAT fif, const char *filename, int flags FI_DEFAULT(0));
+ DLL_API FIBITMAP *DLL_CALLCONV FreeImage_LoadU(FREE_IMAGE_FORMAT fif, const wchar_t *filename, int flags FI_DEFAULT(0));
+ DLL_API FIBITMAP *DLL_CALLCONV FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handle, int flags FI_DEFAULT(0));
++// Uses a format plugin's 64-bit callbacks; currently supported by TIFF only.
++DLL_API FIBITMAP *DLL_CALLCONV FreeImage_LoadFromHandle64(FREE_IMAGE_FORMAT fif, FreeImageIO64 *io, fi_handle handle, int flags FI_DEFAULT(0));
+ DLL_API BOOL DLL_CALLCONV FreeImage_Save(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags FI_DEFAULT(0));
+ DLL_API BOOL DLL_CALLCONV FreeImage_SaveU(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const wchar_t *filename, int flags FI_DEFAULT(0));
+ DLL_API BOOL DLL_CALLCONV FreeImage_SaveToHandle(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, FreeImageIO *io, fi_handle handle, int flags FI_DEFAULT(0));
+diff --git a/Source/FreeImage/FreeImageIO.cpp b/Source/FreeImage/FreeImageIO.cpp
+index 612c5a5..9417cc4 100644
+--- a/Source/FreeImage/FreeImageIO.cpp
++++ b/Source/FreeImage/FreeImageIO.cpp
+@@ -23,6 +23,11 @@
+ 
+ #include "FreeImage.h"
+ #include "Utilities.h"
++#include <stdint.h>
++#include <limits.h>
++#ifndef _WIN32
++#include <sys/types.h>
++#endif
+ #include "FreeImageIO.h"
+ 
+ // =====================================================================
+@@ -49,6 +54,36 @@ _TellProc(fi_handle handle) {
+ 	return ftell((FILE *)handle);
+ }
+ 
++static uint64_t DLL_CALLCONV
++_ReadProc64(void *buffer, uint64_t size, uint64_t count, fi_handle handle) {
++	if (size > (uint64_t)(size_t)-1 || count > (uint64_t)(size_t)-1 || (size != 0 && count > UINT64_MAX / size)) return 0;
++	return (uint64_t)fread(buffer, (size_t)size, (size_t)count, (FILE *)handle);
++}
++
++static uint64_t DLL_CALLCONV
++_WriteProc64(void *buffer, uint64_t size, uint64_t count, fi_handle handle) {
++	if (size > (uint64_t)(size_t)-1 || count > (uint64_t)(size_t)-1 || (size != 0 && count > UINT64_MAX / size)) return 0;
++	return (uint64_t)fwrite(buffer, (size_t)size, (size_t)count, (FILE *)handle);
++}
++
++static int DLL_CALLCONV
++_SeekProc64(fi_handle handle, int64_t offset, int origin) {
++#ifdef _WIN32
++	return _fseeki64((FILE *)handle, offset, origin);
++#else
++	return fseeko((FILE *)handle, (off_t)offset, origin);
++#endif
++}
++
++static int64_t DLL_CALLCONV
++_TellProc64(fi_handle handle) {
++#ifdef _WIN32
++	return _ftelli64((FILE *)handle);
++#else
++	return (int64_t)ftello((FILE *)handle);
++#endif
++}
++
+ // ----------------------------------------------------------
+ 
+ void
+@@ -59,6 +94,14 @@ SetDefaultIO(FreeImageIO *io) {
+ 	io->write_proc = _WriteProc;
+ }
+ 
++void
++SetDefaultIO64(FreeImageIO64 *io) {
++	io->read_proc  = _ReadProc64;
++	io->seek_proc  = _SeekProc64;
++	io->tell_proc  = _TellProc64;
++	io->write_proc = _WriteProc64;
++}
++
+ // =====================================================================
+ // Memory IO functions
+ // =====================================================================
+diff --git a/Source/FreeImage/Plugin.cpp b/Source/FreeImage/Plugin.cpp
+index 30d40a0..f9932a9 100644
+--- a/Source/FreeImage/Plugin.cpp
++++ b/Source/FreeImage/Plugin.cpp
+@@ -411,6 +411,42 @@ FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handl
+ 	return NULL;
+ }
+ 
++FIBITMAP * DLL_CALLCONV
++FreeImage_LoadFromHandle64(FREE_IMAGE_FORMAT fif, FreeImageIO64 *io, fi_handle handle, int flags) {
++	if (io == NULL || handle == NULL || fif < 0 || fif >= FreeImage_GetFIFCount()) {
++		return NULL;
++	}
++	PluginNode *node = s_plugins->FindNodeFromFIF(fif);
++	if (node == NULL || node->m_plugin->load64_proc == NULL) {
++		return NULL;
++	}
++	void *data = node->m_plugin->open64_proc ? node->m_plugin->open64_proc(io, handle, TRUE) : NULL;
++	if (data == NULL) {
++		return NULL;
++	}
++	FIBITMAP *bitmap = node->m_plugin->load64_proc(io, handle, -1, flags, data);
++	if (node->m_plugin->close64_proc) {
++		node->m_plugin->close64_proc(io, handle, data);
++	}
++	return bitmap;
++}
++
++FIBITMAP * DLL_CALLCONV
++FreeImage_Load64(FREE_IMAGE_FORMAT fif, const char *filename, int flags) {
++	if (filename == NULL) {
++		return NULL;
++	}
++	FreeImageIO64 io;
++	SetDefaultIO64(&io);
++	FILE *handle = fopen(filename, "rb");
++	if (handle == NULL) {
++		return NULL;
++	}
++	FIBITMAP *bitmap = FreeImage_LoadFromHandle64(fif, &io, (fi_handle)handle, flags);
++	fclose(handle);
++	return bitmap;
++}
++
+ FIBITMAP * DLL_CALLCONV
+ FreeImage_Load(FREE_IMAGE_FORMAT fif, const char *filename, int flags) {
+ 	FreeImageIO io;
+diff --git a/Source/FreeImage/PluginTIFF.cpp b/Source/FreeImage/PluginTIFF.cpp
+index e2954d2..dbb8e5b 100644
+--- a/Source/FreeImage/PluginTIFF.cpp
++++ b/Source/FreeImage/PluginTIFF.cpp
+@@ -135,10 +135,13 @@ static void WriteImageType(TIFF *tiff, FREE_IMAGE_TYPE fit);
+ 
+ static void WriteCompression(TIFF *tiff, uint16_t bitspersample, uint16_t samplesperpixel, uint16_t photometric, int flags);
+ 
++typedef struct fi_TIFFIO fi_TIFFIO;
++static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data);
++
+ static BOOL tiff_read_iptc_profile(TIFF *tiff, FIBITMAP *dib);
+ static BOOL tiff_read_xmp_profile(TIFF *tiff, FIBITMAP *dib);
+-static BOOL tiff_read_exif_profile(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *dib);
+-static void ReadMetadata(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *dib);
++static BOOL tiff_read_exif_profile(fi_TIFFIO *fio, TIFF *tiff, FIBITMAP *dib);
++static void ReadMetadata(fi_TIFFIO *fio, TIFF *tiff, FIBITMAP *dib);
+ 
+ static BOOL tiff_write_iptc_profile(TIFF *tiff, FIBITMAP *dib);
+ static BOOL tiff_write_xmp_profile(TIFF *tiff, FIBITMAP *dib);
+@@ -146,7 +149,7 @@ static void WriteMetadata(TIFF *tiff, FIBITMAP *dib);
+ 
+ static TIFFLoadMethod FindLoadMethod(TIFF *tif, uint16_t photometric, uint16_t bitspersample, uint16_t samplesperpixel, FREE_IMAGE_TYPE image_type, int flags);
+ 
+-static void ReadThumbnail(FreeImageIO *io, fi_handle handle, void *data, TIFF *tiff, FIBITMAP *dib);
++static void ReadThumbnail(fi_TIFFIO *fio, TIFF *tiff, FIBITMAP *dib);
+ 
+ 
+ // ==========================================================
+@@ -155,16 +158,17 @@ static void ReadThumbnail(FreeImageIO *io, fi_handle handle, void *data, TIFF *t
+ 
+ static int s_format_id;
+ 
+-typedef struct {
++struct fi_TIFFIO {
+ 	//! FreeImage IO functions
+     FreeImageIO *io;
++    FreeImageIO64 *io64;
+ 	//! FreeImage handle
+ 	fi_handle handle;
+ 	//! LibTIFF handle
+ 	TIFF *tif;
+ 	//! Count the number of thumbnails already read (used to avoid recursion on loading)
+ 	unsigned thumbnailCount;
+-} fi_TIFFIO;
++};
+ 
+ // ----------------------------------------------------------
+ //   libtiff interface
+@@ -173,20 +177,30 @@ typedef struct {
+ static tmsize_t
+ _tiffReadProc(thandle_t handle, void *buf, tmsize_t size) {
+ 	fi_TIFFIO *fio = (fi_TIFFIO*)handle;
+-	return fio->io->read_proc(buf, (unsigned)size, 1, fio->handle) * size;
++	if (size < 0) return 0;
++	if (fio->io64) return (tmsize_t)(fio->io64->read_proc(buf, (uint64_t)size, 1, fio->handle) * (uint64_t)size);
++	if ((uint64_t)size > UINT_MAX) return 0;
++	return (tmsize_t)(fio->io->read_proc(buf, (unsigned)size, 1, fio->handle) * (uint64_t)size);
+ }
+ 
+ static tmsize_t
+ _tiffWriteProc(thandle_t handle, void *buf, tmsize_t size) {
+ 	fi_TIFFIO *fio = (fi_TIFFIO*)handle;
+-	return fio->io->write_proc(buf, (unsigned)size, 1, fio->handle) * size;
++	if (size < 0) return 0;
++	if (fio->io64) return (tmsize_t)(fio->io64->write_proc(buf, (uint64_t)size, 1, fio->handle) * (uint64_t)size);
++	if ((uint64_t)size > UINT_MAX) return 0;
++	return (tmsize_t)(fio->io->write_proc(buf, (unsigned)size, 1, fio->handle) * (uint64_t)size);
+ }
+ 
+ static toff_t
+ _tiffSeekProc(thandle_t handle, toff_t off, int whence) {
+ 	fi_TIFFIO *fio = (fi_TIFFIO*)handle;
++	if (fio->io64) {
++		if (fio->io64->seek_proc(fio->handle, (int64_t)off, whence) != 0) return (toff_t)-1;
++		return (toff_t)fio->io64->tell_proc(fio->handle);
++	}
+ 	fio->io->seek_proc(fio->handle, (long)off, whence);
+-	return fio->io->tell_proc(fio->handle);
++	return (toff_t)fio->io->tell_proc(fio->handle);
+ }
+ 
+ static int
+@@ -199,11 +213,18 @@ _tiffCloseProc(thandle_t fd) {
+ static toff_t
+ _tiffSizeProc(thandle_t handle) {
+     fi_TIFFIO *fio = (fi_TIFFIO*)handle;
++    if (fio->io64) {
++        int64_t currPos = fio->io64->tell_proc(fio->handle);
++        fio->io64->seek_proc(fio->handle, 0, SEEK_END);
++        int64_t fileSize = fio->io64->tell_proc(fio->handle);
++        fio->io64->seek_proc(fio->handle, currPos, SEEK_SET);
++        return (toff_t)fileSize;
++    }
+     long currPos = fio->io->tell_proc(fio->handle);
+     fio->io->seek_proc(fio->handle, 0, SEEK_END);
+     long fileSize = fio->io->tell_proc(fio->handle);
+     fio->io->seek_proc(fio->handle, currPos, SEEK_SET);
+-    return fileSize;
++    return (toff_t)fileSize;
+ }
+ 
+ static int
+@@ -864,7 +885,7 @@ tiff_read_xmp_profile(TIFF *tiff, FIBITMAP *dib) {
+ 	@return Returns TRUE if successful, FALSE otherwise
+ */
+ static BOOL
+-tiff_read_exif_profile(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *dib) {
++tiff_read_exif_profile(fi_TIFFIO *fio, TIFF *tiff, FIBITMAP *dib) {
+ 	BOOL bResult = FALSE;
+ 	toff_t exif_offset = 0;
+ 
+@@ -874,7 +895,7 @@ tiff_read_exif_profile(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *
+ 	// get the IFD offset
+ 	if(TIFFGetField(tiff, TIFFTAG_EXIFIFD, &exif_offset)) {
+ 
+-		const long tell_pos = io->tell_proc(handle);
++		const int64_t tell_pos = fio->io64 ? fio->io64->tell_proc(fio->handle) : fio->io->tell_proc(fio->handle);
+ 		const uint16_t cur_dir = TIFFCurrentDirectory(tiff);
+ 
+ 		// read EXIF tags
+@@ -883,7 +904,7 @@ tiff_read_exif_profile(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *
+ 			bResult = tiff_read_exif_tags(tiff, TagLib::EXIF_EXIF, dib);
+ 		}
+ 
+-		io->seek_proc(handle, tell_pos, SEEK_SET);
++		if (fio->io64) fio->io64->seek_proc(fio->handle, tell_pos, SEEK_SET); else fio->io->seek_proc(fio->handle, (long)tell_pos, SEEK_SET);
+ 		TIFFSetDirectory(tiff, cur_dir);
+ 	}
+ 
+@@ -894,7 +915,7 @@ tiff_read_exif_profile(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *
+ Read TIFF special profiles
+ */
+ static void
+-ReadMetadata(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *dib) {
++ReadMetadata(fi_TIFFIO *fio, TIFF *tiff, FIBITMAP *dib) {
+ 
+ 	// IPTC/NAA
+ 	tiff_read_iptc_profile(tiff, dib);
+@@ -906,7 +927,7 @@ ReadMetadata(FreeImageIO *io, fi_handle handle, TIFF *tiff, FIBITMAP *dib) {
+ 	tiff_read_geotiff_profile(tiff, dib);
+ 
+ 	// Exif-TIFF
+-	tiff_read_exif_profile(io, handle, tiff, dib);
++	tiff_read_exif_profile(fio, tiff, dib);
+ }
+ 
+ // ----------------------------------------------------------
+@@ -1118,6 +1139,7 @@ Open(FreeImageIO *io, fi_handle handle, BOOL read) {
+ 		return NULL;
+ 	}
+ 	fio->io = io;
++	fio->io64 = NULL;
+ 	fio->handle = handle;
+ 	fio->thumbnailCount = 0;
+ 
+@@ -1136,6 +1158,33 @@ Open(FreeImageIO *io, fi_handle handle, BOOL read) {
+ 	return fio;
+ }
+ 
++static void * DLL_CALLCONV
++Open64(FreeImageIO64 *io, fi_handle handle, BOOL read) {
++	fi_TIFFIO *fio = (fi_TIFFIO*)malloc(sizeof(fi_TIFFIO));
++	if (!fio) return NULL;
++	fio->io = NULL;
++	fio->io64 = io;
++	fio->handle = handle;
++	fio->thumbnailCount = 0;
++	fio->tif = TIFFFdOpen((thandle_t)fio, "", read ? "r" : "w");
++	if (fio->tif == NULL) { free(fio); return NULL; }
++	return fio;
++}
++
++static void DLL_CALLCONV
++Close64(FreeImageIO64 *io, fi_handle handle, void *data) {
++	if (data) {
++		fi_TIFFIO *fio = (fi_TIFFIO*)data;
++		TIFFClose(fio->tif);
++		free(fio);
++	}
++}
++
++static FIBITMAP * DLL_CALLCONV
++Load64(FreeImageIO64 *io, fi_handle handle, int page, int flags, void *data) {
++	return Load(NULL, handle, page, flags, data);
++}
++
+ static void DLL_CALLCONV
+ Close(FreeImageIO *io, fi_handle handle, void *data) {
+ 	if(data) {
+@@ -1325,11 +1374,9 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data);
+ Read embedded thumbnail
+ */
+ static void
+-ReadThumbnail(FreeImageIO *io, fi_handle handle, void *data, TIFF *tiff, FIBITMAP *dib) {
++ReadThumbnail(fi_TIFFIO *fio, TIFF *tiff, FIBITMAP *dib) {
+ 	FIBITMAP* thumbnail = NULL;
+ 
+-	fi_TIFFIO *fio = (fi_TIFFIO*)data;
+-
+ 	/*
+ 	Thumbnail loading can cause recursions because of the way
+ 	functions TIFFLastDirectory and TIFFSetSubDirectory are working.
+@@ -1354,19 +1401,19 @@ ReadThumbnail(FreeImageIO *io, fi_handle handle, void *data, TIFF *tiff, FIBITMA
+ 
+ 		if(!TIFFLastDirectory(tiff)) {
+ 			// save current position
+-			const long tell_pos = io->tell_proc(handle);
++			const int64_t tell_pos = fio->io64 ? fio->io64->tell_proc(fio->handle) : fio->io->tell_proc(fio->handle);
+ 			const uint16_t cur_dir = TIFFCurrentDirectory(tiff);
+ 
+ 			// load the thumbnail
+ 			int page = 1;
+ 			int flags = TIFF_DEFAULT;
+-			thumbnail = Load(io, handle, page, flags, data);
++			thumbnail = Load(fio->io, fio->handle, page, flags, fio);
+ 
+ 			// store the thumbnail (remember to release it before return)
+ 			FreeImage_SetThumbnail(dib, thumbnail);
+ 
+ 			// restore current position
+-			io->seek_proc(handle, tell_pos, SEEK_SET);
++			if (fio->io64) fio->io64->seek_proc(fio->handle, tell_pos, SEEK_SET); else fio->io->seek_proc(fio->handle, (long)tell_pos, SEEK_SET);
+ 			TIFFSetDirectory(tiff, cur_dir);
+ 		}
+ 	}
+@@ -1383,7 +1430,7 @@ ReadThumbnail(FreeImageIO *io, fi_handle handle, void *data, TIFF *tiff, FIBITMA
+ 		if(TIFFGetField(tiff, TIFFTAG_SUBIFD, &subIFD_count, &subIFD_offsets)) {
+ 			if(subIFD_count > 0) {
+ 				// save current position
+-				const long tell_pos = io->tell_proc(handle);
++				const int64_t tell_pos = fio->io64 ? fio->io64->tell_proc(fio->handle) : fio->io->tell_proc(fio->handle);
+ 				const uint16_t cur_dir = TIFFCurrentDirectory(tiff);
+ 
+ 				// this code can cause unwanted recursion causing an overflow, because of the way TIFFSetSubDirectory work
+@@ -1392,14 +1439,14 @@ ReadThumbnail(FreeImageIO *io, fi_handle handle, void *data, TIFF *tiff, FIBITMA
+ 					// load the thumbnail
+ 					int page = -1;
+ 					int flags = TIFF_DEFAULT;
+-					thumbnail = Load(io, handle, page, flags, data);
++					thumbnail = Load(fio->io, fio->handle, page, flags, fio);
+ 
+ 					// store the thumbnail (remember to release it before return)
+ 					FreeImage_SetThumbnail(dib, thumbnail);
+ 				}
+ 
+ 				// restore current position
+-				io->seek_proc(handle, tell_pos, SEEK_SET);
++				if (fio->io64) fio->io64->seek_proc(fio->handle, tell_pos, SEEK_SET); else fio->io->seek_proc(fio->handle, (long)tell_pos, SEEK_SET);
+ 				TIFFSetDirectory(tiff, cur_dir);
+ 			}
+ 		}
+@@ -2333,7 +2380,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 
+ 		// copy TIFF metadata (must be done after FreeImage_Allocate)
+ 
+-		ReadMetadata(io, handle, tif, dib);
++		ReadMetadata(fio, tif, dib);
+ 
+ 		// copy ICC profile data (must be done after FreeImage_Allocate)
+ 
+@@ -2358,7 +2405,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
+ 
+ 		// copy TIFF thumbnail (must be done after FreeImage_Allocate)
+ 
+-		ReadThumbnail(io, handle, data, tif, dib);
++		ReadThumbnail(fio, tif, dib);
+ 
+ 		return dib;
+ 
+@@ -2775,6 +2822,9 @@ InitTIFF(Plugin *plugin, int format_id) {
+ 	plugin->pagecount_proc = PageCount;
+ 	plugin->pagecapability_proc = NULL;
+ 	plugin->load_proc = Load;
++	plugin->open64_proc = Open64;
++	plugin->close64_proc = Close64;
++	plugin->load64_proc = Load64;
+ 	plugin->save_proc = Save;
+ 	plugin->validate_proc = Validate;
+ 	plugin->mime_proc = MimeType;
+diff --git a/Source/FreeImageIO.h b/Source/FreeImageIO.h
+index 51f2fec..faa8040 100644
+--- a/Source/FreeImageIO.h
++++ b/Source/FreeImageIO.h
+@@ -59,6 +59,7 @@ FI_STRUCT (FIMEMORYHEADER) {
+ };
+ 
+ void SetDefaultIO(FreeImageIO *io);
++void SetDefaultIO64(FreeImageIO64 *io);
+ 
+ void SetMemoryIO(FreeImageIO *io);
+ 
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index 237d4e1..071b9f2 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -44,6 +44,10 @@ if (BUILD_TESTS)
+ 
+     add_test(NAME MainTestSuite WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/TestAPI COMMAND $<TARGET_FILE:MainTestSuite>)
+ 
++    add_executable(LargeFileTIFFTest testLargeFileTIFF.cpp)
++    target_link_libraries(LargeFileTIFFTest PRIVATE FreeImage)
++    add_test(NAME LargeFileTIFFTest COMMAND LargeFileTIFFTest)
++
+     add_executable(IffPbmRleTest testIffPbmRle.cpp)
+     target_link_libraries(IffPbmRleTest PRIVATE FreeImage)
+     if(WIN32 AND NOT FREEIMAGE_STATIC)
+diff --git a/TestAPI/testLargeFileTIFF.cpp b/TestAPI/testLargeFileTIFF.cpp
+new file mode 100644
+index 0000000..c83b0e1
+--- /dev/null
++++ b/TestAPI/testLargeFileTIFF.cpp
+@@ -0,0 +1,78 @@
++#include "FreeImage.h"
++#include <cstdio>
++#include <cstdint>
++#include <cstring>
++
++#ifdef _WIN32
++#include <io.h>
++#define fi_fseeko _fseeki64
++#else
++#include <sys/types.h>
++#define fi_fseeko fseeko
++#endif
++
++static void put16(FILE *file, uint16_t value) {
++    unsigned char bytes[2] = { (unsigned char)value, (unsigned char)(value >> 8) };
++    fwrite(bytes, 1, sizeof(bytes), file);
++}
++
++static void put64(FILE *file, uint64_t value) {
++    unsigned char bytes[8];
++    for (unsigned i = 0; i < 8; ++i) bytes[i] = (unsigned char)(value >> (8 * i));
++    fwrite(bytes, 1, sizeof(bytes), file);
++}
++
++static void entry(FILE *file, uint16_t tag, uint16_t type, uint64_t count, uint64_t value) {
++    put16(file, tag);
++    put16(file, type);
++    put64(file, count);
++    put64(file, value);
++}
++
++int main() {
++    const char *path = "large-file-tiff-test.tif";
++    FILE *file = fopen(path, "wb");
++    if (!file) return 1;
++
++    // Minimal 1x1 BigTIFF with its single pixel stored beyond 2 GiB.
++    fwrite("II", 1, 2, file);
++    put16(file, 43);
++    put16(file, 8);
++    put16(file, 0);
++    put64(file, 16);
++    put64(file, 10);
++    entry(file, 256, 4, 1, 1);                // ImageWidth
++    entry(file, 257, 4, 1, 1);                // ImageLength
++    entry(file, 258, 3, 3, 0x000800080008ULL);// BitsPerSample (8,8,8)
++    entry(file, 259, 3, 1, 1);                // Compression
++    entry(file, 262, 3, 1, 2);                // Photometric RGB
++    entry(file, 273, 16, 1, 0x80000010ULL);   // StripOffsets
++    entry(file, 277, 3, 1, 3);                // SamplesPerPixel
++    entry(file, 278, 4, 1, 1);                // RowsPerStrip
++    entry(file, 279, 16, 1, 3);               // StripByteCounts
++    entry(file, 284, 3, 1, 1);                // PlanarConfiguration
++    put64(file, 0);                           // next IFD
++    if (fi_fseeko(file, (int64_t)0x80000010ULL, SEEK_SET) != 0) {
++        fclose(file);
++        remove(path);
++        return 2;
++    }
++    const unsigned char pixel[3] = { 0x12, 0x34, 0x56 };
++    if (fwrite(pixel, 1, sizeof(pixel), file) != sizeof(pixel)) {
++        fclose(file);
++        remove(path);
++        return 3;
++    }
++    fclose(file);
++
++    FreeImage_Initialise(FALSE);
++    FIBITMAP *dib = FreeImage_Load64(FIF_TIFF, path, 0);
++    RGBQUAD color = {};
++    const bool passed = dib && FreeImage_GetWidth(dib) == 1 && FreeImage_GetHeight(dib) == 1 &&
++        FreeImage_GetPixelColor(dib, 0, 0, &color) && color.rgbRed == 0x12 &&
++        color.rgbGreen == 0x34 && color.rgbBlue == 0x56;
++    if (dib) FreeImage_Unload(dib);
++    FreeImage_DeInitialise();
++    remove(path);
++    return passed ? 0 : 4;
++}

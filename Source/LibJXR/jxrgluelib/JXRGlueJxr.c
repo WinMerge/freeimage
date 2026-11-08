@@ -26,6 +26,7 @@
 // POSSIBILITY OF SUCH DAMAGE.
 //
 //*@@@---@@@@******************************************************************
+#include <wchar.h>
 #include <limits.h>
 #include <JXRGlue.h>
 

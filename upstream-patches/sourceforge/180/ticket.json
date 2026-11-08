@@ -1,0 +1,40 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1ed41f2d5fca8c6f2ed",
+  "mod_date": "2026-09-07 15:02:06.079000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "e7fef9b8f6",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/e7fef9b8f6/",
+  "created_date": "2026-09-07 15:02:05.467000",
+  "ticket_num": 180,
+  "summary": "CVE-2024-28568/9029/28570/28573/28577/28578/28580: IPTC/Exif/XPM/RAS OOB",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nOne patch covering the issue #35 metadata/RAS/XPM group (GitHub PR #96 / commit d474400):\n\n* CVE-2024-28568 / CVE-2024-9029 — read_iptc_profile() 1-byte over-read of profile[offset+1] when TAG_RECORD_VERSION has tagByteCount == 1 (Source/Metadata/IPTC.cpp)\n* CVE-2024-28570 — processMakerNote() memcmp of camera signatures against a short tag (Source/Metadata/Exif.cpp). Every signature compare is now length-checked.\n* CVE-2024-28573 — jpeg_read_exif_profile() did not require APP1 length to cover Exif\\0\\0 + 8-byte TIFF header\n* CVE-2024-28577 — jpeg_read_exif_profile_raw() NULL/short-buffer deref before the 6-byte signature memcmp\n* CVE-2024-28578 / CVE-2024-28580 — RAS Load()/ReadData() used WORD linelength/x/y so a wide image wrapped; 24/32bpp row mallocs had no overflow check (PluginRAS.cpp)\n* XPM pixel-row length check (strlen(str) < width*cpp) — sibling of CVE-2024-28583; the XBM readLine() fix is in the follow-up patch\n\nNVD:\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28568\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-9029\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28570\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28573\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28577\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28578\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28580\n\nGitHub: https://github.com/danoli3/FreeImage/commit/d474400 (PR https://github.com/danoli3/FreeImage/pull/96)\n\nApply from the FreeImage tree root (after CVE-2021-33367.patch if you take that too):\n\n    patch -p0 < CVE-2024-28568.patch\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 11260,
+      "url": "https://sourceforge.net/p/freeimage/patches/180/attachment/CVE-2024-28568.patch"
+    }
+  ],
+  "custom_fields": {}
+}

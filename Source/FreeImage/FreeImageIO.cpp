@@ -21,8 +21,20 @@
 // Use at your own risk!
 // ==========================================================
 
+// Select wide POSIX stdio offsets in this translation unit for legacy make
+// builds as well as CMake. Feature macros must precede all system headers.
+#if !defined(_WIN32) && !defined(_FILE_OFFSET_BITS)
+#define _FILE_OFFSET_BITS 64
+#endif
+
 #include "FreeImage.h"
 #include "Utilities.h"
+#include <stdint.h>
+#include <limits.h>
+#include <errno.h>
+#ifndef _WIN32
+#include <sys/types.h>
+#endif
 #include "FreeImageIO.h"
 
 // =====================================================================
@@ -49,6 +61,41 @@ _TellProc(fi_handle handle) {
 	return ftell((FILE *)handle);
 }
 
+static uint64_t DLL_CALLCONV
+_ReadProc64(void *buffer, uint64_t size, uint64_t count, fi_handle handle) {
+	if (size == 0 || count == 0 || size > SIZE_MAX || count > SIZE_MAX / size) return 0;
+	return (uint64_t)fread(buffer, (size_t)size, (size_t)count, (FILE *)handle);
+}
+
+static uint64_t DLL_CALLCONV
+_WriteProc64(void *buffer, uint64_t size, uint64_t count, fi_handle handle) {
+	if (size == 0 || count == 0 || size > SIZE_MAX || count > SIZE_MAX / size) return 0;
+	return (uint64_t)fwrite(buffer, (size_t)size, (size_t)count, (FILE *)handle);
+}
+
+static int DLL_CALLCONV
+_SeekProc64(fi_handle handle, int64_t offset, int origin) {
+#ifdef _WIN32
+	return _fseeki64((FILE *)handle, offset, origin);
+#else
+	// Legacy make/toolchains may still expose a narrower off_t. Never truncate.
+	if ((int64_t)(off_t)offset != offset) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	return fseeko((FILE *)handle, (off_t)offset, origin);
+#endif
+}
+
+static int64_t DLL_CALLCONV
+_TellProc64(fi_handle handle) {
+#ifdef _WIN32
+	return _ftelli64((FILE *)handle);
+#else
+	return (int64_t)ftello((FILE *)handle);
+#endif
+}
+
 // ----------------------------------------------------------
 
 void
@@ -57,6 +104,14 @@ SetDefaultIO(FreeImageIO *io) {
 	io->seek_proc  = _SeekProc;
 	io->tell_proc  = _TellProc;
 	io->write_proc = _WriteProc;
+}
+
+void
+SetDefaultIO64(FreeImageIO64 *io) {
+	io->read_proc  = _ReadProc64;
+	io->seek_proc  = _SeekProc64;
+	io->tell_proc  = _TellProc64;
+	io->write_proc = _WriteProc64;
 }
 
 // =====================================================================
@@ -83,24 +138,33 @@ _MemoryReadProc(void *buffer, unsigned size, unsigned count, fi_handle handle) {
 
 	FIMEMORYHEADER *mem_header = (FIMEMORYHEADER*)(((FIMEMORY*)handle)->data);
 
-	const int required_bytes = (int)(size) * count;
+	// NB: size and count come straight from file-driven callers (e.g. height
+	// * pitch), so the total must be checked without overflowing: the int
+	// product introduced by the 3.19 rewrite wraps for huge inputs
+	// (CVE-2023-47992 bug class), bypassing the bounds check below and
+	// handing memcpy a giant length. A size_t product is still not enough:
+	// it wraps exactly like before on ILP32 targets (MinGW32, Win32 MSVC,
+	// armv7, wasm32). Compare with division instead, which does not depend
+	// on the width of size_t.
 	const int remaining_bytes = mem_header->file_length - mem_header->current_position;
-
-	if ((required_bytes > 0) && (remaining_bytes > 0)) {
-		if (required_bytes <= remaining_bytes) {
+	if (remaining_bytes > 0) {
+		const size_t remaining = (size_t)remaining_bytes;
+		// size != 0 here (guarded above), so the division is safe.
+		if (count <= remaining / size) {
+			const size_t required_bytes = (size_t)size * count; // cannot overflow: <= remaining
 			// copy size bytes count times
-			memcpy(buffer, (char*)mem_header->data + mem_header->current_position, (size_t)required_bytes);
-			mem_header->current_position += required_bytes;
+			memcpy(buffer, (char*)mem_header->data + mem_header->current_position, required_bytes);
+			mem_header->current_position += (int)required_bytes;
 			return count;
 		}
 		else {
 			// if there isn't required_bytes bytes left to read, set pos to eof and return a short count
-			memcpy(buffer, (char*)mem_header->data + mem_header->current_position, (size_t)remaining_bytes);
+			memcpy(buffer, (char*)mem_header->data + mem_header->current_position, remaining);
 			mem_header->current_position = mem_header->file_length;
-			return (unsigned)(remaining_bytes / size);
+			return (unsigned)(remaining / size);
 		}
 	}
-	
+
 	// if size or count is 0, _MemoryReadProc returns 0 and the buffer contents are unchanged.
 	return 0;
 }
@@ -113,7 +177,28 @@ _MemoryWriteProc(void *buffer, unsigned size, unsigned count, fi_handle handle) 
 
 	FIMEMORYHEADER *mem_header = (FIMEMORYHEADER*)(((FIMEMORY*)handle)->data);
 
-	const long required_bytes = (long)(size * count);
+	// NB: the old (long)(size * count) wrapped in 32-bit unsigned before
+	// the cast (same bug class as the _MemoryReadProc total above), so a
+	// huge total became tiny and the copy claimed more items than were
+	// written. Compute the product wide and refuse totals the int stream
+	// positions (max 2 GiB data_length) cannot represent. Zero-size
+	// behavior is unchanged (required_bytes == 0, same as before).
+	const unsigned long long required_total = (unsigned long long)size * (unsigned long long)count;
+	if (required_total > 0x7FFFFFFFull) {
+		return 0;
+	}
+	const long required_bytes = (long)required_total;
+
+	// NB: long is only 32 bits on Windows (LLP64), so current_position +
+	// required_bytes below is signed overflow there once the stream has
+	// been seeked near INT_MAX (e.g. seek to INT_MAX - 7, write 16 bytes):
+	// the wrapped sum skips the growth loop and memcpy writes far past the
+	// buffer. Refuse any write whose end the int stream positions cannot
+	// represent before forming that sum. current_position is never negative
+	// (_MemorySeekProc keeps it in [0, INT_MAX]), so the subtraction is safe.
+	if (required_bytes > (long)(std::numeric_limits<int>::max() - mem_header->current_position)) {
+		return 0;
+	}
 
 	// double the data block size if we need to
 	while( (mem_header->current_position + required_bytes) >= mem_header->data_length ) {

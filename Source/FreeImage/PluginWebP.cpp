@@ -24,6 +24,7 @@
 #if INCLUDE_LIB_WEBP
 
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 
 #include "../Metadata/FreeImageTag.h"
@@ -373,7 +374,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 			}
 			
 			// get ICC profile
-			if(webp_flags & ICCP_FLAG) {
+			if(!FreeImageInternal::IsStrippingMetadata() && (webp_flags & ICCP_FLAG)) {
 				error_status = WebPMuxGetChunk(mux, "ICCP", &color_profile);
 				if(error_status == WEBP_MUX_OK) {
 					FreeImage_CreateICCProfile(dib, (void*)color_profile.bytes, (long)color_profile.size);
@@ -381,7 +382,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 			}
 
 			// get XMP metadata
-			if(webp_flags & XMP_FLAG) {
+			if(!FreeImageInternal::IsStrippingMetadata() && (webp_flags & XMP_FLAG)) {
 				error_status = WebPMuxGetChunk(mux, "XMP ", &xmp_metadata);
 				if(error_status == WEBP_MUX_OK) {
 					// create a tag
@@ -403,7 +404,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 			}
 
 			// get Exif metadata
-			if(webp_flags & EXIF_FLAG) {
+			if(!FreeImageInternal::IsStrippingMetadata() && (webp_flags & EXIF_FLAG)) {
 				error_status = WebPMuxGetChunk(mux, "EXIF", &exif_metadata);
 				if(error_status == WEBP_MUX_OK) {
 					// read the Exif raw data as a blob
@@ -702,6 +703,7 @@ InitWEBP(Plugin *plugin, int format_id) {
 #else // !INCLUDE_LIB_WEBP
 
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 
 // This build was compiled without WebP support (BUILD_WEBP=OFF). Still

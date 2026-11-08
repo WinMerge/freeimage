@@ -42,8 +42,10 @@
 #include "Plugin.h"
 
 #include "../Metadata/FreeImageTag.h"
+#include "../Metadata/MetadataStrip.h"
 #include <string>
 #include <vector>
+#include <memory>
 #ifdef _WIN32
 #include <fcntl.h>
 #else
@@ -390,8 +392,20 @@ FreeImage_Close(PluginNode *node, FreeImageIO *io, fi_handle handle, void *data)
 // Plugin System Load/Save Functions
 // =====================================================================
 
+#if FREEIMAGE_METADATA_STRIP
+namespace FreeImageInternal {
+namespace { thread_local bool strip_metadata = false; }
+bool IsStrippingMetadata() { return strip_metadata; }
+MetadataStripScope::MetadataStripScope(bool strip) : previous_(strip_metadata) { strip_metadata = strip; }
+MetadataStripScope::~MetadataStripScope() { strip_metadata = previous_; }
+}
+#endif
+
 FIBITMAP * DLL_CALLCONV
 FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handle, int flags) {
+    const bool strip = FreeImageInternal::WantsMetadataStrip(flags);
+    FreeImageInternal::MetadataStripScope metadata_scope(strip);
+    flags &= ~FREEIMAGE_STRIP;
 	if ((fif >= 0) && (fif < FreeImage_GetFIFCount())) {
 		PluginNode *node = s_plugins->FindNodeFromFIF(fif);
 		
@@ -402,6 +416,7 @@ FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handl
 				FIBITMAP *bitmap = node->m_plugin->load_proc(io, handle, -1, flags, data);
 					
 				FreeImage_Close(node, io, handle, data);
+                if(strip && bitmap) FreeImage_StripMetadata(bitmap);
 					
 				return bitmap;
 			}
@@ -409,6 +424,35 @@ FreeImage_LoadFromHandle(FREE_IMAGE_FORMAT fif, FreeImageIO *io, fi_handle handl
 	}
 
 	return NULL;
+}
+
+FIBITMAP * DLL_CALLCONV
+FreeImage_LoadFromHandle64(FREE_IMAGE_FORMAT fif, FreeImageIO64 *io, fi_handle handle, int flags) {
+    const bool strip = FreeImageInternal::WantsMetadataStrip(flags);
+    FreeImageInternal::MetadataStripScope metadata_scope(strip);
+    flags &= ~FREEIMAGE_STRIP;
+	if (!s_plugins || s_plugin_reference_count <= 0 || fif != FIF_TIFF || !io || !handle ||
+		!io->read_proc || !io->seek_proc || !io->tell_proc) {
+		return NULL;
+	}
+	PluginNode *node = s_plugins->FindNodeFromFIF(fif);
+	if (!node || !node->m_enabled || !node->m_plugin->load_proc) {
+		return NULL;
+	}
+	FIBITMAP *bitmap = LoadTIFFFromHandle64(io, handle, flags);
+    if(strip && bitmap) FreeImage_StripMetadata(bitmap);
+    return bitmap;
+}
+
+FIBITMAP * DLL_CALLCONV
+FreeImage_Load64(FREE_IMAGE_FORMAT fif, const char *filename, int flags) {
+	if (!filename) {
+		return NULL;
+	}
+	FreeImageIO64 io;
+	SetDefaultIO64(&io);
+	std::unique_ptr<FILE, int (*)(FILE *)> handle(fopen(filename, "rb"), fclose);
+	return handle ? FreeImage_LoadFromHandle64(fif, &io, (fi_handle)handle.get(), flags) : NULL;
 }
 
 FIBITMAP * DLL_CALLCONV
@@ -453,12 +497,21 @@ FreeImage_LoadU(FREE_IMAGE_FORMAT fif, const wchar_t *filename, int flags) {
 
 BOOL DLL_CALLCONV
 FreeImage_SaveToHandle(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, FreeImageIO *io, fi_handle handle, int flags) {
+    const bool strip = FreeImageInternal::WantsMetadataStrip(flags);
+    FreeImageInternal::MetadataStripScope metadata_scope(strip);
+    flags &= ~FREEIMAGE_STRIP;
 	// cannot save "header only" formats
 	if(FreeImage_HasPixels(dib) == FALSE) {
 		FreeImage_OutputMessageProc((int)fif, "FreeImage_SaveToHandle: cannot save \"header only\" formats");
 		return FALSE;
 	}
 
+    std::unique_ptr<FIBITMAP, decltype(&FreeImage_Unload)> view(NULL, FreeImage_Unload);
+    if(strip) {
+        view.reset(FreeImageInternal::CreateStrippedView(dib));
+        if(!view) return FALSE;
+        dib = view.get();
+    }
 	if ((fif >= 0) && (fif < FreeImage_GetFIFCount())) {
 		PluginNode *node = s_plugins->FindNodeFromFIF(fif);
 		

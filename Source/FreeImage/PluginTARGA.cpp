@@ -230,11 +230,22 @@ public:
 	BOOL isNull() { return _begin == NULL;}
 	
 	inline
+	void refill() {
+		// NB: at EOF read_proc may return fewer bytes than asked for; the
+		// tail is zeroed so callers never see stale heap/file bytes in
+		// decoded pixels (CVE-2024-28581 read-side hardening).
+		unsigned got = _io->read_proc(_begin, sizeof(BYTE), (unsigned)_size, _handle);
+		if (got < _size) {
+			memset(_begin + got, 0, _size - got);
+		}
+		_ptr = _begin;
+	}
+
+	inline
 	BYTE getByte() {
 		if (_ptr >= _end) {
 			// need refill
-			_ptr = _begin;
-			_io->read_proc(_ptr, sizeof(BYTE), (unsigned)_size, _handle);	//### EOF - no problem?
+			refill();
 		}
 
 		BYTE result = *_ptr;
@@ -243,11 +254,11 @@ public:
 
 		return result;
 	}
-	
+
 	inline
 	BYTE* getBytes(size_t count /*must be < _size!*/) {
 		if (_ptr + count >= _end) {
-			
+
 			// need refill
 
 			// 'count' bytes might span two cache bounds,
@@ -258,8 +269,7 @@ public:
 
 			_io->seek_proc(_handle, -remaining, SEEK_CUR);
 
-			_ptr = _begin;
-			_io->read_proc(_ptr, sizeof(BYTE), (unsigned)_size, _handle);	//### EOF - no problem?
+			refill();
 		}
 
 		BYTE *result = _ptr;
@@ -524,9 +534,13 @@ _assignPixel<8>(BYTE* bits, BYTE* val, BOOL as24bit) {
 }
 
 template <>
-inline void 
+inline void
 _assignPixel<16>(BYTE* bits, BYTE* val, BOOL as24bit) {
-	WORD value(*reinterpret_cast<WORD*>(val));
+	// NB: val points into the RLE byte cache at a file-driven offset and is
+	// not necessarily 2-byte aligned, so go through memcpy instead of a
+	// WORD load (CVE-2024-28581: UBSan misaligned-load on crafted files).
+	WORD value(0);
+	memcpy(&value, val, sizeof(value));
 
 #ifdef FREEIMAGE_BIGENDIAN
 	SwapShort(&value);
@@ -558,7 +572,12 @@ _assignPixel<32>(BYTE* bits, BYTE* val, BOOL as24bit) {
 
 	} else {
 #if FREEIMAGE_COLORORDER == FREEIMAGE_COLORORDER_BGR
-		*(reinterpret_cast<unsigned*>(bits)) = *(reinterpret_cast<unsigned*> (val));
+		// NB: val is cache-sourced at a file-driven offset and may be
+		// misaligned (see _assignPixel<16> above); bits stays 4-aligned
+		// because x always advances by pixel_size == 4 here.
+		unsigned value(0);
+		memcpy(&value, val, sizeof(value));
+		memcpy(bits, &value, sizeof(value));
 #else // NOTE This is faster then doing reinterpret_cast to int + INPLACESWAP !
 		bits[FI_RGBA_BLUE]	= val[0];
 		bits[FI_RGBA_GREEN] = val[1];
@@ -640,6 +659,18 @@ loadRLE(FIBITMAP*& dib, int width, int height, FreeImageIO* io, fi_handle handle
 			//...and fill packet_count pixels with it
 
 			for (int ix = 0; ix < packet_count; ix++) {
+				// NB: the per-packet dib_end check above assumes a flat
+				// address model, but rows wrap at line_size while the image
+				// only has height rows: an over-long packet can wrap past
+				// the last row (CVE-2024-28581 heap overflow in
+				// _assignPixel), so stop on row exhaustion here. The check
+				// sits at the top (not after the wrap) so that a packet
+				// ending exactly on the last pixel still exits cleanly.
+				if (y >= height) {
+					FreeImage_OutputMessageProc(s_format_id, FI_MSG_ERROR_CORRUPTED);
+					// return what is left from the bitmap
+					return;
+				}
 				_assignPixel<bPP>((line_bits+x), val, as24bit);
 				x += pixel_size;
 
@@ -655,6 +686,12 @@ loadRLE(FIBITMAP*& dib, int width, int height, FreeImageIO* io, fi_handle handle
 
 			// copy packet_count pixels from file to dib
 			for (int ix = 0; ix < packet_count; ix++) {
+				// (same row-exhaustion guard as above)
+				if (y >= height) {
+					FreeImage_OutputMessageProc(s_format_id, FI_MSG_ERROR_CORRUPTED);
+					// return what is left from the bitmap
+					return;
+				}
 				BYTE *val = cache.getBytes(file_pixel_size);
 				_assignPixel<bPP>((line_bits+x), val, as24bit);
 				x += pixel_size;

@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.16)
 
-# Determine the version from the latest git tag (e.g. "3.19.25"), falling
+# Determine the version from the latest git tag (e.g. "3.19.31"), falling
 # back to a static default when building from a source archive without
 # .git history (or when git isn't installed). This has to run before
 # project() below, since its VERSION argument needs a literal
 # MAJOR.MINOR.PATCH at parse time - it can't be computed afterwards.
-set(FREEIMAGE_VERSION_FALLBACK 3.19.25)
+set(FREEIMAGE_VERSION_FALLBACK 3.19.31)
 set(FREEIMAGE_VERSION_COMMITS 0)
 set(FREEIMAGE_VERSION_HASH "unknown")
 find_package(Git QUIET)
@@ -19,7 +19,7 @@ if(GIT_FOUND AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
         RESULT_VARIABLE FREEIMAGE_GIT_DESCRIBE_RESULT
     )
     if(FREEIMAGE_GIT_DESCRIBE_RESULT EQUAL 0)
-        # e.g. "3.19.25-45-ge32af9e" -> tag 3.19.25, 45 commits past it, hash ge32af9e
+        # e.g. "3.19.31-45-ge32af9e" -> tag 3.19.31, 45 commits past it, hash ge32af9e
         string(REGEX MATCH "^([0-9]+\\.[0-9]+\\.[0-9]+)-([0-9]+)-(g[0-9a-f]+)$" _fi_ver_match "${FREEIMAGE_GIT_DESCRIBE}")
         if(_fi_ver_match)
             set(FREEIMAGE_VERSION ${CMAKE_MATCH_1})
@@ -34,12 +34,66 @@ endif()
 
 project(FreeImage VERSION ${FREEIMAGE_VERSION} LANGUAGES C CXX)
 
+# Suppress noise warnings from bundled third-party sources under MSVC (/wd is cl.exe-only, hence if(MSVC))
+if(MSVC)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4819 /wd4100 /wd4244 /wd4458 /wd4267 /wd4996 /wd4456 /wd4127 /wd4701 /wd4457 /wd4459 /wd4702 /wd4805 /wd4389 /wd4505")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4819 /wd4100 /wd4244 /wd4458 /wd4267 /wd4996 /wd4456 /wd4127 /wd4701 /wd4457 /wd4459 /wd4702 /wd4805 /wd4389 /wd4505")
+endif()
+
+# Keep the MSVC CRT selectable for consumers that need to match another
+# library's RuntimeLibrary setting. CMake's policy CMP0091 is NEW from the
+# minimum version above, so this initializes the runtime property on targets
+# created below. Default deliberately leaves CMake's choice untouched.
+set(FREEIMAGE_MSVC_RUNTIME "Default" CACHE STRING
+    "MSVC runtime library: Default, MD (dynamic CRT), or MT (static CRT)")
+set_property(CACHE FREEIMAGE_MSVC_RUNTIME PROPERTY STRINGS Default MD MT)
+if(NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "Default"
+   AND NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "MD"
+   AND NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "MT")
+    message(FATAL_ERROR
+        "Invalid FREEIMAGE_MSVC_RUNTIME='${FREEIMAGE_MSVC_RUNTIME}'. Choose Default, MD, or MT.")
+endif()
+if(MSVC)
+    if(FREEIMAGE_MSVC_RUNTIME STREQUAL "MD")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+        message(STATUS "MSVC runtime library: dynamic CRT (/MDd Debug, /MD Release)")
+    elseif(FREEIMAGE_MSVC_RUNTIME STREQUAL "MT")
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+        message(STATUS "MSVC runtime library: static CRT (/MTd Debug, /MT Release)")
+    else()
+        message(STATUS "MSVC runtime library: CMake default (FREEIMAGE_MSVC_RUNTIME=Default)")
+    endif()
+elseif(NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "Default")
+    message(STATUS "FREEIMAGE_MSVC_RUNTIME is only applied by MSVC-compatible toolchains")
+endif()
+
+# GCC targeting Windows cannot realign the stack past 16 bytes (GCC bug
+# 54412), yet still spills AVX/AVX-512 registers with aligned vmovaps/vmovdqa.
+# Runtime-dispatched AVX2 code (Highway/libjxl, LibWebP, OpenEXR) then crashes
+# whenever a frame lands off a 32-byte boundary - issue #211, which was
+# jxl::N_AVX2::UpsamplingStage's constructor in an unoptimized build. Have the
+# assembler emit unaligned moves instead, as MSYS2 does for all its packages.
+# Set before the bundled codecs, which inherit CMAKE_C_FLAGS/CMAKE_CXX_FLAGS.
+if(MINGW AND CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    include(CheckCSourceCompiles)
+    set(CMAKE_REQUIRED_FLAGS "-Wa,-muse-unaligned-vector-move")
+    check_c_source_compiles("int main(void) { return 0; }" FREEIMAGE_HAVE_UNALIGNED_VECTOR_MOVE)
+    unset(CMAKE_REQUIRED_FLAGS)
+    if(FREEIMAGE_HAVE_UNALIGNED_VECTOR_MOVE)
+        string(APPEND CMAKE_C_FLAGS " -Wa,-muse-unaligned-vector-move")
+        string(APPEND CMAKE_CXX_FLAGS " -Wa,-muse-unaligned-vector-move")
+    else()
+        message(WARNING "This MinGW assembler lacks -muse-unaligned-vector-move "
+            "(binutils 2.38+). AVX2 code paths may crash on misaligned stack frames.")
+    endif()
+endif()
+
 set(FREEIMAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(FREEIMAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(FREEIMAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
 
-# Human-readable version string: bare "3.19.25" exactly on a tag, or
-# "3.19.25+45.ge32af9e" (build metadata suffix, SemVer-style) in between.
+# Human-readable version string: bare "3.19.27" exactly on a tag, or
+# "3.19.27+45.ge32af9e" (build metadata suffix, SemVer-style) in between.
 if(FREEIMAGE_VERSION_COMMITS EQUAL 0)
     set(FREEIMAGE_VERSION_STRING "${FREEIMAGE_VERSION}")
 else()
@@ -84,7 +138,9 @@ else()
 endif()
 option(BUILD_JXR "Build JPEG-XR support" ${BUILD_JXR_DEFAULT})
 option(BUILD_TESTS "Build the test suite" OFF)
+option(FREEIMAGE_VS_ALL_PLATFORMS "Generate a portable Visual Studio solution for all Windows architectures" OFF)
 option(FREEIMAGE_OPENJPH_SIMD "Enable runtime-dispatched x86 SIMD in bundled OpenJPH" ON)
+option(FREEIMAGE_METADATA_STRIP "Build FREEIMAGE_STRIP and FreeImage_StripMetadata support" ON)
 option(BUILD_ZLIB "Build zlib from source or link" ON)
 option(BUILD_LIBPNG "Build libpng from source or link" ON)
 option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
@@ -130,7 +186,20 @@ option(USE_SYSTEM_JXR "Link against system jxrlib instead of the bundled copy" $
 # Modern codecs remain optional; enabled codecs use bundled source archives
 # unless their system-library switch (or the master switch) selects an SDK.
 option(BUILD_LIBHEIF "Enable HEIF/AVIF support" OFF)
+# Read-only modern codecs. FREEIMAGE_CODEC_EXPORT=OFF turns off saving for
+# both HEIF/AVIF and JPEG XL; the per-codec options turn off one of them.
+# HEIF OFF also skips the bundled kvazaar HEVC encoder and builds libaom
+# without its AV1 encoder. JPEG XL OFF leaves libjxl's encoder unreferenced,
+# so the linker drops it.
+option(FREEIMAGE_CODEC_EXPORT "Build HEIF/AVIF and JPEG XL saving" ON)
+option(FREEIMAGE_HEIF_EXPORT "Build HEIF/AVIF saving" ON)
+option(FREEIMAGE_JXL_EXPORT "Build JPEG XL saving" ON)
+if(NOT FREEIMAGE_CODEC_EXPORT)
+    set(FREEIMAGE_HEIF_EXPORT OFF)
+    set(FREEIMAGE_JXL_EXPORT OFF)
+endif()
 option(BUILD_LIBJXL "Enable JPEG XL support" OFF)
+option(FREEIMAGE_BUNDLE_AOM "Build bundled libaom for AV1 support in bundled libheif" ON)
 option(USE_SYSTEM_LIBHEIF "Use an installed libheif SDK" ${FREEIMAGE_SYSTEM_DEFAULT})
 option(USE_SYSTEM_LIBJXL "Use an installed libjxl SDK" ${FREEIMAGE_SYSTEM_DEFAULT})
 include(cmake/FreeImageCodecs.cmake)
@@ -152,6 +221,9 @@ foreach(codec HEIF JXL)
         endif()
         list(APPEND FreeImage_LIBS FreeImageCodec::${codec})
         add_compile_definitions(FREEIMAGE_LIB${codec})
+        if(NOT FREEIMAGE_${codec}_EXPORT)
+            add_compile_definitions(FREEIMAGE_${codec}_EXPORT=0)
+        endif()
     endif()
 endforeach()
 if((BUILD_LIBHEIF AND NOT USE_SYSTEM_LIBHEIF) OR (BUILD_LIBJXL AND NOT USE_SYSTEM_LIBJXL))
@@ -240,7 +312,7 @@ set(FreeImage_SOURCES
     ./Source/FreeImageToolkit/Resize.cpp
     ./Source/CacheFile.h ./Source/FreeImage ./Source/FreeImage.h
     ./Source/FreeImageIO.h ./Source/MapIntrospector.h
-    ./Source/Metadata/FIRational.h ./Source/Metadata/FreeImageTag.h ./Source/Plugin.h
+    ./Source/Metadata/FIRational.h ./Source/Metadata/FreeImageTag.h ./Source/Metadata/MetadataStrip.h ./Source/Plugin.h
     ./Source/Quantizers.h ./Source/ToneMapping.h ./Source/Utilities.h ./TestAPI/TestSuite.h
 )
 
@@ -498,6 +570,11 @@ if(BUILD_JXR)
     include_directories(Source/LibJXR/common/include)
     include_directories(Source/LibJXR/jxrgluelib)
     add_definitions(-DINCLUDE_LIB_JXR)
+    if(NOT WIN32)
+        # Match the portable JXR build used by the classic Makefiles.
+        set_property(SOURCE ${FreeImage_JXR_SRCS} Source/FreeImage/PluginJXR.cpp
+            APPEND PROPERTY COMPILE_DEFINITIONS __ANSI__)
+    endif()
     endif()
 endif()
 
@@ -1411,6 +1488,13 @@ elseif(WIN32)
     # objects are built dllimport and the link fails (issue #127).
     target_compile_definitions(${PROJECT_NAME} PRIVATE FREEIMAGE_EXPORTS)
 endif()
+if(UNIX AND NOT APPLE)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE _FILE_OFFSET_BITS=64)
+endif()
+# MetadataStrip.h defaults this to 1 for builds that do not run CMake.
+if(NOT FREEIMAGE_METADATA_STRIP)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE FREEIMAGE_METADATA_STRIP=0)
+endif()
 
 
 # Apple-specific settings
@@ -1469,6 +1553,28 @@ install(TARGETS ${PROJECT_NAME}
         COMPONENT Development
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
+if(MSVC)
+    if(FREEIMAGE_STATIC)
+        # Static libraries have a compiler PDB (/Fd), not a linker PDB.
+        # Give Debug builds a stable name/location for both VS and Ninja.
+        set(FreeImage_COMPILE_PDB_DIR "${CMAKE_CURRENT_BINARY_DIR}/pdb/Debug")
+        set_target_properties(${PROJECT_NAME} PROPERTIES
+            COMPILE_PDB_NAME_DEBUG "${PROJECT_NAME}"
+            COMPILE_PDB_OUTPUT_DIRECTORY_DEBUG "${FreeImage_COMPILE_PDB_DIR}")
+        install(FILES "${FreeImage_COMPILE_PDB_DIR}/${PROJECT_NAME}.pdb"
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            COMPONENT Development
+            CONFIGURATIONS Debug
+            OPTIONAL)
+    else()
+        # TARGET_PDB_FILE is valid only for targets with a linker artifact.
+        install(FILES $<TARGET_PDB_FILE:${PROJECT_NAME}>
+            DESTINATION ${CMAKE_INSTALL_BINDIR}
+            COMPONENT Runtime
+            CONFIGURATIONS Debug
+            OPTIONAL)
+    endif()
+endif()
 install(FILES Source/FreeImage.h
     DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
     COMPONENT Development
@@ -1501,3 +1607,26 @@ install(FILES
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
     COMPONENT Development
 )
+
+if(FREEIMAGE_VS_ALL_PLATFORMS)
+    if(CMAKE_VERSION VERSION_LESS 3.21 OR
+       NOT CMAKE_GENERATOR MATCHES "^Visual Studio (17|18) " OR
+       NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        message(FATAL_ERROR "FREEIMAGE_VS_ALL_PLATFORMS requires CMake 3.21+ and Visual Studio 2022/2026 with MSVC")
+    endif()
+    if(CMAKE_TOOLCHAIN_FILE)
+        message(FATAL_ERROR "The portable Visual Studio solution requires native MSVC toolchains; configure external SDK toolchains separately per architecture")
+    endif()
+    get_cmake_property(_freeimage_cache_variables CACHE_VARIABLES)
+    foreach(_freeimage_variable IN LISTS _freeimage_cache_variables)
+        if(_freeimage_variable MATCHES "^USE_SYSTEM_" AND ${_freeimage_variable})
+            message(FATAL_ERROR "The portable Visual Studio solution requires bundled dependencies (${_freeimage_variable} is ON)")
+        endif()
+    endforeach()
+    include(cmake/VisualStudioSolution.cmake)
+    freeimage_generate_visual_studio_solution("${PROJECT_BINARY_DIR}/visualstudio" "${CMAKE_GENERATOR}")
+    add_custom_target(FreeImageAllPlatforms
+        COMMAND "${CMAKE_VS_MSBUILD_COMMAND}" "${PROJECT_BINARY_DIR}/visualstudio/FreeImage.sln"
+            "/p:Configuration=$<CONFIG>" "/p:Platform=All Platforms" /m:1
+        USES_TERMINAL VERBATIM)
+endif()

@@ -1,0 +1,62 @@
+diff --git a/.github/workflows/cmake.yml b/.github/workflows/cmake.yml
+index 66b95a4..342a926 100644
+--- a/.github/workflows/cmake.yml
++++ b/.github/workflows/cmake.yml
+@@ -319,6 +319,26 @@ jobs:
+       - name: Verify runtime dispatch and codec round trips
+         run: ctest --test-dir build-simd -R VendorCodecTest --output-on-failure --verbose
+ 
++  linux-arm64-cross:
++    name: Linux ARM64 cross build (strict C11)
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v4
++      - name: Install ARM64 cross compiler
++        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
++      - name: Configure bundled codecs
++        run: >-
++          cmake -S . -B build-arm64 -DCMAKE_SYSTEM_NAME=Linux
++          -DCMAKE_SYSTEM_PROCESSOR=aarch64
++          -DCMAKE_C_COMPILER=aarch64-linux-gnu-gcc
++          -DCMAKE_CXX_COMPILER=aarch64-linux-gnu-g++
++          -DCMAKE_C_STANDARD=11 -DCMAKE_C_EXTENSIONS=OFF
++          -DCMAKE_CXX_STANDARD=17 -DCMAKE_BUILD_TYPE=Release
++          -DFREEIMAGE_STATIC=ON -DBUILD_TESTS=OFF
++      - name: Build ARM64 library
++        run: cmake --build build-arm64 -j2
++
+   make-build:
+     # Plain `make` (Makefile.gnu, via the top-level Makefile dispatcher) is
+     # a separate build path from CMake with its own hand-maintained file
+diff --git a/Source/LibDeflate/lib/arm/cpu_features.c b/Source/LibDeflate/lib/arm/cpu_features.c
+index a4008ca..4656221 100644
+--- a/Source/LibDeflate/lib/arm/cpu_features.c
++++ b/Source/LibDeflate/lib/arm/cpu_features.c
+@@ -30,6 +30,12 @@
+  * features.  But an OS-specific way can be used when available.
+  */
+ 
++/* Strict C11 hides O_CLOEXEC unless Linux extensions are requested before
++ * any system header. Used by both the auxv and /proc/cpuinfo readers below. */
++#if defined(__linux__) && !defined(_GNU_SOURCE)
++#  define _GNU_SOURCE 1
++#endif
++
+ #ifdef __APPLE__
+ #  undef _ANSI_SOURCE
+ #  undef _DARWIN_C_SOURCE
+diff --git a/scripts/vendor/NOTES.md b/scripts/vendor/NOTES.md
+index 0a97e25..68da201 100644
+--- a/scripts/vendor/NOTES.md
++++ b/scripts/vendor/NOTES.md
+@@ -33,6 +33,9 @@ with `ZSTD_DISABLE_ASM`; preserve the ARM64EC exclusions in
+ `common/{compiler.h,cpu.h,portability_macros.h}` so `_M_X64` does not select
+ x86 intrinsics or CPUID on ARM64EC.
+ 
++The Linux ARM CPU detector requests `_GNU_SOURCE` before system headers so
++`O_CLOEXEC` is available under strict C11, including the GNU make path.
++
+ libdeflate 1.26 requires C11 (MSVC 2019 16.8 or later). CMake applies C11
+ specifically to its sources; GNU make defaults to C11. Upstream now excludes ARM64EC
+ from x86 detection and uses its portable fallback there.

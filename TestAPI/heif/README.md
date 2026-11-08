@@ -13,3 +13,37 @@ x265 and AOM encoders, build the `GenerateHeifFixtures` target, and run it with
 this directory as its working directory. These fixtures were generated using
 libheif 1.23.2. Encoded bytes can differ across codec versions; tests compare
 pixel values with a tolerance for lossy colour conversion.
+
+Two additional fixtures are derived from the checked-in `metadata.heic`:
+
+- `bad-thumbnail.heic` replaces the thumbnail's 201-byte payload (offset 875)
+  with zeroes. The primary image and Exif are unchanged.
+- `thumbnail-size-mismatch.heic` adds an `ispe` property for thumbnail item 3
+  declaring a coded size of 64x63, while its actual bitstream is 64x64. The
+  existing crop still declares a 16x12 thumbnail. This reproduces libheif's
+  "Decoded image does not have the size signaled in the file" error. Older
+  libheif versions may accept it; the primary image must remain usable either way.
+
+Both cases verify that primary pixels and Exif survive thumbnail errors, and
+that header-only loading still works. No encoder or reported photograph is
+needed to recreate them from the checked-in fixture:
+
+```python
+from pathlib import Path
+original = Path("metadata.heic").read_bytes()
+assert len(original) == 1076
+Path("bad-thumbnail.heic").write_bytes(original[:875] + bytes(201))
+data = bytearray(original)
+assert data[511:515] == b"ispe"
+assert data[519:527] == bytes.fromhex("0000004000000040")
+assert data[647:654] == bytes.fromhex("00030481030586")
+prop = bytearray(data[507:527])
+prop[-4:] = (63).to_bytes(4, "big")
+data[651] = 7  # Item 3 uses the new ispe property, not the primary's property.
+for offset in (28, 234, 242):  # meta, iprp, ipco box sizes
+    data[offset:offset+4] = (int.from_bytes(data[offset:offset+4], "big") + 20).to_bytes(4, "big")
+for offset in (93, 111, 129):  # iloc base offsets after extending meta
+    data[offset:offset+4] = (int.from_bytes(data[offset:offset+4], "big") + 20).to_bytes(4, "big")
+data[623:623] = prop
+Path("thumbnail-size-mismatch.heic").write_bytes(data)
+```

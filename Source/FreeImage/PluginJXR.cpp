@@ -24,6 +24,7 @@
 #if INCLUDE_LIB_JXR
 
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 #include "../Metadata/FreeImageTag.h"
 
@@ -541,6 +542,7 @@ Read ICC, XMP, Exif, Exif-GPS, IPTC, descriptive (i.e. Exif-TIFF) metadata
 */
 static ERR
 ReadMetadata(PKImageDecode *pID, FIBITMAP *dib) {
+    if(FreeImageInternal::IsStrippingMetadata()) return WMP_errSuccess;
 	ERR error_code = 0;		// error code as returned by the interface
 	size_t currentPos = 0;	// current stream position
 	
@@ -1495,6 +1497,7 @@ InitJXR(Plugin *plugin, int format_id) {
 #else // !INCLUDE_LIB_JXR
 
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 
 // This build was compiled without JPEG XR support (BUILD_JXR=OFF). Still

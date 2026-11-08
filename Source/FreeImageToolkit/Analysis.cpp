@@ -36,9 +36,11 @@ void Read(FIBITMAP *dib,unsigned x,unsigned y,const Layout &l,double *v) {
         else { v[0]=p[FI_RGBA_RED]; v[1]=p[FI_RGBA_GREEN]; v[2]=p[FI_RGBA_BLUE]; if(l.channels==4) v[3]=p[FI_RGBA_ALPHA]; }
         break;
     case FIT_UINT16: case FIT_RGB16: case FIT_RGBA16:
-        for(unsigned c=0;c<l.channels;++c) v[c]=reinterpret_cast<const WORD *>(p)[c]; break;
+        for(unsigned c=0;c<l.channels;++c) v[c]=reinterpret_cast<const WORD *>(p)[c];
+        break;
     case FIT_FLOAT: case FIT_RGBF: case FIT_RGBAF:
-        for(unsigned c=0;c<l.channels;++c) v[c]=reinterpret_cast<const float *>(p)[c]; break;
+        for(unsigned c=0;c<l.channels;++c) v[c]=reinterpret_cast<const float *>(p)[c];
+        break;
     case FIT_DOUBLE: v[0]=*reinterpret_cast<const double *>(p); break;
     default: break;
     }
@@ -87,7 +89,10 @@ BOOL DLL_CALLCONV FreeImage_FindMinMax(FIBITMAP *dib,double *low,double *high,vo
         found=true;
     }
     if(!found) return FALSE;
-    if(low) *low=minimum; if(high) *high=maximum; if(low_pixel) *low_pixel=minp; if(high_pixel) *high_pixel=maxp;
+    if(low) *low=minimum;
+    if(high) *high=maximum;
+    if(low_pixel) *low_pixel=minp;
+    if(high_pixel) *high_pixel=maxp;
     return TRUE;
 }
 BOOL DLL_CALLCONV FreeImage_FindMinMaxValue(FIBITMAP *dib,void *low,void *high) {
@@ -115,7 +120,8 @@ BOOL DLL_CALLCONV FreeImage_GetHistogramEx(FIBITMAP *dib,DWORD *histogram,unsign
             double v[4]={}; Read(dib,x,y,l,v); const double value=channel==FICC_RGB ? Brightness(v,l) : v[component];
             if(!std::isfinite(value) || value<low || value>high) continue;
             const unsigned bin=value==high ? bins-1 : std::min(bins-1,static_cast<unsigned>(((value-low)/(high-low))*bins));
-            if(values[bin]==std::numeric_limits<DWORD>::max()) return FALSE; ++values[bin];
+            if(values[bin]==std::numeric_limits<DWORD>::max()) return FALSE;
+            ++values[bin];
         }
         std::memcpy(histogram,values.data(),size_t(bins)*sizeof(DWORD)); return TRUE;
     } catch(...) { return FALSE; }

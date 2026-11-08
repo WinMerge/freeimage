@@ -1,0 +1,2496 @@
+diff --git a/.github/scripts/check_upstream_versions.sh b/.github/scripts/check_upstream_versions.sh
+index ba0225d..4022d71 100755
+--- a/.github/scripts/check_upstream_versions.sh
++++ b/.github/scripts/check_upstream_versions.sh
+@@ -262,7 +262,7 @@ write_body() {
+     {
+         printf '%s\n\n' "$MARKER"
+         printf '%s\n' "A scheduled check compared the versions in \`Source/\` with each project's latest stable release."
+-        printf '%s\n\n' "This compares stable upstream versions; compatibility and branch policy still need review. Zstandard and OpenJPH snapshots follow OpenEXR and are reported for visibility."
++        printf '%s\n\n' "This compares stable upstream versions; compatibility and branch policy still need review. Zstandard follows OpenEXR releases and is reported for visibility. OpenJPH is checked against its own releases."
+         printf '%s\n\n' "### Updates available"
+         printf '%s\n' "| Library | Vendored | Latest upstream |"
+         printf '%s\n' "| --- | --- | --- |"
+diff --git a/.github/workflows/cmake.yml b/.github/workflows/cmake.yml
+index bd7be17..7d90b13 100644
+--- a/.github/workflows/cmake.yml
++++ b/.github/workflows/cmake.yml
+@@ -505,10 +505,10 @@ jobs:
+           "-DCMAKE_C_FLAGS=-fsanitize=address -g"
+           "-DCMAKE_CXX_FLAGS=-fsanitize=address -g"
+           -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address
+-      - name: Build codec, PBM RLE and large-file regression tests
+-        run: cmake --build build-simd --target VendorCodecTest IffPbmRleTest LargeFileTIFFTest -j2
++      - name: Build codec, NLT marker, PBM RLE and large-file regression tests
++        run: cmake --build build-simd --target VendorCodecTest OpenJphNltTest IffPbmRleTest LargeFileTIFFTest -j2
+       - name: Verify runtime dispatch and codec round trips
+-        run: ctest --test-dir build-simd -R 'VendorCodecTest|IffPbmRleTest|LargeFileTIFFTest' --output-on-failure --verbose
++        run: ctest --test-dir build-simd -R 'VendorCodecTest|OpenJphNltTest|IffPbmRleTest|LargeFileTIFFTest' --output-on-failure --verbose
+ 
+   android-api25:
+     name: Android API 25 (${{ matrix.abi }})
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 2262a03..cb85009 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -4,6 +4,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
+ 
+ ## Unreleased
+ 
++- Update bundled OpenJPH from 0.32.0 to 0.33.0, independently of the OpenEXR 3.5.3 snapshot. This includes the HTJ2K one-row codeblock allocation fix (CVE-2026-111151), NLT marker bounds checks, and the Win32 AVX2 and i686 SSE fixes previously carried as local patches. OpenEXR's lossy LJ2K lookup-table calls stay source compatible. (#259)
+ - Reject BMP RLE cursor moves that would wrap the signed decoder position. A wrapped RLE8 cursor made the next run write before the bitmap. Reported by ooq (jini135wii). (GHSA-7pp5-4w3w-437c)
+ - Add `FREEIMAGE_HEIF_EXPORT` (default ON). Turning it off builds HEIF/AVIF as read-only: the save functions are not compiled, and bundled builds skip Kvazaar and libaom's AV1 encoder.
+ - Add `FREEIMAGE_JXL_EXPORT` (default ON) for read-only JPEG XL, and `FREEIMAGE_CODEC_EXPORT` (default ON) to turn off HEIF/AVIF and JPEG XL saving together. With both codecs bundled, a read-only shared library is about a third smaller.
+diff --git a/README.md b/README.md
+index 645ea91..883dfc6 100644
+--- a/README.md
++++ b/README.md
+@@ -47,7 +47,7 @@ Supporting libraries are bundled alongside the format libraries:
+ | Used by | Bundled libraries |
+ |---|---|
+ | PNG, TIFF and other compressed formats | zlib 1.3.2 |
+-| OpenEXR | Imath 3.2.3, libdeflate 1.26, Zstandard 1.5.7, OpenJPH 0.32.0 |
++| OpenEXR | Imath 3.2.3, libdeflate 1.26, Zstandard 1.5.7, OpenJPH 0.33.0 |
+ | HEIF/HEIC/HIF | libde265 1.1.3 (HEVC decoding), Kvazaar 2.3.2 (HEVC encoding) |
+ | AVIF | libaom 3.15.3 (AV1 decoding/encoding; enabled by default with bundled HEIF) |
+ | JPEG XL | Highway 1.4.0, Brotli 1.2.1, Little CMS 2.20 |
+diff --git a/Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.cpp b/Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.cpp
+index a24be39..ae5b80f 100644
+--- a/Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.cpp
++++ b/Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.cpp
+@@ -61,11 +61,14 @@ namespace ojph {
+       assert(byte_alignment / sizeof(ui32) > 1);
+       const ui32 f = byte_alignment / sizeof(ui32) - 1;
+       ui32 stride = (nominal.w + f) & ~f; // a multiple of 8
++      // the HT cleanup pass writes two rows per quad row, so the sample
++      // buffer must hold an even number of rows
++      ui32 rows = (nominal.h + 1u) & ~1u;
+ 
+       if (precision <= 32)
+-        allocator->pre_alloc_data<ui32>(nominal.h * (size_t)stride, 0);
++        allocator->pre_alloc_data<ui32>(rows * (size_t)stride, 0);
+       else
+-        allocator->pre_alloc_data<ui64>(nominal.h * (size_t)stride, 0);
++        allocator->pre_alloc_data<ui64>(rows * (size_t)stride, 0);
+     }
+ 
+     //////////////////////////////////////////////////////////////////////////
+@@ -80,7 +83,9 @@ namespace ojph {
+ 
+       const ui32 f = byte_alignment / sizeof(ui32) - 1;
+       this->stride = (nominal.w + f) & ~f; // a multiple of 8
+-      this->buf_size = this->stride * nominal.h;
++      // the HT cleanup pass writes two rows per quad row, so the sample
++      // buffer must hold an even number of rows
++      this->buf_size = this->stride * ((nominal.h + 1u) & ~1u);
+ 
+       if (precision <= 32) {
+         this->precision = BUF32;
+diff --git a/Source/OpenEXR/OpenJPH/codestream/ojph_codestream_sse.cpp b/Source/OpenEXR/OpenJPH/codestream/ojph_codestream_sse.cpp
+index 5fd5936..9c7efc2 100644
+--- a/Source/OpenEXR/OpenJPH/codestream/ojph_codestream_sse.cpp
++++ b/Source/OpenEXR/OpenJPH/codestream/ojph_codestream_sse.cpp
+@@ -47,7 +47,6 @@ namespace ojph {
+     //////////////////////////////////////////////////////////////////////////
+     void sse_mem_clear(void* addr, size_t count)
+     {
+-      // Keep this SSE-dispatched kernel free of SSE2 integer intrinsics.
+       __m128 zero = _mm_setzero_ps();
+       for (size_t i = 0; i < count; i += 16, addr = (char*)addr + 16)
+         _mm_storeu_ps((float*)addr, zero);
+diff --git a/Source/OpenEXR/OpenJPH/codestream/ojph_params.cpp b/Source/OpenEXR/OpenJPH/codestream/ojph_params.cpp
+index a86a53b..967d0dc 100644
+--- a/Source/OpenEXR/OpenJPH/codestream/ojph_params.cpp
++++ b/Source/OpenEXR/OpenJPH/codestream/ojph_params.cpp
+@@ -415,6 +415,13 @@ namespace ojph {
+     state->set_delta(delta);
+   }
+ 
++  //////////////////////////////////////////////////////////////////////////
++  void param_qcd::set_irrev_quant(float delta, size_t num_weights,
++                                  const float weights[])
++  {
++    state->set_delta(delta, num_weights, weights);
++  }
++
+   //////////////////////////////////////////////////////////////////////////
+   void param_qcd::set_qfactor(float qfactor) {
+     state->set_qfactor(qfactor);
+@@ -426,6 +433,13 @@ namespace ojph {
+     state->set_delta(comp_idx, delta);
+   }
+ 
++  //////////////////////////////////////////////////////////////////////////
++  void param_qcd::set_irrev_quant(ui32 comp_idx, float delta,
++                                  size_t num_weights, const float weights[])
++  {
++    state->set_delta(comp_idx, delta, num_weights, weights);
++  }
++
+   //////////////////////////////////////////////////////////////////////////
+   void param_qcd::set_qfactor(ui32 comp_idx, comp_type ctype, float qfactor)
+   {
+@@ -452,10 +466,13 @@ namespace ojph {
+                                           bool decoded_signedness,
+                                           ui32 d_min, ui32 d_max, ui8 pt_val,
+                                           ui16 num_points, void* points,
+-                                          ui8 nl_type)
++                                          ui8 nl_type,
++                                          bool approx_encoding_nlt,
++                                          ui32 num_enc_points)
+   {
+     state->set_nonlinear_transform(comp_num, decoded_bit_depth,
+-      decoded_signedness, d_min, d_max, pt_val, num_points, points, nl_type);
++      decoded_signedness, d_min, d_max, pt_val, num_points, points, nl_type,
++      approx_encoding_nlt, num_enc_points);
+   }
+ 
+   ////////////////////////////////////////////////////////////////////////////
+@@ -953,8 +970,10 @@ namespace ojph {
+       point factor(1u << skipped_resolutions, 1u << skipped_resolutions);
+       const param_cod* cdp = cod->get_coc(comp_num);
+       if (dfs && cdp && cdp->is_dfs_defined()) {
+-        const param_dfs* d = dfs->get_dfs(cdp->get_dfs_index());
+-        factor = d->get_res_downsamp(skipped_resolutions);
++        ui16 dfs_idx = cdp->get_dfs_index();
++        const param_dfs* d = dfs->get_dfs(dfs_idx);
++        if (d != NULL)
++          factor = d->get_res_downsamp(skipped_resolutions);
+       }
+       factor.x *= (ui32)cptr[comp_num].XRsiz;
+       factor.y *= (ui32)cptr[comp_num].YRsiz;
+@@ -1454,7 +1473,7 @@ namespace ojph {
+                                      const param_siz &siz)
+     {
+       if (this->is_init)
+-        OJPH_ERROR(0x00040001, "Quantization step sizes already initialized.");
++        OJPH_ERROR(0x000501C1, "Quantization step sizes already initialized.");
+ 
+       this->is_init = true;
+ 
+@@ -1466,6 +1485,20 @@ namespace ojph {
+       this->sampling = siz.get_downsampling(comp_num);
+       this->num_subbands = 1 + 3 * this->num_decomps;
+ 
++      if (this->num_weights != 0)
++      {
++        if (this->wavelet_kern != param_cod::DWT_IRV97)
++          OJPH_ERROR(0x000501C2, "Quantization weights for component %d can "
++            "only be used with the irreversible transform.", comp_num);
++        if (this->qfactor != QFACTOR_UNSET)
++          OJPH_ERROR(0x000501C3, "Quantization weights for component %d "
++            "cannot be used together with qfactor.", comp_num);
++        if (this->num_weights != this->num_subbands)
++          OJPH_ERROR(0x000501C4, "Component %d has %d quantization weights, "
++            "but %d are needed for %d decomposition levels.", comp_num,
++            this->num_weights, this->num_subbands, this->num_decomps);
++      }
++
+       if (this->wavelet_kern == param_cod::DWT_REV53)
+         this->set_rev_quant(this->num_decomps, this->bit_depth,
+                             comp_num < 3 ? this->is_color_trans : false);
+@@ -1477,7 +1510,7 @@ namespace ojph {
+           this->base_delta = 1.0f / (float)(1 << t);
+         }
+         else if (qfactor != QFACTOR_UNSET)
+-          OJPH_WARN(0x00040002, "qstep for component %d is ignored, because "
++          OJPH_WARN(0x000501C5, "qstep for component %d is ignored, because "
+             "qfactor is set.", comp_num);
+ 
+         this->set_irrev_quant(this->num_decomps);
+@@ -1489,7 +1522,7 @@ namespace ojph {
+                                   const param_siz &siz)
+     {
+       if (! this->is_init)
+-        OJPH_ERROR(0x00040001, "Quantization step sizes not initialized.");
++        OJPH_ERROR(0x000501D1, "Quantization step sizes not initialized.");
+ 
+       return this->num_decomps != cod.get_num_decompositions() ||
+               this->bit_depth != siz.get_bit_depth(comp_num) ||
+@@ -1589,11 +1622,24 @@ namespace ojph {
+         weights = visual_weights::get_weights(format, this->ctype);
+       }
+ 
++      // returns sqrt(w_b), the square root of the weight, for a decomposition
++      // level and subband (0:LL, 1:HL, 2:LH, 3:HH); coefficients are ordered
++      // {LH1, HL1, HH1, ..., LLN}
++      auto get_sqrt_weight = [&](ui32 d, ui32 sb) -> float
++      {
++        if (num_weights == 0)
++          return visual_weights::get_weight(weights, d, sb);
++        if (sb == 0)
++          return this->weights[num_weights - 1];
++        static const ui32 pos[4] = { 0, 1, 0, 2 };
++        return this->weights[(d - 1) * 3 + pos[sb]];
++      };
++
+       // LL band
+       ui32 b = 0;
+       float w_b;
+       float gain_l = sqrt_energy_gains::get_gain_l(num_decomps, false);
+-      w_b = visual_weights::get_weight(weights, num_decomps, b);
++      w_b = get_sqrt_weight(num_decomps, b);
+       w_b = std::pow(w_b, power);
+       encode_SPqcd(b++, delta_ref / (gain_l * gain_l * g_c * w_b));
+ 
+@@ -1604,13 +1650,13 @@ namespace ojph {
+         float gain_l = sqrt_energy_gains::get_gain_l(d, false);
+         float gain_h = sqrt_energy_gains::get_gain_h(d - 1, false);
+ 
+-        w_b = visual_weights::get_weight(weights, d, 1);
++        w_b = get_sqrt_weight(d, 1);
+         w_b = std::pow(w_b, power);
+         encode_SPqcd(b++, delta_ref / (gain_h * gain_l * g_c * w_b));
+-        w_b = visual_weights::get_weight(weights, d, 2);
++        w_b = get_sqrt_weight(d, 2);
+         w_b = std::pow(w_b, power);
+         encode_SPqcd(b++, delta_ref / (gain_l * gain_h * g_c * w_b));
+-        w_b = visual_weights::get_weight(weights, d, 3);
++        w_b = get_sqrt_weight(d, 3);
+         w_b = std::pow(w_b, power);
+         encode_SPqcd(b++, delta_ref / (gain_h * gain_h * g_c * w_b));
+       }
+@@ -1931,7 +1977,7 @@ namespace ojph {
+         if (num_subbands == 0)
+           OJPH_ERROR(0x0005008A, "QCD marker segment that specifies no "
+             "quantization informtion");
+-        if (num_subbands > 97 || Lqcd != 3 + num_subbands)
++        if (num_subbands > MAX_SUBBAND_COUNT || Lqcd != 3 + num_subbands)
+           OJPH_ERROR(0x00050083, "wrong Lqcd value of %d in QCD marker", Lqcd);
+         for (ui32 i = 0; i < num_subbands; ++i)
+           if (file->read(&SPqcd.u8[i], 1) != 1)
+@@ -1951,7 +1997,7 @@ namespace ojph {
+         if (num_subbands == 0)
+           OJPH_ERROR(0x0005008B, "QCD marker segment that specifies no "
+             "quantization informtion");
+-        if (num_subbands > 97 || Lqcd != 3 + 2 * num_subbands)
++        if (num_subbands > MAX_SUBBAND_COUNT || Lqcd != 3 + 2 * num_subbands)
+           OJPH_ERROR(0x00050086, "wrong Lqcd value of %d in QCD marker", Lqcd);
+         for (ui32 i = 0; i < num_subbands; ++i)
+         {
+@@ -1992,7 +2038,7 @@ namespace ojph {
+         if (num_subbands == 0)
+           OJPH_ERROR(0x000500AC, "QCC marker segment that specifies no "
+             "quantization informtion");
+-        if (num_subbands > 97 || Lqcd != offset + num_subbands)
++        if (num_subbands > MAX_SUBBAND_COUNT || Lqcd != offset + num_subbands)
+           OJPH_ERROR(0x000500A5, "wrong Lqcd value of %d in QCC marker", Lqcd);
+         for (ui32 i = 0; i < num_subbands; ++i)
+           if (file->read(&SPqcd.u8[i], 1) != 1)
+@@ -2012,7 +2058,7 @@ namespace ojph {
+         if (num_subbands == 0)
+           OJPH_ERROR(0x000500AD, "QCC marker segment that specifies no "
+             "quantization informtion");
+-        if (num_subbands > 97 || Lqcd != offset + 2 * num_subbands)
++        if (num_subbands>MAX_SUBBAND_COUNT || Lqcd != offset + 2*num_subbands)
+           OJPH_ERROR(0x000500A8, "wrong Lqcc value of %d in QCC marker", Lqcd);
+         for (ui32 i = 0; i < num_subbands; ++i)
+         {
+@@ -2030,11 +2076,37 @@ namespace ojph {
+     {
+       assert(type == QCD_MAIN);
+       param_qcd *p = get_qcc(comp_idx);
+-      if (p == NULL)
++      if (p == this)
+         p = add_qcc_object(comp_idx);
+       p->set_delta(delta);
+     }
+ 
++    //////////////////////////////////////////////////////////////////////////
++    void param_qcd::set_weights(size_t num_weights, const float *weights)
++    {
++      if (weights == NULL || num_weights==0 || num_weights > MAX_SUBBAND_COUNT)
++        OJPH_ERROR(0x000501A1, "The number of quantization weights must be "
++          "between 1 and %d, but %zu were provided.",
++          MAX_SUBBAND_COUNT, num_weights);
++      for (size_t i = 0; i < num_weights; ++i)
++        if (!(weights[i] > 0.0f))
++          OJPH_ERROR(0x000501A2, "Quantization weights must be positive.");
++      memcpy(this->weights, weights, num_weights * sizeof(float));
++      this->num_weights = (ui32)num_weights;
++    }
++
++    //////////////////////////////////////////////////////////////////////////
++    void param_qcd::set_delta(ui32 comp_idx, float delta,
++                              size_t num_weights, const float *weights)
++    {
++      assert(type == QCD_MAIN);
++      param_qcd *p = get_qcc(comp_idx);
++      if (p == this)
++        p = add_qcc_object(comp_idx);
++      p->set_delta(delta);
++      p->set_weights(num_weights, weights);
++    }
++
+     //////////////////////////////////////////////////////////////////////////
+     void param_qcd::set_qfactor(ui32 comp_idx, comp_type ctype, float qfactor)
+     {
+@@ -2110,7 +2182,7 @@ namespace ojph {
+       delta = (fd_max - fd_min) / (float)(num_points - 1);
+       inv_delta = (float)(num_points - 1) / (fd_max - fd_min);
+       multiplier = (float)(1ull << get_bit_depth());
+-      float divider = 1 / multiplier;
++      float divider = (float)(1.0 / (double)(1ull << get_bit_depth()));
+       if (bytes_per_point == 1) {
+         ui8* sp = (ui8*)marker_points;
+         float* dp = dec_points;
+@@ -2140,96 +2212,141 @@ namespace ojph {
+     }
+ 
+     //////////////////////////////////////////////////////////////////////////
+-    void nlt_rec::prepare_for_encoding()
++    template<typename T>
++    static inline void
++    prepare_for_encoding_approx_for_type(const void* marker_points, float div,
++      float& ft_min, float& ft_max, float& delta, float& inv_delta,
++      float fd_min, float fd_max, ui32 num_points, ui32 enc_num_points,
++      float* approx_enc_points)
++    {
++      const T* p = (const T*)marker_points;
++      ft_min = (float)p[0] * div;
++      ft_max = (float)p[num_points - 1] * div;
++      delta = (ft_max - ft_min) / (float)(enc_num_points - 1);
++      inv_delta = (float)(enc_num_points - 1) / (ft_max - ft_min);
++
++      ui32 k = 0;
++      float y_k = (float)p[k] * div, y_kp1 = (float)p[k + 1] * div;
++      float dt = (fd_max - fd_min) / (float)(num_points - 1);
++      float d_k = fd_min, d_kp1 = fd_min + dt;
++      for (ui32 i = 1; i < enc_num_points - 1; ++i)
++      {
++        float z = ft_min + (float)i * delta;
++        while (k + 1 < num_points - 1 && z >= y_kp1)
++        {
++          ++k;
++          d_k   = d_kp1;
++          d_kp1 = fd_min + (float)(k + 1) * dt;
++          y_k   = y_kp1;
++          y_kp1 = (float)p[k + 1] * div;
++        }
++        approx_enc_points[i] = d_k + (z - y_k) * dt / (y_kp1 - y_k);
++      }
++    }
++
++    //////////////////////////////////////////////////////////////////////////
++    void nlt_rec::prepare_for_encoding_approx()
+     {
+       double d = 1.0 / (double)((1ull << 32) - 1);
+       fd_min = (float)((double)d_min * d);
+       fd_max = (float)((double)d_max * d);
+ 
++      // enc_points holds positions in the domain of the LUT, whose first
++      // and last entries are fd_min and fd_max, not LUT values
++      approx_enc_points[-2] = fd_min;
++      approx_enc_points[-1] = fd_min;
++      approx_enc_points[ 0] = fd_min;
++      approx_enc_points[enc_num_points - 1] = fd_max;
++      approx_enc_points[enc_num_points] = fd_max;
++      approx_enc_points[enc_num_points + 1] = fd_max;
++
+       // create lookup table for encoding
+-      float mul = (float)(1ull << pt_val);
++      float mul = (float)((1ull << pt_val) - 1);
+       float div = 1.0f / mul;
+       if (bytes_per_point == 1)
+-      {
+-        ui8* p = (ui8*)marker_points;
+-        enc_points[-1] = enc_points[0] = ft_min = (float)p[0] * div;
+-        ft_max = (float)p[num_points - 1] * div;
+-        enc_points[enc_num_points] = enc_points[enc_num_points - 1] = ft_max;
+-        delta = (ft_max - ft_min) / (float)(enc_num_points - 1);
+-        inv_delta = (float)(enc_num_points - 1) / (ft_max - ft_min);
+-
+-        ui32 k = 0;
+-        float y_k = (float)p[k] * div, y_kp1 = (float)p[k + 1] * div;
+-        float dt = (fd_max - fd_min) / (float)(num_points - 1);
+-        float d_k = fd_min, d_kp1 = fd_min + dt;
+-        for (ui32 i = 1; i < enc_num_points - 1; ++i)
+-        {
+-          float z = ft_min + (float)i * delta;
+-          while (k + 1 < num_points - 1 && z >= y_kp1)
+-          {
+-            ++k;
+-            d_k   = d_kp1;
+-            d_kp1 = fd_min + (float)(k + 1) * dt;
+-            y_k   = y_kp1;
+-            y_kp1 = (float)p[k + 1] * div;
+-          }
+-          enc_points[i] = d_k + (z - y_k) * dt / (y_kp1 - y_k);
+-        }
++        prepare_for_encoding_approx_for_type<ui8>(marker_points, div,
++          ft_min, ft_max, delta, inv_delta,
++          fd_min, fd_max, num_points, enc_num_points,
++          approx_enc_points);
++      else if (bytes_per_point == 2)
++        prepare_for_encoding_approx_for_type<ui16>(marker_points, div,
++          ft_min, ft_max, delta, inv_delta,
++          fd_min, fd_max, num_points, enc_num_points,
++          approx_enc_points);
++      else if (bytes_per_point == 4)
++        prepare_for_encoding_approx_for_type<ui32>(marker_points, div,
++          ft_min, ft_max, delta, inv_delta,
++          fd_min, fd_max, num_points, enc_num_points,
++          approx_enc_points);
++
++      multiplier = (float)(1.0 / (double)(1ull << get_bit_depth()));
++    }
++
++    //////////////////////////////////////////////////////////////////////////
++    void nlt_rec::prepare_for_encoding_precise()
++    {
++      double d = 1.0 / (double)((1ull << 32) - 1);
++      fd_min = (float)((double)d_min * d);
++      fd_max = (float)((double)d_max * d);
++
++      float mul = (float)((1ull << pt_val) - 1);
++      float div = 1.0f / mul;
++
++      // convert decoder lookup table to floats
++      if (bytes_per_point == 1) {
++        const ui8* p = (const ui8*)marker_points;
++        for (ui32 i = 0; i < num_points; ++i)
++          precise_dec_lut[i] = (float)p[i] * div;
++        ft_min = precise_dec_lut[0];
++        ft_max = precise_dec_lut[num_points - 1];
+       }
+       else if (bytes_per_point == 2) {
+-        ui16* p = (ui16*)marker_points;
+-        enc_points[-1] = enc_points[0] = ft_min = (float)p[0] * div;
+-        ft_max = (float)p[num_points - 1] * div;
+-        enc_points[enc_num_points] = enc_points[enc_num_points - 1] = ft_max;
+-        delta = (ft_max - ft_min) / (float)(enc_num_points - 1);
+-        inv_delta = (float)(enc_num_points - 1) / (ft_max - ft_min);
+-
+-        ui32 k = 0;
+-        float y_k = (float)p[k] * div, y_kp1 = (float)p[k + 1] * div;
+-        float dt = (fd_max - fd_min) / (float)(num_points - 1);
+-        float d_k = fd_min, d_kp1 = fd_min + dt;
+-        for (ui32 i = 1; i < enc_num_points - 1; ++i)
+-        {
+-          float z = ft_min + (float)i * delta;
+-          while (k + 1 < num_points - 1 && z >= y_kp1)
+-          {
+-            ++k;
+-            d_k   = d_kp1;
+-            d_kp1 = fd_min + (float)(k + 1) * dt;
+-            y_k   = y_kp1;
+-            y_kp1 = (float)p[k + 1] * div;
+-          }
+-          enc_points[i] = d_k + (z - y_k) * dt / (y_kp1 - y_k);
+-        }
++        const ui16* p = (const ui16*)marker_points;
++        for (ui32 i = 0; i < num_points; ++i)
++          precise_dec_lut[i] = (float)p[i] * div;
++        ft_min = precise_dec_lut[0];
++        ft_max = precise_dec_lut[num_points - 1];
+       }
+       else if (bytes_per_point == 4) {
+-        ui32* p = (ui32*)marker_points;
+-        enc_points[-1] = enc_points[0] = ft_min = (float)p[0] * div;
+-        ft_max = (float)p[num_points - 1] * div;
+-        enc_points[enc_num_points] = enc_points[enc_num_points - 1] = ft_max;
+-        delta = (ft_max - ft_min) / (float)(enc_num_points - 1);
+-        inv_delta = (float)(enc_num_points - 1) / (ft_max - ft_min);
+-
+-        ui32 k = 0;
+-        float y_k = (float)p[k] * div, y_kp1 = (float)p[k + 1] * div;
+-        float dt = (fd_max - fd_min) / (float)(num_points - 1);
+-        float d_k = fd_min, d_kp1 = fd_min + dt;
+-        for (ui32 i = 1; i < enc_num_points - 1; ++i)
+-        {
+-          float z = ft_min + (float)i * delta;
+-          while (k + 1 < num_points - 1 && z >= y_kp1)
+-          {
+-            ++k;
+-            d_k   = d_kp1;
+-            d_kp1 = fd_min + (float)(k + 1) * dt;
+-            y_k   = y_kp1;
+-            y_kp1 = (float)p[k + 1] * div;
+-          }
+-          enc_points[i] = d_k + (z - y_k) * dt / (y_kp1 - y_k);;
+-        }
++        const ui32* p = (const ui32*)marker_points;
++        for (ui32 i = 0; i < num_points; ++i)
++          precise_dec_lut[i] = (float)p[i] * div;
++        ft_min = precise_dec_lut[0];
++        ft_max = precise_dec_lut[num_points - 1];
++      }
++      precise_dec_lut[-2] = precise_dec_lut[0];
++      precise_dec_lut[-1] = precise_dec_lut[0];
++      precise_dec_lut[num_points]     = precise_dec_lut[num_points - 1];
++      precise_dec_lut[num_points + 1] = precise_dec_lut[num_points - 1];
++      delta = (fd_max - fd_min) / (float)(num_points - 1);
++      inv_delta = (float)(enc_num_points - 1) / (ft_max - ft_min);
++
++      multiplier = (float)(1.0 / (double)(1ull << get_bit_depth()));
++
++      // find index into decoder lookup table
++      float td = (ft_max - ft_min) / (float)(enc_num_points - 1);
++      precise_max_steps = 0;
++      ui16 k = 0, old_k = 0;
++      for (ui32 i = 0; i < enc_num_points; ++i)
++      {
++        float z = ft_min + (float)i * td;
++        while (k < num_points - 1 && z >= precise_dec_lut[k + 1])
++          ++k;
++        precise_enc_dec_indices[i] = k;
++        precise_max_steps = ojph_max(precise_max_steps, (ui32)(k - old_k));
++        old_k = k;
+       }
+     }
+ 
++    //////////////////////////////////////////////////////////////////////////
++    void nlt_rec::prepare_for_encoding()
++    {
++      if (approx_encoding_nlt)
++        prepare_for_encoding_approx();
++      else
++        prepare_for_encoding_precise();
++    }
++
+     //////////////////////////////////////////////////////////////////////////
+     int param_nlt::find_unsupported_nlt(const param_siz& siz,
+                                         const param_cod& cod) const
+@@ -2377,7 +2494,9 @@ namespace ojph {
+                                             bool decoded_signedness,
+                                             ui32 d_min, ui32 d_max, ui8 pt_val,
+                                             ui16 num_points, void* points,
+-                                            ui8 nl_type)
++                                            ui8 nl_type,
++                                            bool approx_encoding_nlt,
++                                            ui32 num_enc_points)
+     {
+       if (nl_type != ojph::param_nlt::OJPH_NLT_LUT_STYLE_NLT &&
+           nl_type != ojph::param_nlt::OJPH_NLT_BINARY_COMPLEMENT_PLUS_LUT)
+@@ -2399,6 +2518,8 @@ namespace ojph {
+           "to 2 and smaller or equal to 8192 -- the code will convert this "
+           "number to a number in the range 1 to 8191 for the NLT marker "
+           "segement; you provided %d", num_points);
++      if (num_enc_points == 1)
++        OJPH_ERROR(0x000501AA, "The num_enc_points cannot be 1");
+ 
+       param_nlt* p = get_nlt_object(comp_num);
+       if (p == NULL)
+@@ -2414,6 +2535,7 @@ namespace ojph {
+       p->rec.pt_val = pt_val;
+       p->rec.num_points = num_points;
+       p->rec.bytes_per_point = p->rec.get_bpp(pt_val);
++      p->rec.approx_encoding_nlt = approx_encoding_nlt;
+ 
+       // Check that the LUT has increasing entries or has almost flat segments
+       ui32 v_min = 0, v_max = 0;
+@@ -2464,22 +2586,27 @@ namespace ojph {
+         assert(0);
+ 
+       // find ceil of the ratio to a power of 2
+-      ui32 ienc_pnts;
+-      float enc_pnts = std::ceil((float)(v_max-v_min) / (float)(smallest_gap));
+-      if (enc_pnts > 8192.0f)
+-      {
+-        ienc_pnts = 8192;
+-        OJPH_WARN(0x000501A1, "Encoding with LUT is performed with an "
+-          "encoding LUT, derived from the LUT you provided; however, "
+-          "because the provided LUT has almost flat segment or segments, "
+-          "these are hard to invert.  We are limiting the encoding "
+-          "LUT to 8192 entries, which means that some segment of the "
+-          "LUT table might be ignored during encoding.")
+-      }
+-      else {
+-        ienc_pnts = (ui32)enc_pnts;
+-        ienc_pnts = 32 - count_leading_zeros(ienc_pnts);
+-        ienc_pnts = 1u << ienc_pnts;
++      ui32 ienc_pnts = num_enc_points;
++      if (num_enc_points == 0)
++      {
++        float enc_pnts =
++          std::ceil((float)(v_max-v_min) / (float)(smallest_gap));
++        if (enc_pnts > 8192.0f)
++        {
++          ienc_pnts = 8192;
++          OJPH_WARN(0x000501A1, "Encoding with LUT is performed with an "
++            "encoding LUT, derived from the LUT you provided; however, "
++            "because the provided LUT has almost flat segment or segments, "
++            "these are hard to invert.  We are limiting the encoding "
++            "LUT to 8192 entries, which means that some segment of the "
++            "LUT table might be ignored during encoding.")
++        }
++        else {
++          ienc_pnts = (ui32)enc_pnts;
++          ienc_pnts = 32 - count_leading_zeros(ienc_pnts);
++          ienc_pnts = 1u << ienc_pnts;
++          ienc_pnts = ojph_max(ienc_pnts, 2);
++        }
+       }
+ 
+       ui32 len = p->rec.cal_store_size_for_encoding(ienc_pnts);
+@@ -2605,6 +2732,8 @@ namespace ojph {
+       result &= file->read(&buf2_comp, sizeof(ui16)) == sizeof(ui16);
+       result &= file->read(&buf1_BDnlt, sizeof(ui8)) == sizeof(ui8);
+       result &= file->read(&buf1_Tnlt, sizeof(ui8)) == sizeof(ui8);
++      if (result == false)
++        OJPH_ERROR(0x000501E1, "Error reading NLT marker, Location 1");
+ 
+       if (buf1_Tnlt != nonlinearity::OJPH_NLT_NO_NLT &&
+         buf1_Tnlt != nonlinearity::OJPH_NLT_BINARY_COMPLEMENT_NLT &&
+@@ -2651,6 +2780,8 @@ namespace ojph {
+         result &= file->read(&buf4_d_min, sizeof(ui32)) == sizeof(ui32);
+         result &= file->read(&buf4_d_max, sizeof(ui32)) == sizeof(ui32);
+         result &= file->read(&buf_pt_val, sizeof(ui8)) == sizeof(ui8);
++        if (result == false)
++          OJPH_ERROR(0x000501E2, "Error reading NLT marker, Location 2");
+ 
+         buf2_num_points = swap_bytes_if_le(buf2_num_points);
+         buf4_d_min = swap_bytes_if_le(buf4_d_min);
+@@ -2688,7 +2819,9 @@ namespace ojph {
+         p->rec.assign_pointers_for_decoding();
+ 
+         if (p->rec.bytes_per_point == 1)
+-          result &= file->read(p->rec.marker_points, len) == len;
++          result &=
++            file->read(p->rec.marker_points, p->rec.num_points)
++              == p->rec.num_points;
+         else if (p->rec.bytes_per_point == 2)
+         {
+           ui16 buf2;
+@@ -2714,6 +2847,9 @@ namespace ojph {
+         p->rec.prepare_for_decoding();
+       }
+ 
++      if (result == false)
++        OJPH_ERROR(0x000501E3, "Error reading NLT marker, Location 3");
++
+       return result;
+     }
+ 
+diff --git a/Source/OpenEXR/OpenJPH/codestream/ojph_params_local.h b/Source/OpenEXR/OpenJPH/codestream/ojph_params_local.h
+index 3e7c023..44940f5 100644
+--- a/Source/OpenEXR/OpenJPH/codestream/ojph_params_local.h
++++ b/Source/OpenEXR/OpenJPH/codestream/ojph_params_local.h
+@@ -703,6 +703,8 @@ namespace ojph {
+ 
+       ////////////////////////////////////////
+       const float QFACTOR_UNSET = 0.0f;
++      // 1 LL subband + 3 subbands for each of at most 32 decomposition levels
++      static constexpr ui32 MAX_SUBBAND_COUNT = 97;
+ 
+       ////////////////////////////////////////
+       using comp_type = ojph::param_qcd::comp_type;
+@@ -728,7 +730,10 @@ namespace ojph {
+       bool is_qcc_needed(ui32 comp_num, const param_cod &cod,
+                          const param_siz &siz);
+       void set_delta(float delta) { base_delta = delta; }
++      void set_delta(float delta, size_t num_weights, const float *weights)
++      { set_delta(delta); set_weights(num_weights, weights); }
+       void set_qfactor(float qfactor);
++      void set_weights(size_t num_weights, const float *weights);
+       ui32 get_num_guard_bits() const;
+       ui32 get_MAGB() const;
+       ui32 get_Kmax(const param_dfs* dfs, ui32 num_decompositions,
+@@ -743,6 +748,8 @@ namespace ojph {
+       void read_qcc(infile_base *file, ui32 num_comps);
+ 
+       void set_delta(ui32 comp_idx, float delta);
++      void set_delta(ui32 comp_idx, float delta,
++                     size_t num_weights, const float *weights);
+       void set_qfactor(ui32 comp_idx, comp_type ctype, float qfactor);
+       param_qcd* get_qcc(ui32 comp_idx);
+       const param_qcd* get_qcc(ui32 comp_idx) const;
+@@ -761,6 +768,7 @@ namespace ojph {
+         num_subbands = 0;
+         base_delta = -1.0f;
+         qfactor = QFACTOR_UNSET;
++        num_weights = 0;
+         ctype = comp_type::OJPH_COMP_Y;
+         sampling = ojph::point(1, 1);
+         enabled = true;
+@@ -801,8 +809,8 @@ namespace ojph {
+       ui8 Sqcd;
+       union
+       {
+-        ui8 u8[97];
+-        ui16 u16[97];
++        ui8 u8[MAX_SUBBAND_COUNT];
++        ui16 u16[MAX_SUBBAND_COUNT];
+       } SPqcd;
+       ui32 num_subbands;  // number of subbands
+       bool enabled;       // enabled if two, and ignored if false
+@@ -813,6 +821,10 @@ namespace ojph {
+       float base_delta;   // base quantization step size -- all other
+                           // step sizes are derived from it.
+       float qfactor;
++      ui32 num_weights;   // number of coefficients in `weights`; 0 if none
++      // weight coefficients, in subband order
++      // {LH1, HL1, HH1, ..., LHN, HLN, HHN, LLN}
++      float weights[MAX_SUBBAND_COUNT];
+       comp_type ctype;
+       bool is_color_trans;
+       ui32 num_decomps;
+@@ -850,7 +862,15 @@ namespace ojph {
+         dec_points = NULL;
+         fd_min = fd_max = delta = inv_delta = multiplier = 0.0f;
+         // encode
+-        enc_points = NULL; enc_num_points = 0;
++        approx_encoding_nlt = false;
++        enc_num_points = 0;
++        ft_min = ft_max = 0.0f;
++        //// approx
++        approx_enc_points = NULL;
++        //// precise
++        precise_max_steps = 0;
++        precise_enc_dec_indices = NULL;
++        precise_dec_lut = NULL;
+       }
+       ui8 get_type() const { return Tnlt; }
+       ui8 get_bit_depth() const { return (ui8)((BDnlt & 0x7F) + 1u); }
+@@ -863,7 +883,7 @@ namespace ojph {
+       ui32 d_min, d_max; // Dmin and Dmax
+       ui32 pt_val;       // Precision of points in bits
+       ui32 num_points;   // number of points in LUT points from 2 to 8192
+-      void* marker_points; // pointer to marker points
++      void* marker_points;  // pointer to marker points
+       ui8 bytes_per_point;  // number of bytes per point, derived from pt_val
+ 
+       // point storage
+@@ -882,27 +902,62 @@ namespace ojph {
+       }
+       void assign_pointers_for_decoding()
+       { // 2 extra points, one before the dec_points table and one after
+-        dec_points = (float*)points_store + 1;  enc_points = NULL;
++        dec_points = (float*)points_store + 1;  approx_enc_points = NULL;
+         marker_points = (ui8*)dec_points + (num_points + 1) * sizeof(float);
+       }
+       void prepare_for_decoding();
+ 
+       // memebers for encoding -- we also use some from decoding
+-      float* enc_points;     // LUT points for encoding -- must be float
+       ui32 enc_num_points;   // # of points for encoding (larger than decoding)
+-      float ft_min, ft_max;  // float d_min and d_max
++      float ft_min, ft_max;      // float first and last LUT points
++      bool approx_encoding_nlt; // use approx encoding non-linearity
++      //// approx
++      float* approx_enc_points;  // LUT points for encoding -- must be float
++      //// precise
++      ui32 precise_max_steps;     // max needed steps to find LUT data node
++      ui16* precise_enc_dec_indices; // LUT indices into decoder LUT
++      float* precise_dec_lut;    // decoder LUT in float
++
+       ui32 cal_store_size_for_encoding(ui32 enc_num_points)
+-      { // add 2 extra points, one before the enc_num_points table and one after
++      {
+         this->enc_num_points = enc_num_points;
+-        return (ui32)(enc_num_points + 2u) * (ui32)sizeof(float)
+-          + (ui32)num_points * (ui32)get_bpp();
++
++        // add 4 extra points, two before enc_num_points table and two after
++        if (approx_encoding_nlt)
++          return (ui32)(enc_num_points + 4u) * (ui32)sizeof(float)
++            + (ui32)num_points * (ui32)get_bpp();
++        else
++          return (ui32)(enc_num_points + 4u) * (ui32)sizeof(ui16)
++            + (ui32)(num_points + 4u) * (ui32)sizeof(float)
++            + (ui32)num_points * (ui32)get_bpp();
+       }
+       void assign_pointers_for_encoding()
+-      { // 2 extra points, one before the enc_num_points table and one after
+-        enc_points = (float*)points_store + 1;  dec_points = NULL;
+-        marker_points = (ui8*)enc_points + (enc_num_points + 1) * sizeof(float);
++      {
++        dec_points = NULL;
++
++        // add 4 extra points, two before enc_num_points table and two after
++        if (approx_encoding_nlt)
++        {
++          approx_enc_points = (float*)points_store + 2u;
++          precise_enc_dec_indices = NULL;
++          precise_dec_lut = NULL;
++          marker_points = (ui8*)points_store
++          + (enc_num_points + 4u) * sizeof(float);
++        }
++        else
++        { // add 6 extra points, 3 before enc_num_points table and 3 after
++          approx_enc_points = NULL;
++          precise_enc_dec_indices = (ui16*)points_store + 2u;
++          precise_dec_lut = (float*)((ui8*)points_store +
++            (ui32)(enc_num_points + 4u) * (ui32)sizeof(ui16)) + 2u;
++          marker_points = (ui8*)points_store
++          + (ui32)(enc_num_points + 4u) * (ui32)sizeof(ui16)
++          + (ui32)(num_points + 4u) * (ui32)sizeof(float);
++        }
+       }
+       void prepare_for_encoding();
++      void prepare_for_encoding_approx();
++      void prepare_for_encoding_precise();
+     };
+ 
+     // data structures used by param_nlt
+@@ -945,7 +1000,9 @@ namespace ojph {
+                                    ui8 decoded_bit_depth,
+                                    bool decoded_signedness,
+                                    ui32 d_min, ui32 d_max, ui8 pt_val,
+-                                   ui16 num_points, void* points, ui8 nl_type);
++                                   ui16 num_points, void* points, ui8 nl_type,
++                                   bool approx_encoding_nlt,
++                                   ui32 num_enc_points);
+ 
+       bool get_nonlinear_transform(ui32 comp_num,
+                                    ui8& decoded_bit_depth,
+diff --git a/Source/OpenEXR/OpenJPH/codestream/ojph_resolution.cpp b/Source/OpenEXR/OpenJPH/codestream/ojph_resolution.cpp
+index 0c1d4cd..4fbded4 100644
+--- a/Source/OpenEXR/OpenJPH/codestream/ojph_resolution.cpp
++++ b/Source/OpenEXR/OpenJPH/codestream/ojph_resolution.cpp
+@@ -617,14 +617,14 @@ namespace ojph {
+             {
+               si32* sp = aug->line->i32;
+               for (ui32 i = width; i > 0; --i)
+-                *sp++ <<= 1;
++                *sp++ *= 2;
+             }
+             else
+             {
+               assert(aug->line->flags & line_buf::LFT_64BIT);
+               si64* sp = aug->line->i64;
+               for (ui32 i = width; i > 0; --i)
+-                *sp++ <<= 1;
++                *sp++ *= 2;
+             }
+             // horizontal transform
+             rev_horz_ana(atk, bands[2].get_line(),
+diff --git a/Source/OpenEXR/OpenJPH/openjph/ojph_params.h b/Source/OpenEXR/OpenJPH/openjph/ojph_params.h
+index 0502cba..c546382 100644
+--- a/Source/OpenEXR/OpenJPH/openjph/ojph_params.h
++++ b/Source/OpenEXR/OpenJPH/openjph/ojph_params.h
+@@ -195,6 +195,19 @@ namespace ojph {
+      */
+     void set_irrev_quant(float delta);
+ 
++    /**
++     * @brief Set the irreversible reference quantization step size `delta_r`
++     *        and weight coefficients `sqrt(w_b)` for all components
++     *
++     * @sa set_irrev_quant(ui32, float, float*, size_t)
++     *
++     * @param delta Reference quantization step size `delta_r`
++     * @param num_weights Number of coefficients in weights
++     * @param weights Array of weight coefficients `sqrt(w_b)` in subband order
++     */
++    void set_irrev_quant(float delta, size_t num_weights,
++                         const float weights[]);
++
+     /**
+      * @brief Sets Qfactor
+      *
+@@ -215,6 +228,26 @@ namespace ojph {
+      */
+     void set_qfactor(float qfactor);
+ 
++    /**
++     * @brief Set the irreversible reference quantization step size `delta_r`
++     *        and weight coefficients `sqrt(w_b)` for a specific component.
++     *
++     * The quantization step size `delta_b` for subband `b` is given by:
++     * `delta_b = delta_r / sqrt(G_b * w_b * M_c)` where `G_b` is the energy
++     * gain factor for the sub-band synthesis operator, `w_b` is the visual
++     * weight, and `M_c` accounts for the gain from the MCT/ICT. The `b`
++     * corresponds to the subband order:
++     *
++     * `{LH1, HL1, HH1, LH2, HL2, HH2 … , HHN, LLN}`
++     *
++     * @param comp_idx Target component
++     * @param delta Reference quantization step size `delta_r`
++     * @param num_weights Number of coefficients in weights
++     * @param weights Array of weight coefficients `sqrt(w_b)` in subband order
++     */
++    void set_irrev_quant(ui32 comp_idx, float delta, size_t num_weights,
++                         const float weights[]);
++
+     /**
+      * @brief Set the irreversible quantization base delta for a specific
+      *        component
+@@ -367,11 +400,38 @@ namespace ojph {
+      * @param nlt_type: desired non-linearity from enum nonlinearity, only
+      *        OJPH_NLT_LUT_STYLE_NLT and OJPH_NLT_BINARY_COMPLEMENT_PLUS_LUT
+      *        are allowed
++     * @param approx_encoding_nlt: Selects how the non-linearity is represented
++     *        during encoding; the encoding process can either use
++     *        a fast approximate representation of the LUT during encoding, or
++     *        use the decoder's LUT directly (which we name `precise`).
++     *        Set this option to true to use the fast approximate
++     *        representation of the non‑linearity or set it to false for the
++     *        encoder to directly use the decoder's LUT. The precise approach
++     *        is accurate up to floating‑point rounding errors but is slower
++     *        than the approximate method. For LUTs that have near‑flat
++     *        sections, the precise encoding can be considerably slower; a
++     *        warning is issued if this occurs.
++     * @param num_enc_points: sets the number of points to use in the encoding
++     *        LUT.  For the approximate method, the more points you have the
++     *        more accurate representation of the LUT is.
++     *        The precise encoding process is basically a search to find the
++     *        closest no-larger entry in the decoder's LUT. We improve
++     *        performance of this slow search operation by using an encoder LUT
++     *        with num_enc_points entries.  If the num_enc_points is large
++     *        enough such that each edge in the decoder's LUT is accessed by
++     *        at least one entry in the encoder's LUT, a quick one step search
++     *        is sufficient; otherwise, we need multiple steps.
++     *        The one-step search is accelerated using SIMD instructions where
++     *        applicable, while it is not clear how useful it would be
++     *        to accelerate multi-step searches, so it was not implemented it.
++     *        If unsure set it to 0, and let the function call decide.
+      */
+-    void set_nonlinear_transform(ui32 comp_num,
+-                                 ui8 decoded_bit_depth, bool decoded_signedness,
+-                                 ui32 d_min, ui32 d_max, ui8 pt_val,
+-                                 ui16 num_points, void* points, ui8 nl_type);
++    void set_nonlinear_transform(ui32 comp_num, ui8 decoded_bit_depth,
++                                 bool decoded_signedness, ui32 d_min,
++                                 ui32 d_max, ui8 pt_val, ui16 num_points,
++                                 void* points, ui8 nl_type,
++                                 bool approx_encoding_nlt = false,
++                                 ui32 num_enc_points = 0);
+ 
+     /*************************************************************************
+      * @brief get the nonlinearity type associated with comp_num, which
+diff --git a/Source/OpenEXR/OpenJPH/openjph/ojph_version.h b/Source/OpenEXR/OpenJPH/openjph/ojph_version.h
+index 4e3d943..c9305ec 100644
+--- a/Source/OpenEXR/OpenJPH/openjph/ojph_version.h
++++ b/Source/OpenEXR/OpenJPH/openjph/ojph_version.h
+@@ -34,5 +34,5 @@
+ //***************************************************************************/
+ 
+ #define OPENJPH_VERSION_MAJOR 0
+-#define OPENJPH_VERSION_MINOR 32
++#define OPENJPH_VERSION_MINOR 33
+ #define OPENJPH_VERSION_PATCH 0
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_colour.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_colour.cpp
+index 8576e20..b01f53e 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_colour.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_colour.cpp
+@@ -295,7 +295,7 @@ namespace ojph {
+ 
+       if (rec->is_signed())
+       {
+-        const si32 bias = (si32)((1ULL << (rec->get_bit_depth() - 1)) + 1);
++        const ui32 bias = (ui32)(1ULL << (rec->get_bit_depth() - 1)) + 1u;
+         const float half = (float)(1ULL << (rec->get_bit_depth() - 1));
+         for (int i = (int)width; i > 0; --i) {
+           float t = *sp++ + 0.5f; // convert to [0, 1]
+@@ -309,7 +309,7 @@ namespace ojph {
+ 
+           si32 v = ojph_round(z * mul - half);
+           if (NLT_TYPE == 4)
+-            v = (v >= 0) ? v : (- v - bias);
++            v = (v >= 0) ? v : (si32)(-(ui32)v - bias);
+           *dp++ = v;
+         }
+       }
+@@ -366,32 +366,35 @@ namespace ojph {
+              (dst_line->flags & line_buf::LFT_32BIT) &&
+              (dst_line->flags & line_buf::LFT_INTEGER) == 0);
+       ojph_unused(is_signed);
++      ojph_unused(bit_depth);
+ 
+       assert(bit_depth <= 32);
+-      float mul = (float)(1.0 / (double)(1ULL << bit_depth));
+-      float d_min = rec->ft_min;
+-      float d_max = rec->ft_max;
++      float mul = rec->multiplier;
++      float ft_min = rec->ft_min;
++      float ft_max = rec->ft_max;
+       float delta = rec->delta;
+       float inv_delta = rec->inv_delta;
+-      float* lut = rec->enc_points;
++      float* lut = rec->approx_enc_points;
+ 
+       const si32* sp = src_line->i32 + src_line_offset;
+       float* dp = dst_line->f32;
+       if (rec->is_signed())
+       {
+-        const si32 bias = (si32)((1ULL << (rec->get_bit_depth() - 1)) + 1);
++        const ui32 bias = (ui32)(1ULL << (rec->get_bit_depth() - 1)) + 1u;
+         for (int i = (int)width; i > 0; --i) {
+           si32 v = *sp++;
+           if (NLT_TYPE == 4)
+-            v = (v >= 0) ? v : (- v - bias);
++            v = (v >= 0) ? v : (si32)(-(ui32)v - bias);
+           float t = (float)v * mul + 0.5f;  // convert to [0, 1]
+-          t = ojph_max(t, d_min);
+-          t = ojph_min(t, d_max);
+-          ui32 k = (ui32)floorf((t - d_min) * inv_delta);
+-          float d_k = d_min + (float)k * delta;
++
++          t = ojph_max(t, ft_min);
++          t = ojph_min(t, ft_max);
++          ui32 k = (ui32)floorf((t - ft_min) * inv_delta);
++          float d_k = ft_min + (float)k * delta;
+           float t_k = lut[k];
+           float t_kp1 = lut[k + 1];
+           float y = t_k + (t - d_k) * inv_delta * (t_kp1 - t_k);
++
+           *dp++ = y - 0.5f;
+         }
+       }
+@@ -400,13 +403,195 @@ namespace ojph {
+         for (int i = (int)width; i > 0; --i) {
+           si32 v = *sp++;
+           float t = (float)v * mul;  // it is in [0, 1]
+-          t = ojph_max(t, d_min);
+-          t = ojph_min(t, d_max);
+-          ui32 k = (ui32)floorf((t - d_min) * inv_delta);
+-          float d_k = d_min + (float)k * delta;
++
++          t = ojph_max(t, ft_min);
++          t = ojph_min(t, ft_max);
++          ui32 k = (ui32)floorf((t - ft_min) * inv_delta);
++          float d_k = ft_min + (float)k * delta;
+           float t_k = lut[k];
+           float t_kp1 = lut[k + 1];
+           float y = t_k + (t - d_k) * inv_delta * (t_kp1 - t_k);
++
++          *dp++ = y - 0.5f;
++        }
++      }
++    }
++
++    //////////////////////////////////////////////////////////////////////////
++    // The precise inverse of the look-up table, for a table whose derived
++    // version is fine enough that one step of it crosses at most one entry of
++    // the table that was supplied.  The entry that a value falls in is found
++    // with the same arithmetic that the approximation above uses, and the
++    // entry after that is looked at as well, to catch the values that fall
++    // past the entry that was found.
++    //////////////////////////////////////////////////////////////////////////
++    template<int NLT_TYPE>
++    static inline
++    void local_gen_irv_convert_to_float_nlt2or4_precise_1step(
++      const line_buf *src_line, ui32 src_line_offset, line_buf *dst_line,
++      ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
++    {
++      assert((src_line->flags & line_buf::LFT_32BIT) &&
++             (src_line->flags & line_buf::LFT_INTEGER) &&
++             (dst_line->flags & line_buf::LFT_32BIT) &&
++             (dst_line->flags & line_buf::LFT_INTEGER) == 0);
++      ojph_unused(is_signed);
++      ojph_unused(bit_depth);
++
++      assert(bit_depth <= 32);
++      float mul = rec->multiplier;
++      float ft_min = rec->ft_min;
++      float ft_max = rec->ft_max;
++      float fd_min = rec->fd_min;
++      float delta = rec->delta;
++      float inv_delta = rec->inv_delta;
++      ui16* indices= rec->precise_enc_dec_indices;
++      float* lut = rec->precise_dec_lut;
++
++      const si32* sp = src_line->i32 + src_line_offset;
++      float* dp = dst_line->f32;
++      if (rec->is_signed())
++      {
++        const ui32 bias = (ui32)(1ULL << (rec->get_bit_depth() - 1)) + 1u;
++        for (int i = (int)width; i > 0; --i) {
++          si32 v = *sp++;
++          if (NLT_TYPE == 4)
++            v = (v >= 0) ? v : (si32)(-(ui32)v - bias);
++          float t = (float)v * mul + 0.5f;  // convert to [0, 1]
++
++          t = ojph_max(t, ft_min);
++          t = ojph_min(t, ft_max);
++          ui32 k = (ui32)floorf((t - ft_min) * inv_delta);
++          k = indices[k];
++          float y0 = lut[k];      // lookup 0
++          float y1 = lut[k + 1];  // lookup 1
++          float y2 = lut[k + 2];  // lookup 2: one-step search
++          if (t > y1)
++          { y0 = y1; y1 = y2; ++k; }
++          float y = fd_min + (float)k * delta +
++            (y1 > y0 ? (t - y0) * delta / (y1 - y0) : 0.0f);
++
++          *dp++ = y - 0.5f;
++        }
++      }
++      else
++      {
++        for (int i = (int)width; i > 0; --i) {
++          si32 v = *sp++;
++          float t = (float)v * mul;  // it is in [0, 1]
++
++          t = ojph_max(t, ft_min);
++          t = ojph_min(t, ft_max);
++          ui32 k = (ui32)floorf((t - ft_min) * inv_delta);
++          k = indices[k];
++          float y0 = lut[k];      // lookup 0
++          float y1 = lut[k + 1];  // lookup 1
++          float y2 = lut[k + 2];  // lookup 2: one-step search
++          if (t > y1)
++          { y0 = y1; y1 = y2; ++k; }
++          float y = fd_min + (float)k * delta +
++            (y1 > y0 ? (t - y0) * delta / (y1 - y0) : 0.0f);
++
++          *dp++ = y - 0.5f;
++        }
++      }
++    }
++
++    //////////////////////////////////////////////////////////////////////////
++    // The precise inverse of the look-up table, for a table whose derived
++    // version is coarse enough that one step of it can cross more than one
++    // entry of the table that was supplied.  The entry that a value falls in
++    // then has to be found by searching, which does not vectorize.  This is
++    // the implementation that the SIMD versions in ojph_colour_sse2.cpp and
++    // ojph_colour_avx2.cpp copy, so keep those in step when this changes.
++    //////////////////////////////////////////////////////////////////////////
++    template<int NLT_TYPE>
++    static inline
++    void local_gen_irv_convert_to_float_nlt2or4_precise_search(
++      const line_buf *src_line, ui32 src_line_offset, line_buf *dst_line,
++      ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
++    {
++      assert((src_line->flags & line_buf::LFT_32BIT) &&
++             (src_line->flags & line_buf::LFT_INTEGER) &&
++             (dst_line->flags & line_buf::LFT_32BIT) &&
++             (dst_line->flags & line_buf::LFT_INTEGER) == 0);
++      ojph_unused(is_signed);
++      ojph_unused(bit_depth);
++
++      assert(bit_depth <= 32);
++      assert(rec->precise_max_steps > 1);
++      float mul = rec->multiplier;
++      float ft_min = rec->ft_min;
++      float ft_max = rec->ft_max;
++      float fd_min = rec->fd_min;
++      float delta = rec->delta;
++      float inv_delta = rec->inv_delta;
++      ui16* indices= rec->precise_enc_dec_indices;
++      float* lut = rec->precise_dec_lut;
++      ui32 num_points = rec->num_points;
++
++      const si32* sp = src_line->i32 + src_line_offset;
++      float* dp = dst_line->f32;
++      if (rec->is_signed())
++      {
++        const ui32 bias = (ui32)(1ULL << (rec->get_bit_depth() - 1)) + 1u;
++        for (int i = (int)width; i > 0; --i) {
++          si32 v = *sp++;
++          if (NLT_TYPE == 4)
++            v = (v >= 0) ? v : (si32)(-(ui32)v - bias);
++          float t = (float)v * mul + 0.5f;  // convert to [0, 1]
++
++          t = ojph_max(t, ft_min);
++          t = ojph_min(t, ft_max);
++          ui32 k = (ui32)floorf((t - ft_min) * inv_delta);
++          k = indices[k];
++
++          ui32 lo = k;
++          ui32 hi = ojph_min(k + rec->precise_max_steps + 1, num_points);
++          while (hi - lo > 1)
++          {
++            ui32 mid = (lo + hi) >> 1;
++            if (t >= lut[mid])
++              lo = mid;
++            else
++              hi = mid;
++          }
++
++          float y0 = lut[lo];
++          float y1 = lut[hi];
++          float y = fd_min + (float)lo * delta +
++            (y1 > y0 ? (t - y0) * delta / (y1 - y0) : 0.0f);
++
++          *dp++ = y - 0.5f;
++        }
++      }
++      else
++      {
++        for (int i = (int)width; i > 0; --i) {
++          si32 v = *sp++;
++          float t = (float)v * mul;  // it is in [0, 1]
++
++          t = ojph_max(t, ft_min);
++          t = ojph_min(t, ft_max);
++          ui32 k = (ui32)floorf((t - ft_min) * inv_delta);
++          k = indices[k];
++
++          ui32 lo = k;
++          ui32 hi = ojph_min(k + rec->precise_max_steps + 1, num_points);
++          while (hi - lo > 1)
++          {
++            ui32 mid = (lo + hi) >> 1;
++            if (t >= lut[mid])
++              lo = mid;
++            else
++              hi = mid;
++          }
++
++          float y0 = lut[lo];
++          float y1 = lut[hi];
++          float y = fd_min + (float)lo * delta +
++            (y1 > y0 ? (t - y0) * delta / (y1 - y0) : 0.0f);
++
+           *dp++ = y - 0.5f;
+         }
+       }
+@@ -423,14 +608,32 @@ namespace ojph {
+       //     src_line_offset, dst_line, bit_depth, is_signed, width);
+       // else
+       if (rec->get_type() == nl::OJPH_NLT_LUT_STYLE_NLT)
+-        local_gen_irv_convert_to_float_nlt2or4<2>(src_line,
+-          src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      {
++        if (rec->approx_encoding_nlt)
++          local_gen_irv_convert_to_float_nlt2or4<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else if (rec->precise_max_steps == 1)
++          local_gen_irv_convert_to_float_nlt2or4_precise_1step<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else
++          local_gen_irv_convert_to_float_nlt2or4_precise_search<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      }
+       // else if (rec->get_type() == nl::OJPH_NLT_BINARY_COMPLEMENT_NLT)
+       //   local_gen_irv_convert_to_float_nlt0or3<true>(src_line,
+       //     src_line_offset, dst_line, bit_depth, is_signed, width);
+       else if (rec->get_type() == nl::OJPH_NLT_BINARY_COMPLEMENT_PLUS_LUT)
+-        local_gen_irv_convert_to_float_nlt2or4<4>(src_line,
+-          src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      {
++        if (rec->approx_encoding_nlt)
++          local_gen_irv_convert_to_float_nlt2or4<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else if (rec->precise_max_steps == 1)
++          local_gen_irv_convert_to_float_nlt2or4_precise_1step<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else
++          local_gen_irv_convert_to_float_nlt2or4_precise_search<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      }
+       else
+         assert(0);
+     }
+@@ -586,14 +789,14 @@ namespace ojph {
+ 
+       if (is_signed)
+       {
+-        const si32 bias = (si32)((1ULL << (bit_depth - 1)) + 1);
++        const ui32 bias = (ui32)(1ULL << (bit_depth - 1)) + 1u;
+         for (int i = (int)width; i > 0; --i) {
+           float t = *sp++ * mul;
+           si32 v = ojph_round(t);
+           v = t >= fl_low_lim ? v : s32_low_lim;
+           v = t <  fl_up_lim  ? v : s32_up_lim;
+           if (NLT_TYPE3)
+-            v = (v >= 0) ? v : (- v - bias);
++            v = (v >= 0) ? v : (si32)(-(ui32)v - bias);
+           *dp++ = v;
+         }
+       }
+@@ -647,11 +850,11 @@ namespace ojph {
+       float* dp = dst_line->f32;
+       if (is_signed)
+       {
+-        const si32 bias = (si32)((1ULL << (bit_depth - 1)) + 1);
++        const ui32 bias = (ui32)(1ULL << (bit_depth - 1)) + 1u;
+         for (int i = (int)width; i > 0; --i) {
+           si32 v = *sp++;
+           if (NLT_TYPE3)
+-            v = (v >= 0) ? v : (- v - bias);
++            v = (v >= 0) ? v : (si32)(-(ui32)v - bias);
+           *dp++ = (float)v * mul;
+         }
+       }
+@@ -709,7 +912,7 @@ namespace ojph {
+         for (ui32 i = repeat; i > 0; --i)
+         {
+           si32 rr = *rp++, gg = *gp++, bb = *bp++;
+-          *yp++ = (rr + (gg << 1) + bb) >> 2;
++          *yp++ = (rr + 2 * gg + bb) >> 2;
+           *cbp++ = (bb - gg);
+           *crp++ = (rr - gg);
+         }
+@@ -727,7 +930,7 @@ namespace ojph {
+         for (ui32 i = repeat; i > 0; --i)
+         {
+           si64 rr = *rp++, gg = *gp++, bb = *bp++;
+-          *yp++ = (rr + (gg << 1) + bb) >> 2;
++          *yp++ = (rr + 2 * gg + bb) >> 2;
+           *cbp++ = (bb - gg);
+           *crp++ = (rr - gg);
+         }
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_colour_avx2.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_colour_avx2.cpp
+index 90d92f6..acc0a67 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_colour_avx2.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_colour_avx2.cpp
+@@ -369,8 +369,8 @@ namespace ojph {
+       si32* dp = dst_line->i32 + dst_line_offset;
+ 
+       __m256 mul = _mm256_set1_ps(rec->multiplier);
+-      __m256 d_min = _mm256_set1_ps(rec->fd_min);
+-      __m256 d_max = _mm256_set1_ps(rec->fd_max);
++      __m256 fd_min = _mm256_set1_ps(rec->fd_min);
++      __m256 fd_max = _mm256_set1_ps(rec->fd_max);
+       __m256 delta = _mm256_set1_ps(rec->delta);
+       __m256 inv_delta = _mm256_set1_ps(rec->inv_delta);
+       const float* lut = rec->dec_points;
+@@ -388,11 +388,11 @@ namespace ojph {
+         for (int i = (int)width; i > 0; i -= 8, sp += 8, dp += 8) {
+           __m256 t = _mm256_loadu_ps(sp);
+           t = _mm256_add_ps(t, half_ps);                 // convert to [0, 1]
+-          t = _mm256_max_ps(t, d_min);
+-          t = _mm256_min_ps(t, d_max);
++          t = _mm256_max_ps(t, fd_min);
++          t = _mm256_min_ps(t, fd_max);
+           __m256i k = _mm256_cvttps_epi32(
+-            _mm256_mul_ps(_mm256_sub_ps(t, d_min), inv_delta));
+-          __m256 d_k = _mm256_add_ps(d_min,
++            _mm256_mul_ps(_mm256_sub_ps(t, fd_min), inv_delta));
++          __m256 d_k = _mm256_add_ps(fd_min,
+             _mm256_mul_ps(_mm256_cvtepi32_ps(k), delta));
+           __m256 t_k = _mm256_i32gather_ps(lut, k, 4);
+           __m256 t_kp1 = _mm256_i32gather_ps(lut, _mm256_add_epi32(k, one), 4);
+@@ -417,11 +417,11 @@ namespace ojph {
+         for (int i = (int)width; i > 0; i -= 8, sp += 8, dp += 8) {
+           __m256 t = _mm256_loadu_ps(sp);
+           t = _mm256_add_ps(t, half_ps);                 // convert to [0, 1]
+-          t = _mm256_max_ps(t, d_min);
+-          t = _mm256_min_ps(t, d_max);
++          t = _mm256_max_ps(t, fd_min);
++          t = _mm256_min_ps(t, fd_max);
+           __m256i k = _mm256_cvttps_epi32(
+-            _mm256_mul_ps(_mm256_sub_ps(t, d_min), inv_delta));
+-          __m256 d_k = _mm256_add_ps(d_min,
++            _mm256_mul_ps(_mm256_sub_ps(t, fd_min), inv_delta));
++          __m256 d_k = _mm256_add_ps(fd_min,
+             _mm256_mul_ps(_mm256_cvtepi32_ps(k), delta));
+           __m256 t_k = _mm256_i32gather_ps(lut, k, 4);
+           __m256 t_kp1 =
+@@ -527,18 +527,20 @@ namespace ojph {
+       ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
+     {
+       ojph_unused(is_signed);
++      ojph_unused(bit_depth);
++
+       assert((src_line->flags & line_buf::LFT_32BIT) &&
+              (src_line->flags & line_buf::LFT_INTEGER) &&
+              (dst_line->flags & line_buf::LFT_32BIT) &&
+              (dst_line->flags & line_buf::LFT_INTEGER) == 0);
+ 
+       assert(bit_depth <= 32);
+-      __m256 mul = _mm256_set1_ps((float)(1.0 / (double)(1ULL << bit_depth)));
+-      __m256 d_min = _mm256_set1_ps(rec->ft_min);
+-      __m256 d_max = _mm256_set1_ps(rec->ft_max);
++      __m256 mul = _mm256_set1_ps(rec->multiplier);
++      __m256 ft_min = _mm256_set1_ps(rec->ft_min);
++      __m256 ft_max = _mm256_set1_ps(rec->ft_max);
+       __m256 delta = _mm256_set1_ps(rec->delta);
+       __m256 inv_delta = _mm256_set1_ps(rec->inv_delta);
+-      const float* lut = rec->enc_points;
++      const float* lut = rec->approx_enc_points;
+ 
+       __m256 half_ps = _mm256_set1_ps(0.5f);
+       __m256i one = _mm256_set1_epi32(1);
+@@ -562,11 +564,11 @@ namespace ojph {
+           }
+           __m256 t = _mm256_add_ps(                  // convert to [0, 1]
+             _mm256_mul_ps(_mm256_cvtepi32_ps(v), mul), half_ps);
+-          t = _mm256_max_ps(t, d_min);
+-          t = _mm256_min_ps(t, d_max);
++          t = _mm256_max_ps(t, ft_min);
++          t = _mm256_min_ps(t, ft_max);
+           __m256i k = _mm256_cvttps_epi32(
+-            _mm256_mul_ps(_mm256_sub_ps(t, d_min), inv_delta));
+-          __m256 d_k = _mm256_add_ps(d_min,
++            _mm256_mul_ps(_mm256_sub_ps(t, ft_min), inv_delta));
++          __m256 d_k = _mm256_add_ps(ft_min,
+             _mm256_mul_ps(_mm256_cvtepi32_ps(k), delta));
+           __m256 t_k = _mm256_i32gather_ps(lut, k, 4);
+           __m256 t_kp1 =
+@@ -582,11 +584,11 @@ namespace ojph {
+         for (int i = (int)width; i > 0; i -= 8, sp += 8, dp += 8) {
+           __m256i v = _mm256_loadu_si256((__m256i*)sp);
+           __m256 t = _mm256_mul_ps(_mm256_cvtepi32_ps(v), mul);  // in [0, 1]
+-          t = _mm256_max_ps(t, d_min);
+-          t = _mm256_min_ps(t, d_max);
++          t = _mm256_max_ps(t, ft_min);
++          t = _mm256_min_ps(t, ft_max);
+           __m256i k = _mm256_cvttps_epi32(
+-            _mm256_mul_ps(_mm256_sub_ps(t, d_min), inv_delta));
+-          __m256 d_k = _mm256_add_ps(d_min,
++            _mm256_mul_ps(_mm256_sub_ps(t, ft_min), inv_delta));
++          __m256 d_k = _mm256_add_ps(ft_min,
+             _mm256_mul_ps(_mm256_cvtepi32_ps(k), delta));
+           __m256 t_k = _mm256_i32gather_ps(lut, k, 4);
+           __m256 t_kp1 =
+@@ -599,6 +601,285 @@ namespace ojph {
+       }
+     }
+ 
++    //////////////////////////////////////////////////////////////////////////
++    // The precise inverse of the look-up table, for a table whose derived
++    // version is fine enough that one step of it crosses at most one entry of
++    // the table that was supplied.  The entry that a value falls in is found
++    // with the same arithmetic that the approximation above uses, and the
++    // entry after that is looked at as well, to catch the values that fall
++    // past the entry that was found.
++    //////////////////////////////////////////////////////////////////////////
++    template<int NLT_TYPE>
++    static inline
++    void local_avx2_irv_convert_to_float_nlt2or4_precise_1step(
++      const line_buf *src_line, ui32 src_line_offset, line_buf *dst_line,
++      ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
++    {
++      ojph_unused(is_signed);
++      ojph_unused(bit_depth);
++
++      assert((src_line->flags & line_buf::LFT_32BIT) &&
++             (src_line->flags & line_buf::LFT_INTEGER) &&
++             (dst_line->flags & line_buf::LFT_32BIT) &&
++             (dst_line->flags & line_buf::LFT_INTEGER) == 0);
++
++      assert(bit_depth <= 32);
++      __m256 mul = _mm256_set1_ps(rec->multiplier);
++      __m256 ft_min = _mm256_set1_ps(rec->ft_min);
++      __m256 ft_max = _mm256_set1_ps(rec->ft_max);
++      __m256 fd_min = _mm256_set1_ps(rec->fd_min);
++      __m256 delta = _mm256_set1_ps(rec->delta);
++      __m256 inv_delta = _mm256_set1_ps(rec->inv_delta);
++      const float* lut = rec->precise_dec_lut;
++      const ui16* indices = rec->precise_enc_dec_indices;
++
++      __m256 half_ps = _mm256_set1_ps(0.5f);
++      __m256 one_ps = _mm256_set1_ps(1.0f);
++      __m256 zero_ps = _mm256_setzero_ps();
++      __m256i one = _mm256_set1_epi32(1);
++      __m256i two = _mm256_set1_epi32(2);
++      __m256i low16 = _mm256_set1_epi32(0xFFFF);
++
++      const si32* sp = src_line->i32 + src_line_offset;
++      float* dp = dst_line->f32;
++      if (rec->is_signed())
++      {
++        __m256i bias =
++          _mm256_set1_epi32(-(si32)((1ULL << (rec->get_bit_depth() - 1)) + 1));
++        __m256i zero = _mm256_setzero_si256();
++        for (int i = (int)width; i > 0; i -= 8, sp += 8, dp += 8) {
++          __m256i v = _mm256_loadu_si256((__m256i*)sp);
++          if (NLT_TYPE == 4)
++          {
++            __m256i c = _mm256_cmpgt_epi32(zero, v); // 0xFFFFFFFF for -ve val
++            __m256i neg = _mm256_sub_epi32(bias, v); // - bias - value
++            neg = _mm256_and_si256(c, neg);          // keep only - bias - val
++            v = _mm256_andnot_si256(c, v);           // keep only +ve or 0
++            v = _mm256_or_si256(neg, v);             // combine
++          }
++          __m256 t = _mm256_add_ps(                  // convert to [0, 1]
++            _mm256_mul_ps(_mm256_cvtepi32_ps(v), mul), half_ps);
++          t = _mm256_max_ps(t, ft_min);
++          t = _mm256_min_ps(t, ft_max);
++          __m256i kk = _mm256_cvttps_epi32(
++            _mm256_mul_ps(_mm256_sub_ps(t, ft_min), inv_delta));
++          // the indices are 16 bits wide, so gather 32 bits at a stride of
++          // two and keep the low half of each; the two entries that are read
++          // past the end of the indices are part of their allocation
++          __m256i k = _mm256_and_si256(
++            _mm256_i32gather_epi32((const int*)indices, kk, 2), low16);
++          __m256 y0 = _mm256_i32gather_ps(lut, k, 4);
++          __m256 y1 = _mm256_i32gather_ps(lut, _mm256_add_epi32(k, one), 4);
++          __m256 y2 = _mm256_i32gather_ps(lut, _mm256_add_epi32(k, two), 4);
++          // one step of search: a value that falls past the entry that was
++          // found belongs to the entry after it
++          __m256 adv = _mm256_cmp_ps(t, y1, _CMP_GT_OQ);
++          y0 = _mm256_blendv_ps(y0, y1, adv);
++          y1 = _mm256_blendv_ps(y1, y2, adv);
++          k = _mm256_add_epi32(k,
++            _mm256_and_si256(_mm256_castps_si256(adv), one));
++          // interpolate, but only over a segment that has a width; the last
++          // entry of the table is repeated, and a segment without a width
++          // contributes nothing
++          __m256 den = _mm256_sub_ps(y1, y0);
++          __m256 has = _mm256_cmp_ps(den, zero_ps, _CMP_GT_OQ);
++          den = _mm256_blendv_ps(one_ps, den, has);
++          __m256 y = _mm256_add_ps(
++            _mm256_add_ps(fd_min,
++              _mm256_mul_ps(_mm256_cvtepi32_ps(k), delta)),
++            _mm256_and_ps(_mm256_div_ps(
++              _mm256_mul_ps(_mm256_sub_ps(t, y0), delta), den), has));
++          _mm256_storeu_ps(dp, _mm256_sub_ps(y, half_ps));
++        }
++      }
++      else
++      {
++        for (int i = (int)width; i > 0; i -= 8, sp += 8, dp += 8) {
++          __m256i v = _mm256_loadu_si256((__m256i*)sp);
++          __m256 t = _mm256_mul_ps(_mm256_cvtepi32_ps(v), mul);  // in [0, 1]
++          t = _mm256_max_ps(t, ft_min);
++          t = _mm256_min_ps(t, ft_max);
++          __m256i kk = _mm256_cvttps_epi32(
++            _mm256_mul_ps(_mm256_sub_ps(t, ft_min), inv_delta));
++          // the indices are 16 bits wide, so gather 32 bits at a stride of
++          // two and keep the low half of each; the two entries that are read
++          // past the end of the indices are part of their allocation
++          __m256i k = _mm256_and_si256(
++            _mm256_i32gather_epi32((const int*)indices, kk, 2), low16);
++          __m256 y0 = _mm256_i32gather_ps(lut, k, 4);
++          __m256 y1 = _mm256_i32gather_ps(lut, _mm256_add_epi32(k, one), 4);
++          __m256 y2 = _mm256_i32gather_ps(lut, _mm256_add_epi32(k, two), 4);
++          // one step of search: a value that falls past the entry that was
++          // found belongs to the entry after it
++          __m256 adv = _mm256_cmp_ps(t, y1, _CMP_GT_OQ);
++          y0 = _mm256_blendv_ps(y0, y1, adv);
++          y1 = _mm256_blendv_ps(y1, y2, adv);
++          k = _mm256_add_epi32(k,
++            _mm256_and_si256(_mm256_castps_si256(adv), one));
++          // interpolate, but only over a segment that has a width; the last
++          // entry of the table is repeated, and a segment without a width
++          // contributes nothing
++          __m256 den = _mm256_sub_ps(y1, y0);
++          __m256 has = _mm256_cmp_ps(den, zero_ps, _CMP_GT_OQ);
++          den = _mm256_blendv_ps(one_ps, den, has);
++          __m256 y = _mm256_add_ps(
++            _mm256_add_ps(fd_min,
++              _mm256_mul_ps(_mm256_cvtepi32_ps(k), delta)),
++            _mm256_and_ps(_mm256_div_ps(
++              _mm256_mul_ps(_mm256_sub_ps(t, y0), delta), den), has));
++          _mm256_storeu_ps(dp, _mm256_sub_ps(y, half_ps));
++        }
++      }
++    }
++
++    //////////////////////////////////////////////////////////////////////////
++    // The precise inverse of the look-up table, for a table whose derived
++    // version is coarse enough that one step of it can cross more than one
++    // entry of the table that was supplied.  The entry that a value falls in
++    // is found with a fixed-depth binary search over the entries the step can
++    // reach; the depth is the worst case, ceil(log2(precise_max_steps + 1)),
++    // so every lane performs the same number of steps.  This mirrors
++    // local_gen_irv_convert_to_float_nlt2or4_precise_search in ojph_colour.cpp,
++    // so keep the two in step when that one changes.
++    //////////////////////////////////////////////////////////////////////////
++    template<int NLT_TYPE>
++    static inline
++    void local_avx2_irv_convert_to_float_nlt2or4_precise_search(
++      const line_buf *src_line, ui32 src_line_offset, line_buf *dst_line,
++      ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
++    {
++      ojph_unused(is_signed);
++      ojph_unused(bit_depth);
++
++      assert((src_line->flags & line_buf::LFT_32BIT) &&
++             (src_line->flags & line_buf::LFT_INTEGER) &&
++             (dst_line->flags & line_buf::LFT_32BIT) &&
++             (dst_line->flags & line_buf::LFT_INTEGER) == 0);
++
++      assert(bit_depth <= 32);
++      assert(rec->precise_max_steps > 1);
++      __m256 mul = _mm256_set1_ps(rec->multiplier);
++      __m256 ft_min = _mm256_set1_ps(rec->ft_min);
++      __m256 ft_max = _mm256_set1_ps(rec->ft_max);
++      __m256 fd_min = _mm256_set1_ps(rec->fd_min);
++      __m256 delta = _mm256_set1_ps(rec->delta);
++      __m256 inv_delta = _mm256_set1_ps(rec->inv_delta);
++      const float* lut = rec->precise_dec_lut;
++      const ui16* indices = rec->precise_enc_dec_indices;
++      ui32 num_points = rec->num_points;
++
++      // the search interval is at most precise_max_steps + 1 entries wide;
++      // run the worst-case number of binary-search steps on every lane,
++      // which is ceil(log2(span))
++      ui32 span = rec->precise_max_steps + 1;
++      int steps = 32 - (int)count_leading_zeros(rec->precise_max_steps);
++
++      __m256 half_ps = _mm256_set1_ps(0.5f);
++      __m256 one_ps = _mm256_set1_ps(1.0f);
++      __m256 zero_ps = _mm256_setzero_ps();
++      __m256i low16 = _mm256_set1_epi32(0xFFFF);
++      __m256i span_epi32 = _mm256_set1_epi32((si32)span);
++      __m256i num_epi32 = _mm256_set1_epi32((si32)num_points);
++
++      const si32* sp = src_line->i32 + src_line_offset;
++      float* dp = dst_line->f32;
++      if (rec->is_signed())
++      {
++        __m256i bias =
++          _mm256_set1_epi32(-(si32)((1ULL << (rec->get_bit_depth() - 1)) + 1));
++        __m256i zero = _mm256_setzero_si256();
++        for (int i = (int)width; i > 0; i -= 8, sp += 8, dp += 8) {
++          __m256i v = _mm256_loadu_si256((__m256i*)sp);
++          if (NLT_TYPE == 4)
++          {
++            __m256i c = _mm256_cmpgt_epi32(zero, v); // 0xFFFFFFFF for -ve val
++            __m256i neg = _mm256_sub_epi32(bias, v); // - bias - value
++            neg = _mm256_and_si256(c, neg);          // keep only - bias - val
++            v = _mm256_andnot_si256(c, v);           // keep only +ve or 0
++            v = _mm256_or_si256(neg, v);             // combine
++          }
++          __m256 t = _mm256_add_ps(                  // convert to [0, 1]
++            _mm256_mul_ps(_mm256_cvtepi32_ps(v), mul), half_ps);
++          t = _mm256_max_ps(t, ft_min);
++          t = _mm256_min_ps(t, ft_max);
++          __m256i kk = _mm256_cvttps_epi32(
++            _mm256_mul_ps(_mm256_sub_ps(t, ft_min), inv_delta));
++          // the indices are 16 bits wide, so gather 32 bits at a stride of
++          // two and keep the low half of each; the two entries that are read
++          // past the end of the indices are part of their allocation
++          __m256i lo = _mm256_and_si256(
++            _mm256_i32gather_epi32((const int*)indices, kk, 2), low16);
++          __m256i hi = _mm256_min_epi32(
++            _mm256_add_epi32(lo, span_epi32), num_epi32);
++
++          for (int step = 0; step < steps; ++step)
++          {
++            __m256i mid = _mm256_srli_epi32(_mm256_add_epi32(lo, hi), 1);
++            __m256 lmid = _mm256_i32gather_ps(lut, mid, 4);
++            __m256 ge = _mm256_cmp_ps(t, lmid, _CMP_GE_OQ);
++            __m256i g = _mm256_castps_si256(ge);
++            lo = _mm256_blendv_epi8(lo, mid, g);
++            hi = _mm256_blendv_epi8(mid, hi, g);
++          }
++
++          __m256 y0 = _mm256_i32gather_ps(lut, lo, 4);
++          __m256 y1 = _mm256_i32gather_ps(lut, hi, 4);
++          // interpolate, but only over a segment that has a width; the last
++          // entry of the table is repeated, and a segment without a width
++          // contributes nothing
++          __m256 den = _mm256_sub_ps(y1, y0);
++          __m256 has = _mm256_cmp_ps(den, zero_ps, _CMP_GT_OQ);
++          den = _mm256_blendv_ps(one_ps, den, has);
++          __m256 y = _mm256_add_ps(
++            _mm256_add_ps(fd_min,
++              _mm256_mul_ps(_mm256_cvtepi32_ps(lo), delta)),
++            _mm256_and_ps(_mm256_div_ps(
++              _mm256_mul_ps(_mm256_sub_ps(t, y0), delta), den), has));
++          _mm256_storeu_ps(dp, _mm256_sub_ps(y, half_ps));
++        }
++      }
++      else
++      {
++        for (int i = (int)width; i > 0; i -= 8, sp += 8, dp += 8) {
++          __m256i v = _mm256_loadu_si256((__m256i*)sp);
++          __m256 t = _mm256_mul_ps(_mm256_cvtepi32_ps(v), mul);  // in [0, 1]
++          t = _mm256_max_ps(t, ft_min);
++          t = _mm256_min_ps(t, ft_max);
++          __m256i kk = _mm256_cvttps_epi32(
++            _mm256_mul_ps(_mm256_sub_ps(t, ft_min), inv_delta));
++          // the indices are 16 bits wide, so gather 32 bits at a stride of
++          // two and keep the low half of each; the two entries that are read
++          // past the end of the indices are part of their allocation
++          __m256i lo = _mm256_and_si256(
++            _mm256_i32gather_epi32((const int*)indices, kk, 2), low16);
++          __m256i hi = _mm256_min_epi32(
++            _mm256_add_epi32(lo, span_epi32), num_epi32);
++
++          for (int step = 0; step < steps; ++step)
++          {
++            __m256i mid = _mm256_srli_epi32(_mm256_add_epi32(lo, hi), 1);
++            __m256 lmid = _mm256_i32gather_ps(lut, mid, 4);
++            __m256 ge = _mm256_cmp_ps(t, lmid, _CMP_GE_OQ);
++            __m256i g = _mm256_castps_si256(ge);
++            lo = _mm256_blendv_epi8(lo, mid, g);
++            hi = _mm256_blendv_epi8(mid, hi, g);
++          }
++
++          __m256 y0 = _mm256_i32gather_ps(lut, lo, 4);
++          __m256 y1 = _mm256_i32gather_ps(lut, hi, 4);
++          __m256 den = _mm256_sub_ps(y1, y0);
++          __m256 has = _mm256_cmp_ps(den, zero_ps, _CMP_GT_OQ);
++          den = _mm256_blendv_ps(one_ps, den, has);
++          __m256 y = _mm256_add_ps(
++            _mm256_add_ps(fd_min,
++              _mm256_mul_ps(_mm256_cvtepi32_ps(lo), delta)),
++            _mm256_and_ps(_mm256_div_ps(
++              _mm256_mul_ps(_mm256_sub_ps(t, y0), delta), den), has));
++          _mm256_storeu_ps(dp, _mm256_sub_ps(y, half_ps));
++        }
++      }
++    }
++
+     //////////////////////////////////////////////////////////////////////////
+     void avx2_irv_convert_to_float_nlt(const line_buf *src_line,
+       ui32 src_line_offset, line_buf *dst_line,
+@@ -606,11 +887,29 @@ namespace ojph {
+     {
+       using nl = nlt_rec::nonlinearity;
+       if (rec->get_type() == nl::OJPH_NLT_LUT_STYLE_NLT)
+-        local_avx2_irv_convert_to_float_nlt2or4<2>(src_line,
+-          src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      {
++        if (rec->approx_encoding_nlt)
++          local_avx2_irv_convert_to_float_nlt2or4<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else if (rec->precise_max_steps == 1)
++          local_avx2_irv_convert_to_float_nlt2or4_precise_1step<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else
++          local_avx2_irv_convert_to_float_nlt2or4_precise_search<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      }
+       else if (rec->get_type() == nl::OJPH_NLT_BINARY_COMPLEMENT_PLUS_LUT)
+-        local_avx2_irv_convert_to_float_nlt2or4<4>(src_line,
+-          src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      {
++        if (rec->approx_encoding_nlt)
++          local_avx2_irv_convert_to_float_nlt2or4<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else if (rec->precise_max_steps == 1)
++          local_avx2_irv_convert_to_float_nlt2or4_precise_1step<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else
++          local_avx2_irv_convert_to_float_nlt2or4_precise_search<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      }
+       else
+         assert(0);
+     }
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_colour_sse2.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_colour_sse2.cpp
+index 55716a5..e340116 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_colour_sse2.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_colour_sse2.cpp
+@@ -219,8 +219,8 @@ namespace ojph {
+       si32* dp = dst_line->i32 + dst_line_offset;
+ 
+       __m128 mul = _mm_set1_ps(rec->multiplier);
+-      __m128 d_min = _mm_set1_ps(rec->fd_min);
+-      __m128 d_max = _mm_set1_ps(rec->fd_max);
++      __m128 fd_min = _mm_set1_ps(rec->fd_min);
++      __m128 fd_max = _mm_set1_ps(rec->fd_max);
+       __m128 delta = _mm_set1_ps(rec->delta);
+       __m128 inv_delta = _mm_set1_ps(rec->inv_delta);
+       const float* lut = rec->dec_points;
+@@ -236,11 +236,11 @@ namespace ojph {
+         for (int i = (int)width; i > 0; i -= 4, sp += 4, dp += 4) {
+           __m128 t = _mm_loadu_ps(sp);
+           t = _mm_add_ps(t, half_ps);                 // convert to [0, 1]
+-          t = _mm_max_ps(t, d_min);
+-          t = _mm_min_ps(t, d_max);
++          t = _mm_max_ps(t, fd_min);
++          t = _mm_min_ps(t, fd_max);
+           __m128i k = _mm_cvttps_epi32(
+-            _mm_mul_ps(_mm_sub_ps(t, d_min), inv_delta));
+-          __m128 d_k = _mm_add_ps(d_min,
++            _mm_mul_ps(_mm_sub_ps(t, fd_min), inv_delta));
++          __m128 d_k = _mm_add_ps(fd_min,
+             _mm_mul_ps(_mm_cvtepi32_ps(k), delta));
+           // SSE2 has no gather; perform the LUT lookup 4 times and build
+           // the vector from the individual results
+@@ -271,11 +271,11 @@ namespace ojph {
+         for (int i = (int)width; i > 0; i -= 4, sp += 4, dp += 4) {
+           __m128 t = _mm_loadu_ps(sp);
+           t = _mm_add_ps(t, half_ps);                 // convert to [0, 1]
+-          t = _mm_max_ps(t, d_min);
+-          t = _mm_min_ps(t, d_max);
++          t = _mm_max_ps(t, fd_min);
++          t = _mm_min_ps(t, fd_max);
+           __m128i k = _mm_cvttps_epi32(
+-            _mm_mul_ps(_mm_sub_ps(t, d_min), inv_delta));
+-          __m128 d_k = _mm_add_ps(d_min,
++            _mm_mul_ps(_mm_sub_ps(t, fd_min), inv_delta));
++          __m128 d_k = _mm_add_ps(fd_min,
+             _mm_mul_ps(_mm_cvtepi32_ps(k), delta));
+           // SSE2 has no gather; perform the LUT lookup 4 times and build
+           // the vector from the individual results
+@@ -588,6 +588,7 @@ namespace ojph {
+       ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
+     {
+       ojph_unused(is_signed);
++      ojph_unused(bit_depth);
+ 
+       assert((src_line->flags & line_buf::LFT_32BIT) &&
+              (src_line->flags & line_buf::LFT_INTEGER) &&
+@@ -595,12 +596,12 @@ namespace ojph {
+              (dst_line->flags & line_buf::LFT_INTEGER) == 0);
+ 
+       assert(bit_depth <= 32);
+-      __m128 mul = _mm_set1_ps((float)(1.0 / (double)(1ULL << bit_depth)));
+-      __m128 d_min = _mm_set1_ps(rec->ft_min);
+-      __m128 d_max = _mm_set1_ps(rec->ft_max);
++      __m128 mul = _mm_set1_ps(rec->multiplier);
++      __m128 ft_min = _mm_set1_ps(rec->ft_min);
++      __m128 ft_max = _mm_set1_ps(rec->ft_max);
+       __m128 delta = _mm_set1_ps(rec->delta);
+       __m128 inv_delta = _mm_set1_ps(rec->inv_delta);
+-      const float* lut = rec->enc_points;
++      const float* lut = rec->approx_enc_points;
+ 
+       __m128 half_ps = _mm_set1_ps(0.5f);
+ 
+@@ -623,11 +624,11 @@ namespace ojph {
+           }
+           __m128 t = _mm_add_ps(                      // convert to [0, 1]
+             _mm_mul_ps(_mm_cvtepi32_ps(v), mul), half_ps);
+-          t = _mm_max_ps(t, d_min);
+-          t = _mm_min_ps(t, d_max);
++          t = _mm_max_ps(t, ft_min);
++          t = _mm_min_ps(t, ft_max);
+           __m128i k = _mm_cvttps_epi32(
+-            _mm_mul_ps(_mm_sub_ps(t, d_min), inv_delta));
+-          __m128 d_k = _mm_add_ps(d_min,
++            _mm_mul_ps(_mm_sub_ps(t, ft_min), inv_delta));
++          __m128 d_k = _mm_add_ps(ft_min,
+             _mm_mul_ps(_mm_cvtepi32_ps(k), delta));
+           // SSE2 has no gather; perform the LUT lookup 4 times and build
+           // the vector from the individual results
+@@ -648,11 +649,11 @@ namespace ojph {
+         for (int i = (int)width; i > 0; i -= 4, sp += 4, dp += 4) {
+           __m128i v = _mm_loadu_si128((__m128i*)sp);
+           __m128 t = _mm_mul_ps(_mm_cvtepi32_ps(v), mul);  // in [0, 1]
+-          t = _mm_max_ps(t, d_min);
+-          t = _mm_min_ps(t, d_max);
++          t = _mm_max_ps(t, ft_min);
++          t = _mm_min_ps(t, ft_max);
+           __m128i k = _mm_cvttps_epi32(
+-            _mm_mul_ps(_mm_sub_ps(t, d_min), inv_delta));
+-          __m128 d_k = _mm_add_ps(d_min,
++            _mm_mul_ps(_mm_sub_ps(t, ft_min), inv_delta));
++          __m128 d_k = _mm_add_ps(ft_min,
+             _mm_mul_ps(_mm_cvtepi32_ps(k), delta));
+           // SSE2 has no gather; perform the LUT lookup 4 times and build
+           // the vector from the individual results
+@@ -670,6 +671,317 @@ namespace ojph {
+       }
+     }
+ 
++    //////////////////////////////////////////////////////////////////////////
++    // The precise inverse of the look-up table, for a table whose derived
++    // version is fine enough that one step of it crosses at most one entry of
++    // the table that was supplied.  The entry that a value falls in is found
++    // with the same arithmetic that the approximation above uses, and the
++    // entry after that is looked at as well, to catch the values that fall
++    // past the entry that was found.
++    //////////////////////////////////////////////////////////////////////////
++    template<int NLT_TYPE>
++    static inline
++    void local_sse2_irv_convert_to_float_nlt2or4_precise_1step(
++      const line_buf *src_line, ui32 src_line_offset, line_buf *dst_line,
++      ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
++    {
++      ojph_unused(is_signed);
++      ojph_unused(bit_depth);
++
++      assert((src_line->flags & line_buf::LFT_32BIT) &&
++             (src_line->flags & line_buf::LFT_INTEGER) &&
++             (dst_line->flags & line_buf::LFT_32BIT) &&
++             (dst_line->flags & line_buf::LFT_INTEGER) == 0);
++
++      assert(bit_depth <= 32);
++      __m128 mul = _mm_set1_ps(rec->multiplier);
++      __m128 ft_min = _mm_set1_ps(rec->ft_min);
++      __m128 ft_max = _mm_set1_ps(rec->ft_max);
++      __m128 fd_min = _mm_set1_ps(rec->fd_min);
++      __m128 delta = _mm_set1_ps(rec->delta);
++      __m128 inv_delta = _mm_set1_ps(rec->inv_delta);
++      const float* lut = rec->precise_dec_lut;
++      const ui16* indices = rec->precise_enc_dec_indices;
++
++      __m128 half_ps = _mm_set1_ps(0.5f);
++      __m128 one_ps = _mm_set1_ps(1.0f);
++      __m128 zero_ps = _mm_setzero_ps();
++      __m128i one = _mm_set1_epi32(1);
++
++      const si32* sp = src_line->i32 + src_line_offset;
++      float* dp = dst_line->f32;
++      if (rec->is_signed())
++      {
++        __m128i bias =
++          _mm_set1_epi32(-(si32)((1ULL << (rec->get_bit_depth() - 1)) + 1));
++        __m128i zero = _mm_setzero_si128();
++        for (int i = (int)width; i > 0; i -= 4, sp += 4, dp += 4) {
++          __m128i v = _mm_loadu_si128((__m128i*)sp);
++          if (NLT_TYPE == 4)
++          {
++            __m128i c = _mm_cmpgt_epi32(zero, v); // 0xFFFFFFFF for -ve val
++            __m128i neg = _mm_sub_epi32(bias, v); // - bias - value
++            neg = _mm_and_si128(c, neg);          // keep only - bias - val
++            v = _mm_andnot_si128(c, v);           // keep only +ve or 0
++            v = _mm_or_si128(neg, v);             // combine
++          }
++          __m128 t = _mm_add_ps(                      // convert to [0, 1]
++            _mm_mul_ps(_mm_cvtepi32_ps(v), mul), half_ps);
++          t = _mm_max_ps(t, ft_min);
++          t = _mm_min_ps(t, ft_max);
++          __m128i kk = _mm_cvttps_epi32(
++            _mm_mul_ps(_mm_sub_ps(t, ft_min), inv_delta));
++          // SSE2 has no gather; look the entries up one at a time and build
++          // the vectors from the individual results.  The two entries that are
++          // read past the end of the indices, and the two that are read past
++          // the end of the table, are part of their allocations
++          si32 e[4], k[4];
++          _mm_storeu_si128((__m128i*)e, kk);
++          for (int j = 0; j < 4; ++j)
++            k[j] = (si32)indices[e[j]];
++          __m128i kv = _mm_setr_epi32(k[0], k[1], k[2], k[3]);
++          __m128 y0 = _mm_set_ps(lut[k[3]], lut[k[2]], lut[k[1]], lut[k[0]]);
++          __m128 y1 = _mm_set_ps(lut[k[3] + 1], lut[k[2] + 1],
++                                 lut[k[1] + 1], lut[k[0] + 1]);
++          __m128 y2 = _mm_set_ps(lut[k[3] + 2], lut[k[2] + 2],
++                                 lut[k[1] + 2], lut[k[0] + 2]);
++          // one step of search: a value that falls past the entry that was
++          // found belongs to the entry after it; SSE2 has no blend, so select
++          // with the mask
++          __m128 adv = _mm_cmpgt_ps(t, y1);
++          y0 = _mm_or_ps(_mm_and_ps(adv, y1), _mm_andnot_ps(adv, y0));
++          y1 = _mm_or_ps(_mm_and_ps(adv, y2), _mm_andnot_ps(adv, y1));
++          kv = _mm_add_epi32(kv,
++            _mm_and_si128(_mm_castps_si128(adv), one));
++          // interpolate, but only over a segment that has a width; the last
++          // entry of the table is repeated, and a segment without a width
++          // contributes nothing
++          __m128 den = _mm_sub_ps(y1, y0);
++          __m128 has = _mm_cmpgt_ps(den, zero_ps);
++          den = _mm_or_ps(_mm_and_ps(has, den), _mm_andnot_ps(has, one_ps));
++          __m128 y = _mm_add_ps(
++            _mm_add_ps(fd_min, _mm_mul_ps(_mm_cvtepi32_ps(kv), delta)),
++            _mm_and_ps(has, _mm_div_ps(
++              _mm_mul_ps(_mm_sub_ps(t, y0), delta), den)));
++          _mm_storeu_ps(dp, _mm_sub_ps(y, half_ps));
++        }
++      }
++      else
++      {
++        for (int i = (int)width; i > 0; i -= 4, sp += 4, dp += 4) {
++          __m128i v = _mm_loadu_si128((__m128i*)sp);
++          __m128 t = _mm_mul_ps(_mm_cvtepi32_ps(v), mul);  // in [0, 1]
++          t = _mm_max_ps(t, ft_min);
++          t = _mm_min_ps(t, ft_max);
++          __m128i kk = _mm_cvttps_epi32(
++            _mm_mul_ps(_mm_sub_ps(t, ft_min), inv_delta));
++          // SSE2 has no gather; look the entries up one at a time and build
++          // the vectors from the individual results.  The two entries that are
++          // read past the end of the indices, and the two that are read past
++          // the end of the table, are part of their allocations
++          si32 e[4], k[4];
++          _mm_storeu_si128((__m128i*)e, kk);
++          for (int j = 0; j < 4; ++j)
++            k[j] = (si32)indices[e[j]];
++          __m128i kv = _mm_setr_epi32(k[0], k[1], k[2], k[3]);
++          __m128 y0 = _mm_set_ps(lut[k[3]], lut[k[2]], lut[k[1]], lut[k[0]]);
++          __m128 y1 = _mm_set_ps(lut[k[3] + 1], lut[k[2] + 1],
++                                 lut[k[1] + 1], lut[k[0] + 1]);
++          __m128 y2 = _mm_set_ps(lut[k[3] + 2], lut[k[2] + 2],
++                                 lut[k[1] + 2], lut[k[0] + 2]);
++          // one step of search: a value that falls past the entry that was
++          // found belongs to the entry after it; SSE2 has no blend, so select
++          // with the mask
++          __m128 adv = _mm_cmpgt_ps(t, y1);
++          y0 = _mm_or_ps(_mm_and_ps(adv, y1), _mm_andnot_ps(adv, y0));
++          y1 = _mm_or_ps(_mm_and_ps(adv, y2), _mm_andnot_ps(adv, y1));
++          kv = _mm_add_epi32(kv,
++            _mm_and_si128(_mm_castps_si128(adv), one));
++          // interpolate, but only over a segment that has a width; the last
++          // entry of the table is repeated, and a segment without a width
++          // contributes nothing
++          __m128 den = _mm_sub_ps(y1, y0);
++          __m128 has = _mm_cmpgt_ps(den, zero_ps);
++          den = _mm_or_ps(_mm_and_ps(has, den), _mm_andnot_ps(has, one_ps));
++          __m128 y = _mm_add_ps(
++            _mm_add_ps(fd_min, _mm_mul_ps(_mm_cvtepi32_ps(kv), delta)),
++            _mm_and_ps(has, _mm_div_ps(
++              _mm_mul_ps(_mm_sub_ps(t, y0), delta), den)));
++          _mm_storeu_ps(dp, _mm_sub_ps(y, half_ps));
++        }
++      }
++    }
++
++    //////////////////////////////////////////////////////////////////////////
++    // The precise inverse of the look-up table, for a table whose derived
++    // version is coarse enough that one step of it can cross more than one
++    // entry of the table that was supplied.  The entry that a value falls in
++    // is found with a fixed-depth binary search over the entries the step can
++    // reach; the depth is the worst case, ceil(log2(precise_max_steps + 1)),
++    // so every lane performs the same number of steps.  SSE2 has no gather,
++    // so the table entries are looked up one at a time and assembled into
++    // vectors.  This mirrors local_gen_irv_convert_to_float_nlt2or4_precise_search
++    // in ojph_colour.cpp, so keep the two in step when that one changes.
++    //////////////////////////////////////////////////////////////////////////
++    template<int NLT_TYPE>
++    static inline
++    void local_sse2_irv_convert_to_float_nlt2or4_precise_search(
++      const line_buf *src_line, ui32 src_line_offset, line_buf *dst_line,
++      ui32 bit_depth, bool is_signed, ui32 width, const nlt_rec* rec)
++    {
++      ojph_unused(is_signed);
++      ojph_unused(bit_depth);
++
++      assert((src_line->flags & line_buf::LFT_32BIT) &&
++             (src_line->flags & line_buf::LFT_INTEGER) &&
++             (dst_line->flags & line_buf::LFT_32BIT) &&
++             (dst_line->flags & line_buf::LFT_INTEGER) == 0);
++
++      assert(bit_depth <= 32);
++      assert(rec->precise_max_steps > 1);
++      __m128 mul = _mm_set1_ps(rec->multiplier);
++      __m128 ft_min = _mm_set1_ps(rec->ft_min);
++      __m128 ft_max = _mm_set1_ps(rec->ft_max);
++      __m128 fd_min = _mm_set1_ps(rec->fd_min);
++      __m128 delta = _mm_set1_ps(rec->delta);
++      __m128 inv_delta = _mm_set1_ps(rec->inv_delta);
++      const float* lut = rec->precise_dec_lut;
++      const ui16* indices = rec->precise_enc_dec_indices;
++      ui32 num_points = rec->num_points;
++
++      // the search interval is at most precise_max_steps + 1 entries wide;
++      // run the worst-case number of binary-search steps on every lane,
++      // which is ceil(log2(span))
++      ui32 span = rec->precise_max_steps + 1;
++      int steps = 32 - (int)count_leading_zeros(rec->precise_max_steps);
++
++      __m128 half_ps = _mm_set1_ps(0.5f);
++      __m128 one_ps = _mm_set1_ps(1.0f);
++      __m128 zero_ps = _mm_setzero_ps();
++      __m128i span_epi32 = _mm_set1_epi32((si32)span);
++      __m128i num_epi32 = _mm_set1_epi32((si32)num_points);
++
++      const si32* sp = src_line->i32 + src_line_offset;
++      float* dp = dst_line->f32;
++      if (rec->is_signed())
++      {
++        __m128i bias =
++          _mm_set1_epi32(-(si32)((1ULL << (rec->get_bit_depth() - 1)) + 1));
++        __m128i zero = _mm_setzero_si128();
++        for (int i = (int)width; i > 0; i -= 4, sp += 4, dp += 4) {
++          __m128i v = _mm_loadu_si128((__m128i*)sp);
++          if (NLT_TYPE == 4)
++          {
++            __m128i c = _mm_cmpgt_epi32(zero, v); // 0xFFFFFFFF for -ve val
++            __m128i neg = _mm_sub_epi32(bias, v); // - bias - value
++            neg = _mm_and_si128(c, neg);          // keep only - bias - val
++            v = _mm_andnot_si128(c, v);           // keep only +ve or 0
++            v = _mm_or_si128(neg, v);             // combine
++          }
++          __m128 t = _mm_add_ps(                      // convert to [0, 1]
++            _mm_mul_ps(_mm_cvtepi32_ps(v), mul), half_ps);
++          t = _mm_max_ps(t, ft_min);
++          t = _mm_min_ps(t, ft_max);
++          __m128i kk = _mm_cvttps_epi32(
++            _mm_mul_ps(_mm_sub_ps(t, ft_min), inv_delta));
++          // SSE2 has no gather; look the indices up one at a time
++          si32 e[4], k[4];
++          _mm_storeu_si128((__m128i*)e, kk);
++          for (int j = 0; j < 4; ++j)
++            k[j] = (si32)indices[e[j]];
++          __m128i lo = _mm_setr_epi32(k[0], k[1], k[2], k[3]);
++          // hi = min(k + span, num_points); SSE2 has no 32-bit min, so
++          // select with a signed compare
++          __m128i kspan = _mm_add_epi32(lo, span_epi32);
++          __m128i m = _mm_cmpgt_epi32(kspan, num_epi32);
++          __m128i hi = _mm_or_si128(_mm_and_si128(m, num_epi32),
++                                    _mm_andnot_si128(m, kspan));
++
++          for (int step = 0; step < steps; ++step)
++          {
++            __m128i mid = _mm_srli_epi32(_mm_add_epi32(lo, hi), 1);
++            si32 m4[4];
++            _mm_storeu_si128((__m128i*)m4, mid);
++            __m128 lmid = _mm_set_ps(lut[m4[3]], lut[m4[2]],
++                                     lut[m4[1]], lut[m4[0]]);
++            __m128 ge = _mm_cmpge_ps(t, lmid);
++            __m128i g = _mm_castps_si128(ge);
++            lo = _mm_or_si128(_mm_and_si128(g, mid),
++                              _mm_andnot_si128(g, lo));
++            hi = _mm_or_si128(_mm_and_si128(g, hi),
++                              _mm_andnot_si128(g, mid));
++          }
++
++          si32 l4[4], h4[4];
++          _mm_storeu_si128((__m128i*)l4, lo);
++          _mm_storeu_si128((__m128i*)h4, hi);
++          __m128 y0 = _mm_set_ps(lut[l4[3]], lut[l4[2]], lut[l4[1]], lut[l4[0]]);
++          __m128 y1 = _mm_set_ps(lut[h4[3]], lut[h4[2]], lut[h4[1]], lut[h4[0]]);
++          // interpolate, but only over a segment that has a width; the last
++          // entry of the table is repeated, and a segment without a width
++          // contributes nothing
++          __m128 den = _mm_sub_ps(y1, y0);
++          __m128 has = _mm_cmpgt_ps(den, zero_ps);
++          den = _mm_or_ps(_mm_and_ps(has, den), _mm_andnot_ps(has, one_ps));
++          __m128 y = _mm_add_ps(
++            _mm_add_ps(fd_min, _mm_mul_ps(_mm_cvtepi32_ps(lo), delta)),
++            _mm_and_ps(has, _mm_div_ps(
++              _mm_mul_ps(_mm_sub_ps(t, y0), delta), den)));
++          _mm_storeu_ps(dp, _mm_sub_ps(y, half_ps));
++        }
++      }
++      else
++      {
++        for (int i = (int)width; i > 0; i -= 4, sp += 4, dp += 4) {
++          __m128i v = _mm_loadu_si128((__m128i*)sp);
++          __m128 t = _mm_mul_ps(_mm_cvtepi32_ps(v), mul);  // in [0, 1]
++          t = _mm_max_ps(t, ft_min);
++          t = _mm_min_ps(t, ft_max);
++          __m128i kk = _mm_cvttps_epi32(
++            _mm_mul_ps(_mm_sub_ps(t, ft_min), inv_delta));
++          // SSE2 has no gather; look the indices up one at a time
++          si32 e[4], k[4];
++          _mm_storeu_si128((__m128i*)e, kk);
++          for (int j = 0; j < 4; ++j)
++            k[j] = (si32)indices[e[j]];
++          __m128i lo = _mm_setr_epi32(k[0], k[1], k[2], k[3]);
++          __m128i kspan = _mm_add_epi32(lo, span_epi32);
++          __m128i m = _mm_cmpgt_epi32(kspan, num_epi32);
++          __m128i hi = _mm_or_si128(_mm_and_si128(m, num_epi32),
++                                    _mm_andnot_si128(m, kspan));
++
++          for (int step = 0; step < steps; ++step)
++          {
++            __m128i mid = _mm_srli_epi32(_mm_add_epi32(lo, hi), 1);
++            si32 m4[4];
++            _mm_storeu_si128((__m128i*)m4, mid);
++            __m128 lmid = _mm_set_ps(lut[m4[3]], lut[m4[2]],
++                                     lut[m4[1]], lut[m4[0]]);
++            __m128 ge = _mm_cmpge_ps(t, lmid);
++            __m128i g = _mm_castps_si128(ge);
++            lo = _mm_or_si128(_mm_and_si128(g, mid),
++                              _mm_andnot_si128(g, lo));
++            hi = _mm_or_si128(_mm_and_si128(g, hi),
++                              _mm_andnot_si128(g, mid));
++          }
++
++          si32 l4[4], h4[4];
++          _mm_storeu_si128((__m128i*)l4, lo);
++          _mm_storeu_si128((__m128i*)h4, hi);
++          __m128 y0 = _mm_set_ps(lut[l4[3]], lut[l4[2]], lut[l4[1]], lut[l4[0]]);
++          __m128 y1 = _mm_set_ps(lut[h4[3]], lut[h4[2]], lut[h4[1]], lut[h4[0]]);
++          __m128 den = _mm_sub_ps(y1, y0);
++          __m128 has = _mm_cmpgt_ps(den, zero_ps);
++          den = _mm_or_ps(_mm_and_ps(has, den), _mm_andnot_ps(has, one_ps));
++          __m128 y = _mm_add_ps(
++            _mm_add_ps(fd_min, _mm_mul_ps(_mm_cvtepi32_ps(lo), delta)),
++            _mm_and_ps(has, _mm_div_ps(
++              _mm_mul_ps(_mm_sub_ps(t, y0), delta), den)));
++          _mm_storeu_ps(dp, _mm_sub_ps(y, half_ps));
++        }
++      }
++    }
++
+     //////////////////////////////////////////////////////////////////////////
+     void sse2_irv_convert_to_float_nlt(const line_buf *src_line,
+       ui32 src_line_offset, line_buf *dst_line,
+@@ -677,11 +989,29 @@ namespace ojph {
+     {
+       using nl = nlt_rec::nonlinearity;
+       if (rec->get_type() == nl::OJPH_NLT_LUT_STYLE_NLT)
+-        local_sse2_irv_convert_to_float_nlt2or4<2>(src_line,
+-          src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      {
++        if (rec->approx_encoding_nlt)
++          local_sse2_irv_convert_to_float_nlt2or4<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else if (rec->precise_max_steps == 1)
++          local_sse2_irv_convert_to_float_nlt2or4_precise_1step<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else
++          local_sse2_irv_convert_to_float_nlt2or4_precise_search<2>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      }
+       else if (rec->get_type() == nl::OJPH_NLT_BINARY_COMPLEMENT_PLUS_LUT)
+-        local_sse2_irv_convert_to_float_nlt2or4<4>(src_line,
+-          src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      {
++        if (rec->approx_encoding_nlt)
++          local_sse2_irv_convert_to_float_nlt2or4<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else if (rec->precise_max_steps == 1)
++          local_sse2_irv_convert_to_float_nlt2or4_precise_1step<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++        else
++          local_sse2_irv_convert_to_float_nlt2or4_precise_search<4>(src_line,
++            src_line_offset, dst_line, bit_depth, is_signed, width, rec);
++      }
+       else
+         assert(0);
+     }
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_transform.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_transform.cpp
+index 3b589f5..2274013 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_transform.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_transform.cpp
+@@ -406,7 +406,7 @@ namespace ojph {
+         if (even)
+           ldst->i32[0] = src->i32[0];
+         else
+-          hdst->i32[0] = src->i32[0] << 1;
++          hdst->i32[0] = src->i32[0] * 2;
+       }
+     }
+ 
+@@ -485,7 +485,7 @@ namespace ojph {
+         if (even)
+           ldst->i64[0] = src->i64[0];
+         else
+-          hdst->i64[0] = src->i64[0] << 1;
++          hdst->i64[0] = src->i64[0] * 2;
+       }
+     }
+ 
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx2.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx2.cpp
+index 16664c2..05ed231 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx2.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx2.cpp
+@@ -570,7 +570,7 @@ namespace ojph {
+         if (even)
+           ldst->i32[0] = src->i32[0];
+         else
+-          hdst->i32[0] = src->i32[0] << 1;
++          hdst->i32[0] = src->i32[0] * 2;
+       }
+     }
+ 
+@@ -719,7 +719,7 @@ namespace ojph {
+         if (even)
+           ldst->i64[0] = src->i64[0];
+         else
+-          hdst->i64[0] = src->i64[0] << 1;
++          hdst->i64[0] = src->i64[0] * 2;
+       }
+     }
+ 
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx512.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx512.cpp
+index f5853c9..8515ea6 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx512.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_transform_avx512.cpp
+@@ -862,7 +862,7 @@ namespace ojph {
+         if (even)
+           ldst->i32[0] = src->i32[0];
+         else
+-          hdst->i32[0] = src->i32[0] << 1;
++          hdst->i32[0] = src->i32[0] * 2;
+       }
+     }
+ 
+@@ -1043,7 +1043,7 @@ namespace ojph {
+         if (even)
+           ldst->i64[0] = src->i64[0];
+         else
+-          hdst->i64[0] = src->i64[0] << 1;
++          hdst->i64[0] = src->i64[0] * 2;
+       }
+     }
+ 
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_transform_sse2.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_transform_sse2.cpp
+index d2dadfe..aab39e8 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_transform_sse2.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_transform_sse2.cpp
+@@ -520,7 +520,7 @@ namespace ojph {
+         if (even)
+           ldst->i32[0] = src->i32[0];
+         else
+-          hdst->i32[0] = src->i32[0] << 1;
++          hdst->i32[0] = src->i32[0] * 2;
+       }
+     }
+ 
+@@ -668,7 +668,7 @@ namespace ojph {
+         if (even)
+           ldst->i64[0] = src->i64[0];
+         else
+-          hdst->i64[0] = src->i64[0] << 1;
++          hdst->i64[0] = src->i64[0] * 2;
+       }
+     }
+ 
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_transform_vsx.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_transform_vsx.cpp
+index d454582..36789b6 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_transform_vsx.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_transform_vsx.cpp
+@@ -767,7 +767,7 @@ namespace ojph {
+         if (even)
+           ldst->i32[0] = src->i32[0];
+         else
+-          hdst->i32[0] = src->i32[0] << 1;
++          hdst->i32[0] = src->i32[0] * 2;
+       }
+     }
+ 
+@@ -935,7 +935,7 @@ namespace ojph {
+         if (even)
+           ldst->i64[0] = src->i64[0];
+         else
+-          hdst->i64[0] = src->i64[0] << 1;
++          hdst->i64[0] = src->i64[0] * 2;
+       }
+     }
+ 
+diff --git a/Source/OpenEXR/OpenJPH/transform/ojph_transform_wasm.cpp b/Source/OpenEXR/OpenJPH/transform/ojph_transform_wasm.cpp
+index ab37185..98b9563 100644
+--- a/Source/OpenEXR/OpenJPH/transform/ojph_transform_wasm.cpp
++++ b/Source/OpenEXR/OpenJPH/transform/ojph_transform_wasm.cpp
+@@ -767,7 +767,7 @@ namespace ojph {
+         if (even)
+           ldst->i32[0] = src->i32[0];
+         else
+-          hdst->i32[0] = src->i32[0] << 1;
++          hdst->i32[0] = src->i32[0] * 2;
+       }
+     }
+ 
+@@ -935,7 +935,7 @@ namespace ojph {
+         if (even)
+           ldst->i64[0] = src->i64[0];
+         else
+-          hdst->i64[0] = src->i64[0] << 1;
++          hdst->i64[0] = src->i64[0] * 2;
+       }
+     }
+ 
+diff --git a/THIRD_PARTY_VERSIONS.md b/THIRD_PARTY_VERSIONS.md
+index 6e74958..f997aad 100644
+--- a/THIRD_PARTY_VERSIONS.md
++++ b/THIRD_PARTY_VERSIONS.md
+@@ -39,7 +39,7 @@ OpenEXR, LibDeflate and LibTIFF4 were previously re-synced for #137; OpenEXR
+ 
+ The scheduled checker now covers 20 directly vendored and archive-bundled
+ libraries, with separate tables for updates and current versions. OpenEXR's
+-Zstandard/OpenJPH snapshots follow OpenEXR's releases; LibJXR remains an
++Zstandard follows OpenEXR's releases; OpenJPH is updated separately below; LibJXR remains an
+ unversioned snapshot without a maintained upstream release feed. The
+ latest-upstream column above retains the previous release review; the
+ version/hash audit does not assert that every bundled dependency is the
+@@ -50,9 +50,13 @@ OpenEXR 3.5.3 also brings these upstream-vendored auxiliary codecs:
+ | Library | Path | Vendored | Version source |
+ |---|---|---|---|
+ | Zstandard | `Source/OpenEXR/Zstd` | 1.5.7 | `lib/zstd.h` |
+-| OpenJPH | `Source/OpenEXR/OpenJPH` | 0.32.0 | `openjph/ojph_version.h` |
++| OpenJPH | `Source/OpenEXR/OpenJPH` | 0.33.0 | `openjph/ojph_version.h` |
+ 
+-These snapshots follow OpenEXR's release rather than being updated independently.
++Zstandard follows OpenEXR's release. OpenJPH was updated independently to
++0.33.0 on 2026-11-03 for #259. That release fixes the HTJ2K one-row codeblock
++heap overflow (CVE-2026-111151) and the NLT marker over-read. Its source file
++lists are unchanged; FreeImage's x86 dispatch opt-in and ARM64EC guards are
++retained.
+ See [vendor integration notes](scripts/vendor/NOTES.md) for source provenance,
+ configuration choices, and local patches to preserve in the next update.
+ 
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index 0cddf32..2adcea0 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -146,6 +146,13 @@ endif()
+ 
+ # These tests call vendored codec APIs directly to create inputs that exercise
+ # FreeImage's loaders. Those internal symbols are not part of its Windows DLL API.
++if(BUILD_TESTS AND FREEIMAGE_STATIC AND BUILD_OPENEXR AND NOT USE_SYSTEM_OPENEXR)
++    add_executable(OpenJphNltTest testOpenJphNlt.cpp)
++    target_link_libraries(OpenJphNltTest PRIVATE FreeImage)
++    add_test(NAME OpenJphNltTest COMMAND OpenJphNltTest)
++    set_tests_properties(OpenJphNltTest PROPERTIES TIMEOUT 10)
++endif()
++
+ if(BUILD_TESTS AND FREEIMAGE_STATIC AND BUILD_OPENEXR AND NOT USE_SYSTEM_OPENEXR
+    AND BUILD_LIBTIFF AND NOT USE_SYSTEM_LIBTIFF)
+     add_executable(VendorCodecTest testVendorCodecs.cpp)
+diff --git a/TestAPI/testOpenJphNlt.cpp b/TestAPI/testOpenJphNlt.cpp
+new file mode 100644
+index 0000000..b741e87
+--- /dev/null
++++ b/TestAPI/testOpenJphNlt.cpp
+@@ -0,0 +1,57 @@
++// Regression coverage for OpenJPH's 8-bit NLT lookup-table marker parser.
++#include "ojph_file.h"
++#include "ojph_message.h"
++#include "ojph_params.h"
++#include "codestream/ojph_params_local.h"
++#include <cstdio>
++#include <stdexcept>
++#include <vector>
++
++static std::vector<ojph::ui8> marker() {
++    // Lnlt=19, component 0, decoded depth 8, LUT-style NLT, two points,
++    // Dmin=0, Dmax=UINT32_MAX, eight bits per point, points {0,255}.
++    return {0, 19, 0, 0, 7, 2, 0, 1, 0, 0, 0, 0,
++            255, 255, 255, 255, 8, 0, 255};
++}
++
++static void check(bool condition, const char *message) {
++    if (!condition)
++        throw std::runtime_error(message);
++}
++
++int main() {
++    try {
++        // Trailing bytes model the next codestream marker. The old parser
++        // read the whole allocation size into its two-byte point array.
++        auto bytes = marker();
++        const auto markerSize = bytes.size();
++        bytes.resize(markerSize + 64, 0xA5);
++        ojph::mem_infile input;
++        input.open(bytes.data(), bytes.size());
++        ojph::local::param_nlt nlt;
++        check(nlt.read(&input), "Valid NLT marker was rejected");
++        check(input.tell() == static_cast<ojph::si64>(markerSize),
++              "NLT parser consumed the following marker");
++
++        const auto valid = marker();
++        // Expected rejections throw after printing; keep the test log quiet.
++        ojph::set_error_stream(nullptr);
++        for (size_t length = 0; length < valid.size(); ++length) {
++            ojph::mem_infile truncated;
++            truncated.open(valid.data(), length);
++            ojph::local::param_nlt incomplete;
++            bool rejected = false;
++            try {
++                rejected = !incomplete.read(&truncated);
++            } catch (const std::exception &) {
++                rejected = true;
++            }
++            check(rejected, "Truncated NLT marker was accepted");
++        }
++        puts("OpenJPH NLT marker bounds and truncation checks passed");
++        return 0;
++    } catch (const std::exception &error) {
++        std::fprintf(stderr, "%s\n", error.what());
++        return 1;
++    }
++}
+diff --git a/scripts/vendor/NOTES.md b/scripts/vendor/NOTES.md
+index d865f00..b7dac02 100644
+--- a/scripts/vendor/NOTES.md
++++ b/scripts/vendor/NOTES.md
+@@ -15,8 +15,10 @@ configuration headers, update version numbers and internal namespaces together,
+ and preserve the include-order guards in `OpenEXRCore/openexr_version.h`.
+ The upstream ARM64EC SIMD guards are now present in 3.5.1.
+ 
+-OpenEXR's auxiliary Zstandard 1.5.7 and OpenJPH 0.32.0 snapshots come from
+-that same tag's `external/` tree, including their licenses. CMake and GNU/macOS
++OpenEXR's auxiliary Zstandard 1.5.7 snapshot comes from that same tag's
++`external/` tree. OpenJPH was updated independently from 0.32.0 to 0.33.0
++(345a8bc; upstream tag `0.33.0`) for #259, copying `src/core/`, the README,
++and license from the upstream release. CMake and GNU/macOS
+ make enable OpenJPH's runtime-dispatched x86 kernels by default. Each SSE,
+ SSE2, SSSE3, AVX, AVX2, and AVX512 source group gets its own compiler flags;
+ scalar and CPU-detection sources keep the baseline ISA. Unsupported compiler
+@@ -66,7 +68,7 @@ checks, and matching free cleanup when refreshing the vendor snapshot.
+ OpenJPH's AVX2 encoder includes the upstream MSVC 2022 Win32 Debug
+ compiler-crash workaround from [OpenJPH #395](https://github.com/aous72/OpenJPH/pull/395).
+ Copy the referenced previous context value into a local before inserting it
+-into the SIMD vector. Preserve this patch until the bundled snapshot includes it.
++into the SIMD vector. OpenJPH 0.33.0 includes this workaround upstream.
+ 
+ libpng 1.6.59 comes from v1.6.59 (cd952f49f95bb27154ae77dbb103032d95f6e580).
+ Its prebuilt pnglibconf.h changes only the version comment; retain this fork's
+@@ -75,7 +77,7 @@ configuration. Library source lists are unchanged for both codec updates.
+ OpenEXR 3.5.2 introduces OpenJPH NLT lookup tables for lossy LJ2K and a
+ compatibility fallback for files written by 3.5.0/3.5.1 without the tables.
+ Regenerate those older lossy LJ2K files for best results, per upstream notes.
+-The Zstandard and OpenJPH snapshots are unchanged; retain all local patches above.
++At the 3.5.2 update, the Zstandard and OpenJPH snapshots were unchanged.
+ 
+ OpenEXRCore's Windows file backend uses CreateFileW unconditionally. This was
+ a local patch until upstream merged [OpenEXR #2712](https://github.com/AcademySoftwareFoundation/openexr/pull/2712)
+@@ -85,8 +87,17 @@ OpenEXR 3.5.3 adds its own posix_memalign fallback in OpenEXRCore ZSTD for
+ macOS deployment targets below 10.15. It sits beside the Android fallback
+ above; keep both. The 3.5.3 update was applied as the upstream
+ v3.5.2..v3.5.3 diff of the four library directories, with no new or removed
+-source files. The Zstandard and OpenJPH snapshots are again unchanged.
+-
+-OpenJPH's SSE memory-clear kernel uses _mm_setzero_ps/_mm_storeu_ps, rather
+-than SSE2 integer intrinsics. Preserve this local fix for GCC i686 builds:
+-the file is compiled with -msse and dispatched on SSE-only CPUs.
++source files. Zstandard was unchanged by the 3.5.3 update. OpenJPH stayed at
++0.32.0 for that update and moved to 0.33.0 separately; see below.
++
++OpenJPH 0.33.0 also includes the SSE memory-clear fix upstream, using
++_mm_setzero_ps/_mm_storeu_ps rather than SSE2 integer intrinsics for i686.
++The remaining local changes are the FreeImage SIMD opt-in/ARM64EC guards
++in `ojph_arch.h` and removal of the unconditional `_BitScanForward64`
++intrinsic pragma (unavailable on Win32). No library sources were added or
++removed, so both build paths keep the same source lists.
++
++The NLT LUT setter in 0.33.0 adds defaulted encoder options; OpenEXR 3.5.3
++remains source compatible and uses upstream's precise inverse-LUT default.
++`OpenJphNltTest` covers the 8-bit LUT read overflow and truncated markers;
++`VendorCodecTest` exercises HTJ2K/LJ2K EXR round trips.

@@ -1,0 +1,19 @@
+diff --git a/Source/LibDeflate/common_defs.h b/Source/LibDeflate/common_defs.h
+index e1bc3fe..43c952e 100644
+--- a/Source/LibDeflate/common_defs.h
++++ b/Source/LibDeflate/common_defs.h
+@@ -66,7 +66,13 @@
+ #undef ARCH_ARM64
+ #undef ARCH_ARM32
+ #ifdef _MSC_VER
+-#  if defined(_M_X64)
++/* ARM64EC defines both _M_ARM64EC and _M_X64. Testing _M_X64 first
++   selects the x86 implementations, which include emmintrin.h directly
++   and fail on this target (C1189). Native ARM64 defines _M_ARM64 only,
++   so it already hits the branch below. */
++#  if defined(_M_ARM64EC)
++#    define ARCH_ARM64
++#  elif defined(_M_X64)
+ #    define ARCH_X86_64
+ #  elif defined(_M_IX86)
+ #    define ARCH_X86_32

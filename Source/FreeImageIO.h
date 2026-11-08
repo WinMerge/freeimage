@@ -59,6 +59,7 @@ FI_STRUCT (FIMEMORYHEADER) {
 };
 
 void SetDefaultIO(FreeImageIO *io);
+void SetDefaultIO64(FreeImageIO64 *io);
 
 void SetMemoryIO(FreeImageIO *io);
 

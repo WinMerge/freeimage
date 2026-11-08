@@ -1,0 +1,14 @@
+--- Source/FreeImage/PluginCUT.cpp
++++ Source/FreeImage/PluginCUT.cpp
+@@ -166,6 +166,11 @@
+ 
+ 			if (count == 0) {
+ 				k = 0;
++				// Guard against pointer underflow: do not move past
++				// the first scanline of the allocated bitmap.
++				if (bits < FreeImage_GetBits(dib) + pitch) {
++					break;
++				}
+ 				bits -= pitch;
+ 
+ 				// paint shop pro adds two useless bytes here...

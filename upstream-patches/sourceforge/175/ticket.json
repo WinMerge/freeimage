@@ -1,0 +1,40 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1eacc6b8802de14b8e9",
+  "mod_date": "2026-09-07 15:02:02.670000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "f2fee9a533",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/f2fee9a533/",
+  "created_date": "2026-09-07 15:02:02.330000",
+  "ticket_num": 175,
+  "summary": "CVE-2024-28579 / CVE-2024-28582: reject overflowing HDR RLE scanline counts",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nCVE-2024-28579 / CVE-2024-28582 — heap buffer overflow in PluginHDR.cpp rgbe_ReadPixels_RLE() / rgbe_RGBEToFloat().\n\nThe two \"not RLE, read flat\" fallbacks passed (scanline_width * num_scanlines) into rgbe_ReadPixels() as an unsigned pixel count. scanline_width is a signed int: a negative width becomes a huge unsigned value via the usual arithmetic conversions, and even a positive product was never checked for overflow. rgbe_ReadPixels() then loops that count and writes FIRGBF pixels (and FreeImage_Unload later walks the smashed DIB).\n\nThis patch introduces rgbe_SafeScanlinePixelCount() and rejects a negative width or a product that does not fit in 32-bit unsigned.\n\nNVD:\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28579\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28582\n\nGitHub: https://github.com/danoli3/FreeImage/commit/d866b72 (PR https://github.com/danoli3/FreeImage/pull/55)\n\nApply from the FreeImage tree root:\n\n    patch -p0 < CVE-2024-28579.patch\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 2622,
+      "url": "https://sourceforge.net/p/freeimage/patches/175/attachment/CVE-2024-28579.patch"
+    }
+  ],
+  "custom_fields": {}
+}

@@ -1,0 +1,42 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ecc126502a6e780db5de4",
+  "mod_date": "2026-09-07 14:37:07.215000",
+  "labels": [],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "13fa781568",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "e27f",
+        "text": "Empty stub created by accident. The real ICO patch (description + .patch attachment) is https://sourceforge.net/p/freeimage/patches/170/",
+        "subject": "#169 CVE-2020-24292: reject illegal ICO BITMAPINFOHEADER bpp/size",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 14:49:55.357000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/13fa781568/",
+  "created_date": "2026-09-07 14:37:06.895000",
+  "ticket_num": 169,
+  "summary": "CVE-2020-24292: reject illegal ICO BITMAPINFOHEADER bpp/size",
+  "description": "test",
+  "reported_by": "*anonymous",
+  "assigned_to": null,
+  "reported_by_id": null,
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [],
+  "custom_fields": {}
+}

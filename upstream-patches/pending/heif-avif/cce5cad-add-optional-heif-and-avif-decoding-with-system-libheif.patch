@@ -1,0 +1,641 @@
+diff --git a/.github/workflows/heif.yml b/.github/workflows/heif.yml
+new file mode 100644
+index 0000000..6c952df
+--- /dev/null
++++ b/.github/workflows/heif.yml
+@@ -0,0 +1,33 @@
++name: HEIF and AVIF
++permissions:
++  contents: read
++on:
++  push:
++    branches: [master]
++  pull_request:
++  workflow_dispatch:
++jobs:
++  libheif:
++    runs-on: ubuntu-22.04
++    strategy:
++      fail-fast: false
++      matrix:
++        enabled: ["ON", "OFF"]
++        static: ["ON", "OFF"]
++    steps:
++      - uses: actions/checkout@v4
++      - name: Install libheif and build tools
++        run: sudo apt-get update && sudo apt-get install -y ninja-build pkg-config libheif-dev
++      - name: Configure GCC AddressSanitizer build
++        run: >-
++          cmake -S . -B build -G Ninja
++          -DBUILD_LIBHEIF=${{ matrix.enabled }} -DBUILD_TESTS=ON
++          -DFREEIMAGE_STATIC=${{ matrix.static }} -DCMAKE_CXX_STANDARD=11
++          -DCMAKE_BUILD_TYPE=Debug
++          -DCMAKE_C_FLAGS="-fsanitize=address -g"
++          -DCMAKE_CXX_FLAGS="-fsanitize=address -g"
++          -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address
++      - name: Build
++        run: cmake --build build --parallel 4
++      - name: Test
++        run: ctest --test-dir build --output-on-failure
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index a99f4f9..b009d80 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -2,6 +2,12 @@
+ 
+ Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
+ 
++## Unreleased
++
++- Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
++  FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
++  codec regression tests. Enable with `-DBUILD_LIBHEIF=ON`. (#154)
++
+ ## 3.19.22 — Unreleased
+ 
+ PBM decoder security fixes, 32-bit compatibility, and installable Linux packages.
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 2b50a6b..eb637e3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -91,6 +91,13 @@ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
+ option(BUILD_LIBJPEG "Build libjpeg from source or link" ON)
+ option(BUILD_LIBOPENJPEG "Build OpenJPEG from source or link" ON)
+ option(BUILD_WEBP "Build webp from source or link" ON)
++option(BUILD_LIBHEIF "Enable HEIF/AVIF decoding using system libheif (1.12+)" OFF)
++if(BUILD_LIBHEIF)
++    find_package(PkgConfig REQUIRED)
++    pkg_check_modules(LIBHEIF REQUIRED IMPORTED_TARGET libheif>=1.12)
++    list(APPEND FreeImage_LIBS PkgConfig::LIBHEIF)
++    add_compile_definitions(FREEIMAGE_LIBHEIF)
++endif()
+ # Camera RAW is part of the default build. -DBUILD_LIBRAWLITE=OFF leaves it out.
+ option(BUILD_LIBRAWLITE "Build librawlite from source or link" ON)
+ # Default ON, but only when C++17+ is actually in effect (OpenEXR needs it).
+@@ -170,6 +177,7 @@ set(FreeImage_SOURCES
+     ./Source/FreeImage/PluginDDS.cpp ./Source/FreeImage/PluginEXR.cpp
+     ./Source/FreeImage/PluginG3.cpp ./Source/FreeImage/PluginGIF.cpp
+     ./Source/FreeImage/PluginHDR.cpp ./Source/FreeImage/PluginICO.cpp
++    ./Source/FreeImage/PluginHEIF.cpp
+     ./Source/FreeImage/PluginIFF.cpp ./Source/FreeImage/PluginJ2K.cpp
+     ./Source/FreeImage/PluginJNG.cpp ./Source/FreeImage/PluginJP2.cpp
+     ./Source/FreeImage/PluginJPEG.cpp ./Source/FreeImage/PluginJXR.cpp
+diff --git a/Makefile.srcs b/Makefile.srcs
+index 62503e1..7062cb0 100644
+--- a/Makefile.srcs
++++ b/Makefile.srcs
+@@ -1,6 +1,6 @@
+ VER_MAJOR = 3
+ VER_MINOR = 19.0
+-SRCS = Source/FreeImage/BitmapAccess.cpp Source/FreeImage/ColorLookup.cpp Source/FreeImage/ConversionRGBA16.cpp Source/FreeImage/ConversionRGBAF.cpp Source/FreeImage/FreeImage.cpp Source/FreeImage/FreeImageC.c Source/FreeImage/FreeImageIO.cpp Source/FreeImage/GetType.cpp Source/FreeImage/LFPQuantizer.cpp Source/FreeImage/MemoryIO.cpp Source/FreeImage/PixelAccess.cpp Source/FreeImage/J2KHelper.cpp Source/FreeImage/MNGHelper.cpp Source/FreeImage/Plugin.cpp Source/FreeImage/PluginBMP.cpp Source/FreeImage/PluginCUT.cpp Source/FreeImage/PluginDDS.cpp Source/FreeImage/PluginEXR.cpp Source/FreeImage/PluginG3.cpp Source/FreeImage/PluginGIF.cpp Source/FreeImage/PluginHDR.cpp Source/FreeImage/PluginICO.cpp Source/FreeImage/PluginIFF.cpp Source/FreeImage/PluginJ2K.cpp Source/FreeImage/PluginJNG.cpp Source/FreeImage/PluginJP2.cpp Source/FreeImage/PluginJPEG.cpp Source/FreeImage/PluginJXR.cpp Source/FreeImage/PluginKOALA.cpp Source/FreeImage/PluginMNG.cpp Source/FreeImage/PluginPCD.cpp Source/FreeImage/PluginPCX.cpp Source/FreeImage/PluginPFM.cpp Source/FreeImage/PluginPICT.cpp Source/FreeImage/PluginPNG.cpp Source/FreeImage/PluginPNM.cpp Source/FreeImage/PluginPSD.cpp Source/FreeImage/PluginRAS.cpp Source/FreeImage/PluginRAW.cpp Source/FreeImage/PluginSGI.cpp Source/FreeImage/PluginTARGA.cpp Source/FreeImage/PluginTIFF.cpp Source/FreeImage/PluginWBMP.cpp Source/FreeImage/PluginWebP.cpp Source/FreeImage/PluginXBM.cpp Source/FreeImage/PluginXPM.cpp Source/FreeImage/PSDParser.cpp Source/FreeImage/TIFFLogLuv.cpp Source/FreeImage/Conversion.cpp Source/FreeImage/Conversion16_555.cpp Source/FreeImage/Conversion16_565.cpp Source/FreeImage/Conversion24.cpp Source/FreeImage/Conversion32.cpp Source/FreeImage/Conversion4.cpp Source/FreeImage/Conversion8.cpp Source/FreeImage/ConversionFloat.cpp Source/FreeImage/ConversionRGB16.cpp Source/FreeImage/ConversionRGBF.cpp Source/FreeImage/ConversionType.cpp Source/FreeImage/ConversionUINT16.cpp Source/FreeImage/Halftoning.cpp Source/FreeImage/tmoColorConvert.cpp Source/FreeImage/tmoDrago03.cpp Source/FreeImage/tmoFattal02.cpp Source/FreeImage/tmoReinhard05.cpp Source/FreeImage/ToneMapping.cpp Source/FreeImage/NNQuantizer.cpp Source/FreeImage/WuQuantizer.cpp Source/FreeImage/CacheFile.cpp Source/FreeImage/MultiPage.cpp Source/FreeImage/ZLibInterface.cpp Source/Metadata/Exif.cpp Source/Metadata/FIRational.cpp Source/Metadata/FreeImageTag.cpp Source/Metadata/IPTC.cpp Source/Metadata/TagConversion.cpp Source/Metadata/TagLib.cpp Source/Metadata/XTIFF.cpp Source/FreeImageToolkit/Background.cpp Source/FreeImageToolkit/BSplineRotate.cpp Source/FreeImageToolkit/Channels.cpp Source/FreeImageToolkit/ClassicRotate.cpp Source/FreeImageToolkit/Colors.cpp Source/FreeImageToolkit/CopyPaste.cpp Source/FreeImageToolkit/Display.cpp Source/FreeImageToolkit/Flip.cpp Source/FreeImageToolkit/JPEGTransform.cpp Source/FreeImageToolkit/MultigridPoissonSolver.cpp Source/FreeImageToolkit/Rescale.cpp Source/FreeImageToolkit/Resize.cpp Source/LibJPEG/jaricom.c Source/LibJPEG/jcapimin.c Source/LibJPEG/jcapistd.c Source/LibJPEG/jcarith.c Source/LibJPEG/jccoefct.c Source/LibJPEG/jccolor.c Source/LibJPEG/jcdctmgr.c Source/LibJPEG/jchuff.c Source/LibJPEG/jcinit.c Source/LibJPEG/jcmainct.c Source/LibJPEG/jcmarker.c Source/LibJPEG/jcmaster.c Source/LibJPEG/jcomapi.c Source/LibJPEG/jcparam.c Source/LibJPEG/jcprepct.c Source/LibJPEG/jcsample.c Source/LibJPEG/jctrans.c Source/LibJPEG/jdapimin.c Source/LibJPEG/jdapistd.c Source/LibJPEG/jdarith.c Source/LibJPEG/jdatadst.c Source/LibJPEG/jdatasrc.c Source/LibJPEG/jdcoefct.c Source/LibJPEG/jdcolor.c Source/LibJPEG/jddctmgr.c Source/LibJPEG/jdhuff.c Source/LibJPEG/jdinput.c Source/LibJPEG/jdmainct.c Source/LibJPEG/jdmarker.c Source/LibJPEG/jdmaster.c Source/LibJPEG/jdmerge.c Source/LibJPEG/jdpostct.c Source/LibJPEG/jdsample.c Source/LibJPEG/jdtrans.c Source/LibJPEG/jerror.c Source/LibJPEG/jfdctflt.c Source/LibJPEG/jfdctfst.c Source/LibJPEG/jfdctint.c Source/LibJPEG/jidctflt.c Source/LibJPEG/jidctfst.c Source/LibJPEG/jidctint.c Source/LibJPEG/jmemmgr.c Source/LibJPEG/jmemnobs.c Source/LibJPEG/jquant1.c Source/LibJPEG/jquant2.c Source/LibJPEG/jutils.c Source/LibJPEG/transupp.c Source/LibPNG/png.c Source/LibPNG/pngerror.c Source/LibPNG/pngget.c Source/LibPNG/pngmem.c Source/LibPNG/pngpread.c Source/LibPNG/pngread.c Source/LibPNG/pngrio.c Source/LibPNG/pngrtran.c Source/LibPNG/pngrutil.c Source/LibPNG/pngset.c Source/LibPNG/pngtrans.c Source/LibPNG/pngwio.c Source/LibPNG/pngwrite.c Source/LibPNG/pngwtran.c Source/LibPNG/pngwutil.c Source/LibTIFF4/tif_aux.c Source/LibTIFF4/tif_close.c Source/LibTIFF4/tif_codec.c Source/LibTIFF4/tif_color.c Source/LibTIFF4/tif_compress.c Source/LibTIFF4/tif_dir.c Source/LibTIFF4/tif_dirinfo.c Source/LibTIFF4/tif_dirread.c Source/LibTIFF4/tif_dirwrite.c Source/LibTIFF4/tif_dumpmode.c Source/LibTIFF4/tif_error.c Source/LibTIFF4/tif_extension.c Source/LibTIFF4/tif_fax3.c Source/LibTIFF4/tif_fax3sm.c Source/LibTIFF4/tif_flush.c Source/LibTIFF4/tif_getimage.c Source/LibTIFF4/tif_hash_set.c Source/LibTIFF4/tif_jbig.c Source/LibTIFF4/tif_jpeg.c Source/LibTIFF4/tif_jpeg_12.c Source/LibTIFF4/tif_lerc.c Source/LibTIFF4/tif_luv.c Source/LibTIFF4/tif_lzw.c Source/LibTIFF4/tif_next.c Source/LibTIFF4/tif_ojpeg.c Source/LibTIFF4/tif_open.c Source/LibTIFF4/tif_packbits.c Source/LibTIFF4/tif_pixarlog.c Source/LibTIFF4/tif_predict.c Source/LibTIFF4/tif_print.c Source/LibTIFF4/tif_read.c Source/LibTIFF4/tif_strip.c Source/LibTIFF4/tif_swab.c Source/LibTIFF4/tif_thunder.c Source/LibTIFF4/tif_tile.c Source/LibTIFF4/tif_version.c Source/LibTIFF4/tif_warning.c Source/LibTIFF4/tif_webp.c Source/LibTIFF4/tif_write.c Source/LibTIFF4/tif_zip.c Source/ZLib/adler32.c Source/ZLib/compress.c Source/ZLib/crc32.c Source/ZLib/deflate.c Source/ZLib/gzclose.c Source/ZLib/gzlib.c Source/ZLib/gzread.c Source/ZLib/gzwrite.c Source/ZLib/infback.c Source/ZLib/inffast.c Source/ZLib/inflate.c Source/ZLib/inftrees.c Source/ZLib/trees.c Source/ZLib/uncompr.c Source/ZLib/zutil.c Source/LibRawLite/src/decoders/canon_600.cpp Source/LibRawLite/src/decoders/crx.cpp Source/LibRawLite/src/decoders/decoders_dcraw.cpp Source/LibRawLite/src/decoders/decoders_libraw.cpp Source/LibRawLite/src/decoders/decoders_libraw_dcrdefs.cpp Source/LibRawLite/src/decoders/dng.cpp Source/LibRawLite/src/decoders/fp_dng.cpp Source/LibRawLite/src/decoders/fuji_compressed.cpp Source/LibRawLite/src/decoders/generic.cpp Source/LibRawLite/src/decoders/kodak_decoders.cpp Source/LibRawLite/src/decoders/load_mfbacks.cpp Source/LibRawLite/src/decoders/smal.cpp Source/LibRawLite/src/decoders/unpack.cpp Source/LibRawLite/src/decoders/unpack_thumb.cpp Source/LibRawLite/src/demosaic/aahd_demosaic.cpp Source/LibRawLite/src/demosaic/ahd_demosaic.cpp Source/LibRawLite/src/demosaic/dcb_demosaic.cpp Source/LibRawLite/src/demosaic/dht_demosaic.cpp Source/LibRawLite/src/demosaic/misc_demosaic.cpp Source/LibRawLite/src/demosaic/xtrans_demosaic.cpp Source/LibRawLite/src/integration/dngsdk_glue.cpp Source/LibRawLite/src/integration/rawspeed_glue.cpp Source/LibRawLite/src/libraw_datastream.cpp Source/LibRawLite/src/metadata/adobepano.cpp Source/LibRawLite/src/metadata/canon.cpp Source/LibRawLite/src/metadata/ciff.cpp Source/LibRawLite/src/metadata/cr3_parser.cpp Source/LibRawLite/src/metadata/epson.cpp Source/LibRawLite/src/metadata/exif_gps.cpp Source/LibRawLite/src/metadata/fuji.cpp Source/LibRawLite/src/metadata/hasselblad_model.cpp Source/LibRawLite/src/metadata/identify.cpp Source/LibRawLite/src/metadata/identify_tools.cpp Source/LibRawLite/src/metadata/kodak.cpp Source/LibRawLite/src/metadata/leica.cpp Source/LibRawLite/src/metadata/makernotes.cpp Source/LibRawLite/src/metadata/mediumformat.cpp Source/LibRawLite/src/metadata/minolta.cpp Source/LibRawLite/src/metadata/misc_parsers.cpp Source/LibRawLite/src/metadata/nikon.cpp Source/LibRawLite/src/metadata/normalize_model.cpp Source/LibRawLite/src/metadata/olympus.cpp Source/LibRawLite/src/metadata/p1.cpp Source/LibRawLite/src/metadata/pentax.cpp Source/LibRawLite/src/metadata/samsung.cpp Source/LibRawLite/src/metadata/sony.cpp Source/LibRawLite/src/metadata/tiff.cpp Source/LibRawLite/src/postprocessing/aspect_ratio.cpp Source/LibRawLite/src/postprocessing/dcraw_process.cpp Source/LibRawLite/src/postprocessing/mem_image.cpp Source/LibRawLite/src/postprocessing/postprocessing_aux.cpp Source/LibRawLite/src/postprocessing/postprocessing_utils.cpp Source/LibRawLite/src/postprocessing/postprocessing_utils_dcrdefs.cpp Source/LibRawLite/src/preprocessing/ext_preprocess.cpp Source/LibRawLite/src/preprocessing/raw2image.cpp Source/LibRawLite/src/preprocessing/subtract_black.cpp Source/LibRawLite/src/tables/cameralist.cpp Source/LibRawLite/src/tables/colorconst.cpp Source/LibRawLite/src/tables/colordata.cpp Source/LibRawLite/src/tables/wblists.cpp Source/LibRawLite/src/utils/curves.cpp Source/LibRawLite/src/utils/decoder_info.cpp Source/LibRawLite/src/utils/init_close_utils.cpp Source/LibRawLite/src/utils/open.cpp Source/LibRawLite/src/utils/phaseone_processing.cpp Source/LibRawLite/src/utils/read_utils.cpp Source/LibRawLite/src/utils/thumb_utils.cpp Source/LibRawLite/src/utils/utils_dcraw.cpp Source/LibRawLite/src/utils/utils_libraw.cpp Source/LibRawLite/src/write/file_write.cpp Source/LibRawLite/src/x3f/x3f_parse_process.cpp Source/LibRawLite/src/x3f/x3f_utils_patched.cpp Source/LibWebP/src/dec/alpha_dec.c Source/LibWebP/src/dec/buffer_dec.c Source/LibWebP/src/dec/frame_dec.c Source/LibWebP/src/dec/idec_dec.c Source/LibWebP/src/dec/io_dec.c Source/LibWebP/src/dec/quant_dec.c Source/LibWebP/src/dec/tree_dec.c Source/LibWebP/src/dec/vp8l_dec.c Source/LibWebP/src/dec/vp8_dec.c Source/LibWebP/src/dec/webp_dec.c Source/LibWebP/src/demux/anim_decode.c Source/LibWebP/src/demux/demux.c Source/LibWebP/src/dsp/alpha_processing.c Source/LibWebP/src/dsp/alpha_processing_mips_dsp_r2.c Source/LibWebP/src/dsp/alpha_processing_neon.c Source/LibWebP/src/dsp/alpha_processing_sse2.c Source/LibWebP/src/dsp/alpha_processing_sse41.c Source/LibWebP/src/dsp/cost.c Source/LibWebP/src/dsp/cost_mips32.c Source/LibWebP/src/dsp/cost_mips_dsp_r2.c Source/LibWebP/src/dsp/cost_neon.c Source/LibWebP/src/dsp/cost_sse2.c Source/LibWebP/src/dsp/cpu.c Source/LibWebP/src/dsp/dec.c Source/LibWebP/src/dsp/dec_clip_tables.c Source/LibWebP/src/dsp/dec_mips32.c Source/LibWebP/src/dsp/dec_mips_dsp_r2.c Source/LibWebP/src/dsp/dec_msa.c Source/LibWebP/src/dsp/dec_neon.c Source/LibWebP/src/dsp/dec_sse2.c Source/LibWebP/src/dsp/dec_sse41.c Source/LibWebP/src/dsp/enc.c Source/LibWebP/src/dsp/enc_mips32.c Source/LibWebP/src/dsp/enc_mips_dsp_r2.c Source/LibWebP/src/dsp/enc_msa.c Source/LibWebP/src/dsp/enc_neon.c Source/LibWebP/src/dsp/enc_sse2.c Source/LibWebP/src/dsp/enc_sse41.c Source/LibWebP/src/dsp/filters.c Source/LibWebP/src/dsp/filters_mips_dsp_r2.c Source/LibWebP/src/dsp/filters_msa.c Source/LibWebP/src/dsp/filters_neon.c Source/LibWebP/src/dsp/filters_sse2.c Source/LibWebP/src/dsp/lossless.c Source/LibWebP/src/dsp/lossless_enc.c Source/LibWebP/src/dsp/lossless_enc_mips32.c Source/LibWebP/src/dsp/lossless_enc_mips_dsp_r2.c Source/LibWebP/src/dsp/lossless_enc_msa.c Source/LibWebP/src/dsp/lossless_enc_neon.c Source/LibWebP/src/dsp/lossless_enc_sse2.c Source/LibWebP/src/dsp/lossless_enc_sse41.c Source/LibWebP/src/dsp/lossless_mips_dsp_r2.c Source/LibWebP/src/dsp/lossless_msa.c Source/LibWebP/src/dsp/lossless_neon.c Source/LibWebP/src/dsp/lossless_sse2.c Source/LibWebP/src/dsp/lossless_sse41.c Source/LibWebP/src/dsp/rescaler.c Source/LibWebP/src/dsp/rescaler_mips32.c Source/LibWebP/src/dsp/rescaler_mips_dsp_r2.c Source/LibWebP/src/dsp/rescaler_msa.c Source/LibWebP/src/dsp/rescaler_neon.c Source/LibWebP/src/dsp/rescaler_sse2.c Source/LibWebP/src/dsp/ssim.c Source/LibWebP/src/dsp/ssim_sse2.c Source/LibWebP/src/dsp/upsampling.c Source/LibWebP/src/dsp/upsampling_mips_dsp_r2.c Source/LibWebP/src/dsp/upsampling_msa.c Source/LibWebP/src/dsp/upsampling_neon.c Source/LibWebP/src/dsp/upsampling_sse2.c Source/LibWebP/src/dsp/upsampling_sse41.c Source/LibWebP/src/dsp/yuv.c Source/LibWebP/src/dsp/yuv_mips32.c Source/LibWebP/src/dsp/yuv_mips_dsp_r2.c Source/LibWebP/src/dsp/yuv_neon.c Source/LibWebP/src/dsp/yuv_sse2.c Source/LibWebP/src/dsp/yuv_sse41.c Source/LibWebP/src/enc/alpha_enc.c Source/LibWebP/src/enc/analysis_enc.c Source/LibWebP/src/enc/backward_references_cost_enc.c Source/LibWebP/src/enc/backward_references_enc.c Source/LibWebP/src/enc/config_enc.c Source/LibWebP/src/enc/cost_enc.c Source/LibWebP/src/enc/filter_enc.c Source/LibWebP/src/enc/frame_enc.c Source/LibWebP/src/enc/histogram_enc.c Source/LibWebP/src/enc/iterator_enc.c Source/LibWebP/src/enc/near_lossless_enc.c Source/LibWebP/src/enc/picture_csp_enc.c Source/LibWebP/src/enc/picture_enc.c Source/LibWebP/src/enc/picture_psnr_enc.c Source/LibWebP/src/enc/picture_rescale_enc.c Source/LibWebP/src/enc/picture_tools_enc.c Source/LibWebP/src/enc/predictor_enc.c Source/LibWebP/src/enc/quant_enc.c Source/LibWebP/src/enc/syntax_enc.c Source/LibWebP/src/enc/token_enc.c Source/LibWebP/src/enc/tree_enc.c Source/LibWebP/src/enc/vp8l_enc.c Source/LibWebP/src/enc/webp_enc.c Source/LibWebP/src/mux/anim_encode.c Source/LibWebP/src/mux/muxedit.c Source/LibWebP/src/mux/muxinternal.c Source/LibWebP/src/mux/muxread.c Source/LibWebP/src/utils/bit_reader_utils.c Source/LibWebP/src/utils/bit_writer_utils.c Source/LibWebP/src/utils/color_cache_utils.c Source/LibWebP/src/utils/filters_utils.c Source/LibWebP/src/utils/huffman_encode_utils.c Source/LibWebP/src/utils/huffman_utils.c Source/LibWebP/src/utils/quant_levels_dec_utils.c Source/LibWebP/src/utils/quant_levels_utils.c Source/LibWebP/src/utils/random_utils.c Source/LibWebP/src/utils/rescaler_utils.c Source/LibWebP/src/utils/thread_utils.c Source/LibWebP/src/utils/utils.c Source/LibJXR/image/decode/decode.c Source/LibJXR/image/decode/JXRTranscode.c Source/LibJXR/image/decode/postprocess.c Source/LibJXR/image/decode/segdec.c Source/LibJXR/image/decode/strdec.c Source/LibJXR/image/decode/strdec_x86.c Source/LibJXR/image/decode/strInvTransform.c Source/LibJXR/image/decode/strPredQuantDec.c Source/LibJXR/image/encode/encode.c Source/LibJXR/image/encode/segenc.c Source/LibJXR/image/encode/strenc.c Source/LibJXR/image/encode/strenc_x86.c Source/LibJXR/image/encode/strFwdTransform.c Source/LibJXR/image/encode/strPredQuantEnc.c Source/LibJXR/image/sys/adapthuff.c Source/LibJXR/image/sys/image.c Source/LibJXR/image/sys/strcodec.c Source/LibJXR/image/sys/strPredQuant.c Source/LibJXR/image/sys/strTransform.c Source/LibJXR/jxrgluelib/JXRGlue.c Source/LibJXR/jxrgluelib/JXRGlueJxr.c Source/LibJXR/jxrgluelib/JXRGluePFC.c Source/LibJXR/jxrgluelib/JXRMeta.c Source/Imath/ImathColorAlgo.cpp Source/Imath/ImathFun.cpp Source/Imath/ImathMatrixAlgo.cpp Source/Imath/ImathRandom.cpp Source/LibDeflate/lib/adler32.c Source/LibDeflate/lib/arm/cpu_features.c Source/LibDeflate/lib/crc32.c Source/LibDeflate/lib/deflate_compress.c Source/LibDeflate/lib/deflate_decompress.c Source/LibDeflate/lib/gzip_compress.c Source/LibDeflate/lib/gzip_decompress.c Source/LibDeflate/lib/utils.c Source/LibDeflate/lib/x86/cpu_features.c Source/LibDeflate/lib/zlib_compress.c Source/LibDeflate/lib/zlib_decompress.c Source/LibOpenJPEG/bio.c Source/LibOpenJPEG/cio.c Source/LibOpenJPEG/dwt.c Source/LibOpenJPEG/event.c Source/LibOpenJPEG/function_list.c Source/LibOpenJPEG/ht_dec.c Source/LibOpenJPEG/image.c Source/LibOpenJPEG/invert.c Source/LibOpenJPEG/j2k.c Source/LibOpenJPEG/jp2.c Source/LibOpenJPEG/mct.c Source/LibOpenJPEG/mqc.c Source/LibOpenJPEG/openjpeg.c Source/LibOpenJPEG/opj_clock.c Source/LibOpenJPEG/opj_malloc.c Source/LibOpenJPEG/pi.c Source/LibOpenJPEG/sparse_array.c Source/LibOpenJPEG/t1.c Source/LibOpenJPEG/t2.c Source/LibOpenJPEG/tcd.c Source/LibOpenJPEG/tgt.c Source/LibOpenJPEG/thread.c Source/OpenEXR/Half/half.cpp Source/OpenEXR/Iex/IexBaseExc.cpp Source/OpenEXR/Iex/IexMathFloatExc.cpp Source/OpenEXR/Iex/IexMathFpu.cpp Source/OpenEXR/Iex/IexThrowErrnoExc.cpp Source/OpenEXR/IlmImf/ImfAcesFile.cpp Source/OpenEXR/IlmImf/ImfAttribute.cpp Source/OpenEXR/IlmImf/ImfB44Compressor.cpp Source/OpenEXR/IlmImf/ImfBoxAttribute.cpp Source/OpenEXR/IlmImf/ImfCRgbaFile.cpp Source/OpenEXR/IlmImf/ImfChannelList.cpp Source/OpenEXR/IlmImf/ImfChannelListAttribute.cpp Source/OpenEXR/IlmImf/ImfChromaticities.cpp Source/OpenEXR/IlmImf/ImfChromaticitiesAttribute.cpp Source/OpenEXR/IlmImf/ImfCompositeDeepScanLine.cpp Source/OpenEXR/IlmImf/ImfCompression.cpp Source/OpenEXR/IlmImf/ImfCompressionAttribute.cpp Source/OpenEXR/IlmImf/ImfCompressor.cpp Source/OpenEXR/IlmImf/ImfContext.cpp Source/OpenEXR/IlmImf/ImfContextInit.cpp Source/OpenEXR/IlmImf/ImfConvert.cpp Source/OpenEXR/IlmImf/ImfDeepCompositing.cpp Source/OpenEXR/IlmImf/ImfDeepFrameBuffer.cpp Source/OpenEXR/IlmImf/ImfDeepImageStateAttribute.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineInputPart.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineOutputPart.cpp Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.cpp Source/OpenEXR/IlmImf/ImfDeepTiledInputPart.cpp Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.cpp Source/OpenEXR/IlmImf/ImfDeepTiledOutputPart.cpp Source/OpenEXR/IlmImf/ImfDoubleAttribute.cpp Source/OpenEXR/IlmImf/ImfDwaCompressor.cpp Source/OpenEXR/IlmImf/ImfEnvmap.cpp Source/OpenEXR/IlmImf/ImfEnvmapAttribute.cpp Source/OpenEXR/IlmImf/ImfFastHuf.cpp Source/OpenEXR/IlmImf/ImfFloatAttribute.cpp Source/OpenEXR/IlmImf/ImfFloatVectorAttribute.cpp Source/OpenEXR/IlmImf/ImfFrameBuffer.cpp Source/OpenEXR/IlmImf/ImfFramesPerSecond.cpp Source/OpenEXR/IlmImf/ImfGenericInputFile.cpp Source/OpenEXR/IlmImf/ImfGenericOutputFile.cpp Source/OpenEXR/IlmImf/ImfHeader.cpp Source/OpenEXR/IlmImf/ImfHuf.cpp Source/OpenEXR/IlmImf/ImfIDManifest.cpp Source/OpenEXR/IlmImf/ImfIDManifestAttribute.cpp Source/OpenEXR/IlmImf/ImfIO.cpp Source/OpenEXR/IlmImf/ImfInputFile.cpp Source/OpenEXR/IlmImf/ImfInputPart.cpp Source/OpenEXR/IlmImf/ImfInputPartData.cpp Source/OpenEXR/IlmImf/ImfIntAttribute.cpp Source/OpenEXR/IlmImf/ImfKeyCode.cpp Source/OpenEXR/IlmImf/ImfKeyCodeAttribute.cpp Source/OpenEXR/IlmImf/ImfLineOrderAttribute.cpp Source/OpenEXR/IlmImf/ImfLut.cpp Source/OpenEXR/IlmImf/ImfMatrixAttribute.cpp Source/OpenEXR/IlmImf/ImfMisc.cpp Source/OpenEXR/IlmImf/ImfMultiPartInputFile.cpp Source/OpenEXR/IlmImf/ImfMultiPartOutputFile.cpp Source/OpenEXR/IlmImf/ImfMultiView.cpp Source/OpenEXR/IlmImf/ImfOpaqueAttribute.cpp Source/OpenEXR/IlmImf/ImfOutputFile.cpp Source/OpenEXR/IlmImf/ImfOutputPart.cpp Source/OpenEXR/IlmImf/ImfOutputPartData.cpp Source/OpenEXR/IlmImf/ImfPartType.cpp Source/OpenEXR/IlmImf/ImfPizCompressor.cpp Source/OpenEXR/IlmImf/ImfPreviewImage.cpp Source/OpenEXR/IlmImf/ImfPreviewImageAttribute.cpp Source/OpenEXR/IlmImf/ImfPxr24Compressor.cpp Source/OpenEXR/IlmImf/ImfRational.cpp Source/OpenEXR/IlmImf/ImfRationalAttribute.cpp Source/OpenEXR/IlmImf/ImfRgbaFile.cpp Source/OpenEXR/IlmImf/ImfRgbaYca.cpp Source/OpenEXR/IlmImf/ImfRle.cpp Source/OpenEXR/IlmImf/ImfRleCompressor.cpp Source/OpenEXR/IlmImf/ImfScanLineInputFile.cpp Source/OpenEXR/IlmImf/ImfStandardAttributes.cpp Source/OpenEXR/IlmImf/ImfStdIO.cpp Source/OpenEXR/IlmImf/ImfStringAttribute.cpp Source/OpenEXR/IlmImf/ImfStringVectorAttribute.cpp Source/OpenEXR/IlmImf/ImfSystemSpecific.cpp Source/OpenEXR/IlmImf/ImfTestFile.cpp Source/OpenEXR/IlmImf/ImfThreading.cpp Source/OpenEXR/IlmImf/ImfTileDescriptionAttribute.cpp Source/OpenEXR/IlmImf/ImfTileOffsets.cpp Source/OpenEXR/IlmImf/ImfTiledInputFile.cpp Source/OpenEXR/IlmImf/ImfTiledInputPart.cpp Source/OpenEXR/IlmImf/ImfTiledMisc.cpp Source/OpenEXR/IlmImf/ImfTiledOutputFile.cpp Source/OpenEXR/IlmImf/ImfTiledOutputPart.cpp Source/OpenEXR/IlmImf/ImfTiledRgbaFile.cpp Source/OpenEXR/IlmImf/ImfTimeCode.cpp Source/OpenEXR/IlmImf/ImfTimeCodeAttribute.cpp Source/OpenEXR/IlmImf/ImfVecAttribute.cpp Source/OpenEXR/IlmImf/ImfVersion.cpp Source/OpenEXR/IlmImf/ImfWav.cpp Source/OpenEXR/IlmImf/ImfZip.cpp Source/OpenEXR/IlmImf/ImfZipCompressor.cpp Source/OpenEXR/IlmThread/IlmThread.cpp Source/OpenEXR/IlmThread/IlmThreadPool.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphore.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphoreOSX.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphorePosix.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphorePosixCompat.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphoreWin32.cpp Source/OpenEXR/OpenEXRCore/attributes.c Source/OpenEXR/OpenEXRCore/base.c Source/OpenEXR/OpenEXRCore/channel_list.c Source/OpenEXR/OpenEXRCore/chunk.c Source/OpenEXR/OpenEXRCore/coding.c Source/OpenEXR/OpenEXRCore/compression.c Source/OpenEXR/OpenEXRCore/context.c Source/OpenEXR/OpenEXRCore/debug.c Source/OpenEXR/OpenEXRCore/decoding.c Source/OpenEXR/OpenEXRCore/encoding.c Source/OpenEXR/OpenEXRCore/float_vector.c Source/OpenEXR/OpenEXRCore/internal_b44.c Source/OpenEXR/OpenEXRCore/internal_b44_table.c Source/OpenEXR/OpenEXRCore/internal_dwa.c Source/OpenEXR/OpenEXRCore/internal_huf.c Source/OpenEXR/OpenEXRCore/internal_piz.c Source/OpenEXR/OpenEXRCore/internal_pxr24.c Source/OpenEXR/OpenEXRCore/internal_rle.c Source/OpenEXR/OpenEXRCore/internal_structs.c Source/OpenEXR/OpenEXRCore/internal_zip.c Source/OpenEXR/OpenEXRCore/memory.c Source/OpenEXR/OpenEXRCore/opaque.c Source/OpenEXR/OpenEXRCore/pack.c Source/OpenEXR/OpenEXRCore/parse_header.c Source/OpenEXR/OpenEXRCore/part.c Source/OpenEXR/OpenEXRCore/part_attr.c Source/OpenEXR/OpenEXRCore/preview.c Source/OpenEXR/OpenEXRCore/std_attr.c Source/OpenEXR/OpenEXRCore/string.c Source/OpenEXR/OpenEXRCore/string_vector.c Source/OpenEXR/OpenEXRCore/unpack.c Source/OpenEXR/OpenEXRCore/validation.c Source/OpenEXR/OpenEXRCore/write_header.c Source/OpenEXR/OpenEXRCore/bytes.c Source/OpenEXR/OpenEXRCore/color_metadata.c Source/OpenEXR/OpenEXRCore/internal_b44_table_init.c Source/OpenEXR/OpenEXRCore/internal_dwa_table.c Source/OpenEXR/OpenEXRCore/internal_dwa_table_init.c Source/OpenEXR/OpenEXRCore/internal_zstd.c Source/OpenEXR/OpenEXRCore/internal_zstd_delta.c Source/OpenEXR/OpenEXRCore/internal_zstd_shuffle.c Source/OpenEXR/Zstd/lib/common/debug.c Source/OpenEXR/Zstd/lib/common/entropy_common.c Source/OpenEXR/Zstd/lib/common/error_private.c Source/OpenEXR/Zstd/lib/common/fse_decompress.c Source/OpenEXR/Zstd/lib/common/pool.c Source/OpenEXR/Zstd/lib/common/threading.c Source/OpenEXR/Zstd/lib/common/xxhash.c Source/OpenEXR/Zstd/lib/common/zstd_common.c Source/OpenEXR/Zstd/lib/compress/fse_compress.c Source/OpenEXR/Zstd/lib/compress/hist.c Source/OpenEXR/Zstd/lib/compress/huf_compress.c Source/OpenEXR/Zstd/lib/compress/zstd_compress.c Source/OpenEXR/Zstd/lib/compress/zstd_compress_literals.c Source/OpenEXR/Zstd/lib/compress/zstd_compress_sequences.c Source/OpenEXR/Zstd/lib/compress/zstd_compress_superblock.c Source/OpenEXR/Zstd/lib/compress/zstd_double_fast.c Source/OpenEXR/Zstd/lib/compress/zstd_fast.c Source/OpenEXR/Zstd/lib/compress/zstd_lazy.c Source/OpenEXR/Zstd/lib/compress/zstd_ldm.c Source/OpenEXR/Zstd/lib/compress/zstd_opt.c Source/OpenEXR/Zstd/lib/compress/zstd_preSplit.c Source/OpenEXR/Zstd/lib/compress/zstdmt_compress.c Source/OpenEXR/Zstd/lib/decompress/huf_decompress.c Source/OpenEXR/Zstd/lib/decompress/zstd_ddict.c Source/OpenEXR/Zstd/lib/decompress/zstd_decompress.c Source/OpenEXR/Zstd/lib/decompress/zstd_decompress_block.c Source/OpenEXR/OpenJPH/others/ojph_mem_c.c Source/OpenEXR/IlmImf/ImfBytesAttribute.cpp Source/OpenEXR/IlmImf/ImfColorMetadata.cpp Source/OpenEXR/IlmImf/ImfHTCompressor.cpp Source/OpenEXR/IlmImf/ImfZstdCompressor.cpp Source/OpenEXR/OpenEXRCore/internal_ht.cpp Source/OpenEXR/OpenEXRCore/internal_ht_common.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codeblock_fun.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codestream.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codestream_gen.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codestream_local.cpp Source/OpenEXR/OpenJPH/codestream/ojph_params.cpp Source/OpenEXR/OpenJPH/codestream/ojph_precinct.cpp Source/OpenEXR/OpenJPH/codestream/ojph_resolution.cpp Source/OpenEXR/OpenJPH/codestream/ojph_subband.cpp Source/OpenEXR/OpenJPH/codestream/ojph_tile.cpp Source/OpenEXR/OpenJPH/codestream/ojph_tile_comp.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_common.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_decoder32.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_decoder64.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_encoder.cpp Source/OpenEXR/OpenJPH/others/ojph_arch.cpp Source/OpenEXR/OpenJPH/others/ojph_file.cpp Source/OpenEXR/OpenJPH/others/ojph_mem.cpp Source/OpenEXR/OpenJPH/others/ojph_message.cpp Source/OpenEXR/OpenJPH/transform/ojph_colour.cpp Source/OpenEXR/OpenJPH/transform/ojph_transform.cpp Source/LibRawLite/src/decoders/olympus14.cpp Source/LibRawLite/src/decoders/pana8.cpp Source/LibRawLite/src/decoders/sonycc.cpp Source/LibRawLite/src/decompressors/losslessjpeg.cpp Source/LibRawLite/src/libraw_c_api.cpp Source/LibRawLite/src/write/apply_profile.cpp Source/LibRawLite/src/write/tiff_writer.cpp Source/LibTIFF4/tif_zstd.c Source/LibWebP/sharpyuv/sharpyuv.c Source/LibWebP/sharpyuv/sharpyuv_cpu.c Source/LibWebP/sharpyuv/sharpyuv_csp.c Source/LibWebP/sharpyuv/sharpyuv_dsp.c Source/LibWebP/sharpyuv/sharpyuv_gamma.c Source/LibWebP/sharpyuv/sharpyuv_neon.c Source/LibWebP/sharpyuv/sharpyuv_sse2.c Source/LibWebP/src/dsp/lossless_avx2.c Source/LibWebP/src/dsp/lossless_enc_avx2.c Source/LibWebP/src/utils/palette.c
++SRCS = Source/FreeImage/BitmapAccess.cpp Source/FreeImage/ColorLookup.cpp Source/FreeImage/ConversionRGBA16.cpp Source/FreeImage/ConversionRGBAF.cpp Source/FreeImage/FreeImage.cpp Source/FreeImage/FreeImageC.c Source/FreeImage/FreeImageIO.cpp Source/FreeImage/GetType.cpp Source/FreeImage/LFPQuantizer.cpp Source/FreeImage/MemoryIO.cpp Source/FreeImage/PixelAccess.cpp Source/FreeImage/J2KHelper.cpp Source/FreeImage/MNGHelper.cpp Source/FreeImage/Plugin.cpp Source/FreeImage/PluginBMP.cpp Source/FreeImage/PluginCUT.cpp Source/FreeImage/PluginDDS.cpp Source/FreeImage/PluginEXR.cpp Source/FreeImage/PluginG3.cpp Source/FreeImage/PluginGIF.cpp Source/FreeImage/PluginHEIF.cpp Source/FreeImage/PluginHDR.cpp Source/FreeImage/PluginICO.cpp Source/FreeImage/PluginIFF.cpp Source/FreeImage/PluginJ2K.cpp Source/FreeImage/PluginJNG.cpp Source/FreeImage/PluginJP2.cpp Source/FreeImage/PluginJPEG.cpp Source/FreeImage/PluginJXR.cpp Source/FreeImage/PluginKOALA.cpp Source/FreeImage/PluginMNG.cpp Source/FreeImage/PluginPCD.cpp Source/FreeImage/PluginPCX.cpp Source/FreeImage/PluginPFM.cpp Source/FreeImage/PluginPICT.cpp Source/FreeImage/PluginPNG.cpp Source/FreeImage/PluginPNM.cpp Source/FreeImage/PluginPSD.cpp Source/FreeImage/PluginRAS.cpp Source/FreeImage/PluginRAW.cpp Source/FreeImage/PluginSGI.cpp Source/FreeImage/PluginTARGA.cpp Source/FreeImage/PluginTIFF.cpp Source/FreeImage/PluginWBMP.cpp Source/FreeImage/PluginWebP.cpp Source/FreeImage/PluginXBM.cpp Source/FreeImage/PluginXPM.cpp Source/FreeImage/PSDParser.cpp Source/FreeImage/TIFFLogLuv.cpp Source/FreeImage/Conversion.cpp Source/FreeImage/Conversion16_555.cpp Source/FreeImage/Conversion16_565.cpp Source/FreeImage/Conversion24.cpp Source/FreeImage/Conversion32.cpp Source/FreeImage/Conversion4.cpp Source/FreeImage/Conversion8.cpp Source/FreeImage/ConversionFloat.cpp Source/FreeImage/ConversionRGB16.cpp Source/FreeImage/ConversionRGBF.cpp Source/FreeImage/ConversionType.cpp Source/FreeImage/ConversionUINT16.cpp Source/FreeImage/Halftoning.cpp Source/FreeImage/tmoColorConvert.cpp Source/FreeImage/tmoDrago03.cpp Source/FreeImage/tmoFattal02.cpp Source/FreeImage/tmoReinhard05.cpp Source/FreeImage/ToneMapping.cpp Source/FreeImage/NNQuantizer.cpp Source/FreeImage/WuQuantizer.cpp Source/FreeImage/CacheFile.cpp Source/FreeImage/MultiPage.cpp Source/FreeImage/ZLibInterface.cpp Source/Metadata/Exif.cpp Source/Metadata/FIRational.cpp Source/Metadata/FreeImageTag.cpp Source/Metadata/IPTC.cpp Source/Metadata/TagConversion.cpp Source/Metadata/TagLib.cpp Source/Metadata/XTIFF.cpp Source/FreeImageToolkit/Background.cpp Source/FreeImageToolkit/BSplineRotate.cpp Source/FreeImageToolkit/Channels.cpp Source/FreeImageToolkit/ClassicRotate.cpp Source/FreeImageToolkit/Colors.cpp Source/FreeImageToolkit/CopyPaste.cpp Source/FreeImageToolkit/Display.cpp Source/FreeImageToolkit/Flip.cpp Source/FreeImageToolkit/JPEGTransform.cpp Source/FreeImageToolkit/MultigridPoissonSolver.cpp Source/FreeImageToolkit/Rescale.cpp Source/FreeImageToolkit/Resize.cpp Source/LibJPEG/jaricom.c Source/LibJPEG/jcapimin.c Source/LibJPEG/jcapistd.c Source/LibJPEG/jcarith.c Source/LibJPEG/jccoefct.c Source/LibJPEG/jccolor.c Source/LibJPEG/jcdctmgr.c Source/LibJPEG/jchuff.c Source/LibJPEG/jcinit.c Source/LibJPEG/jcmainct.c Source/LibJPEG/jcmarker.c Source/LibJPEG/jcmaster.c Source/LibJPEG/jcomapi.c Source/LibJPEG/jcparam.c Source/LibJPEG/jcprepct.c Source/LibJPEG/jcsample.c Source/LibJPEG/jctrans.c Source/LibJPEG/jdapimin.c Source/LibJPEG/jdapistd.c Source/LibJPEG/jdarith.c Source/LibJPEG/jdatadst.c Source/LibJPEG/jdatasrc.c Source/LibJPEG/jdcoefct.c Source/LibJPEG/jdcolor.c Source/LibJPEG/jddctmgr.c Source/LibJPEG/jdhuff.c Source/LibJPEG/jdinput.c Source/LibJPEG/jdmainct.c Source/LibJPEG/jdmarker.c Source/LibJPEG/jdmaster.c Source/LibJPEG/jdmerge.c Source/LibJPEG/jdpostct.c Source/LibJPEG/jdsample.c Source/LibJPEG/jdtrans.c Source/LibJPEG/jerror.c Source/LibJPEG/jfdctflt.c Source/LibJPEG/jfdctfst.c Source/LibJPEG/jfdctint.c Source/LibJPEG/jidctflt.c Source/LibJPEG/jidctfst.c Source/LibJPEG/jidctint.c Source/LibJPEG/jmemmgr.c Source/LibJPEG/jmemnobs.c Source/LibJPEG/jquant1.c Source/LibJPEG/jquant2.c Source/LibJPEG/jutils.c Source/LibJPEG/transupp.c Source/LibPNG/png.c Source/LibPNG/pngerror.c Source/LibPNG/pngget.c Source/LibPNG/pngmem.c Source/LibPNG/pngpread.c Source/LibPNG/pngread.c Source/LibPNG/pngrio.c Source/LibPNG/pngrtran.c Source/LibPNG/pngrutil.c Source/LibPNG/pngset.c Source/LibPNG/pngtrans.c Source/LibPNG/pngwio.c Source/LibPNG/pngwrite.c Source/LibPNG/pngwtran.c Source/LibPNG/pngwutil.c Source/LibTIFF4/tif_aux.c Source/LibTIFF4/tif_close.c Source/LibTIFF4/tif_codec.c Source/LibTIFF4/tif_color.c Source/LibTIFF4/tif_compress.c Source/LibTIFF4/tif_dir.c Source/LibTIFF4/tif_dirinfo.c Source/LibTIFF4/tif_dirread.c Source/LibTIFF4/tif_dirwrite.c Source/LibTIFF4/tif_dumpmode.c Source/LibTIFF4/tif_error.c Source/LibTIFF4/tif_extension.c Source/LibTIFF4/tif_fax3.c Source/LibTIFF4/tif_fax3sm.c Source/LibTIFF4/tif_flush.c Source/LibTIFF4/tif_getimage.c Source/LibTIFF4/tif_hash_set.c Source/LibTIFF4/tif_jbig.c Source/LibTIFF4/tif_jpeg.c Source/LibTIFF4/tif_jpeg_12.c Source/LibTIFF4/tif_lerc.c Source/LibTIFF4/tif_luv.c Source/LibTIFF4/tif_lzw.c Source/LibTIFF4/tif_next.c Source/LibTIFF4/tif_ojpeg.c Source/LibTIFF4/tif_open.c Source/LibTIFF4/tif_packbits.c Source/LibTIFF4/tif_pixarlog.c Source/LibTIFF4/tif_predict.c Source/LibTIFF4/tif_print.c Source/LibTIFF4/tif_read.c Source/LibTIFF4/tif_strip.c Source/LibTIFF4/tif_swab.c Source/LibTIFF4/tif_thunder.c Source/LibTIFF4/tif_tile.c Source/LibTIFF4/tif_version.c Source/LibTIFF4/tif_warning.c Source/LibTIFF4/tif_webp.c Source/LibTIFF4/tif_write.c Source/LibTIFF4/tif_zip.c Source/ZLib/adler32.c Source/ZLib/compress.c Source/ZLib/crc32.c Source/ZLib/deflate.c Source/ZLib/gzclose.c Source/ZLib/gzlib.c Source/ZLib/gzread.c Source/ZLib/gzwrite.c Source/ZLib/infback.c Source/ZLib/inffast.c Source/ZLib/inflate.c Source/ZLib/inftrees.c Source/ZLib/trees.c Source/ZLib/uncompr.c Source/ZLib/zutil.c Source/LibRawLite/src/decoders/canon_600.cpp Source/LibRawLite/src/decoders/crx.cpp Source/LibRawLite/src/decoders/decoders_dcraw.cpp Source/LibRawLite/src/decoders/decoders_libraw.cpp Source/LibRawLite/src/decoders/decoders_libraw_dcrdefs.cpp Source/LibRawLite/src/decoders/dng.cpp Source/LibRawLite/src/decoders/fp_dng.cpp Source/LibRawLite/src/decoders/fuji_compressed.cpp Source/LibRawLite/src/decoders/generic.cpp Source/LibRawLite/src/decoders/kodak_decoders.cpp Source/LibRawLite/src/decoders/load_mfbacks.cpp Source/LibRawLite/src/decoders/smal.cpp Source/LibRawLite/src/decoders/unpack.cpp Source/LibRawLite/src/decoders/unpack_thumb.cpp Source/LibRawLite/src/demosaic/aahd_demosaic.cpp Source/LibRawLite/src/demosaic/ahd_demosaic.cpp Source/LibRawLite/src/demosaic/dcb_demosaic.cpp Source/LibRawLite/src/demosaic/dht_demosaic.cpp Source/LibRawLite/src/demosaic/misc_demosaic.cpp Source/LibRawLite/src/demosaic/xtrans_demosaic.cpp Source/LibRawLite/src/integration/dngsdk_glue.cpp Source/LibRawLite/src/integration/rawspeed_glue.cpp Source/LibRawLite/src/libraw_datastream.cpp Source/LibRawLite/src/metadata/adobepano.cpp Source/LibRawLite/src/metadata/canon.cpp Source/LibRawLite/src/metadata/ciff.cpp Source/LibRawLite/src/metadata/cr3_parser.cpp Source/LibRawLite/src/metadata/epson.cpp Source/LibRawLite/src/metadata/exif_gps.cpp Source/LibRawLite/src/metadata/fuji.cpp Source/LibRawLite/src/metadata/hasselblad_model.cpp Source/LibRawLite/src/metadata/identify.cpp Source/LibRawLite/src/metadata/identify_tools.cpp Source/LibRawLite/src/metadata/kodak.cpp Source/LibRawLite/src/metadata/leica.cpp Source/LibRawLite/src/metadata/makernotes.cpp Source/LibRawLite/src/metadata/mediumformat.cpp Source/LibRawLite/src/metadata/minolta.cpp Source/LibRawLite/src/metadata/misc_parsers.cpp Source/LibRawLite/src/metadata/nikon.cpp Source/LibRawLite/src/metadata/normalize_model.cpp Source/LibRawLite/src/metadata/olympus.cpp Source/LibRawLite/src/metadata/p1.cpp Source/LibRawLite/src/metadata/pentax.cpp Source/LibRawLite/src/metadata/samsung.cpp Source/LibRawLite/src/metadata/sony.cpp Source/LibRawLite/src/metadata/tiff.cpp Source/LibRawLite/src/postprocessing/aspect_ratio.cpp Source/LibRawLite/src/postprocessing/dcraw_process.cpp Source/LibRawLite/src/postprocessing/mem_image.cpp Source/LibRawLite/src/postprocessing/postprocessing_aux.cpp Source/LibRawLite/src/postprocessing/postprocessing_utils.cpp Source/LibRawLite/src/postprocessing/postprocessing_utils_dcrdefs.cpp Source/LibRawLite/src/preprocessing/ext_preprocess.cpp Source/LibRawLite/src/preprocessing/raw2image.cpp Source/LibRawLite/src/preprocessing/subtract_black.cpp Source/LibRawLite/src/tables/cameralist.cpp Source/LibRawLite/src/tables/colorconst.cpp Source/LibRawLite/src/tables/colordata.cpp Source/LibRawLite/src/tables/wblists.cpp Source/LibRawLite/src/utils/curves.cpp Source/LibRawLite/src/utils/decoder_info.cpp Source/LibRawLite/src/utils/init_close_utils.cpp Source/LibRawLite/src/utils/open.cpp Source/LibRawLite/src/utils/phaseone_processing.cpp Source/LibRawLite/src/utils/read_utils.cpp Source/LibRawLite/src/utils/thumb_utils.cpp Source/LibRawLite/src/utils/utils_dcraw.cpp Source/LibRawLite/src/utils/utils_libraw.cpp Source/LibRawLite/src/write/file_write.cpp Source/LibRawLite/src/x3f/x3f_parse_process.cpp Source/LibRawLite/src/x3f/x3f_utils_patched.cpp Source/LibWebP/src/dec/alpha_dec.c Source/LibWebP/src/dec/buffer_dec.c Source/LibWebP/src/dec/frame_dec.c Source/LibWebP/src/dec/idec_dec.c Source/LibWebP/src/dec/io_dec.c Source/LibWebP/src/dec/quant_dec.c Source/LibWebP/src/dec/tree_dec.c Source/LibWebP/src/dec/vp8l_dec.c Source/LibWebP/src/dec/vp8_dec.c Source/LibWebP/src/dec/webp_dec.c Source/LibWebP/src/demux/anim_decode.c Source/LibWebP/src/demux/demux.c Source/LibWebP/src/dsp/alpha_processing.c Source/LibWebP/src/dsp/alpha_processing_mips_dsp_r2.c Source/LibWebP/src/dsp/alpha_processing_neon.c Source/LibWebP/src/dsp/alpha_processing_sse2.c Source/LibWebP/src/dsp/alpha_processing_sse41.c Source/LibWebP/src/dsp/cost.c Source/LibWebP/src/dsp/cost_mips32.c Source/LibWebP/src/dsp/cost_mips_dsp_r2.c Source/LibWebP/src/dsp/cost_neon.c Source/LibWebP/src/dsp/cost_sse2.c Source/LibWebP/src/dsp/cpu.c Source/LibWebP/src/dsp/dec.c Source/LibWebP/src/dsp/dec_clip_tables.c Source/LibWebP/src/dsp/dec_mips32.c Source/LibWebP/src/dsp/dec_mips_dsp_r2.c Source/LibWebP/src/dsp/dec_msa.c Source/LibWebP/src/dsp/dec_neon.c Source/LibWebP/src/dsp/dec_sse2.c Source/LibWebP/src/dsp/dec_sse41.c Source/LibWebP/src/dsp/enc.c Source/LibWebP/src/dsp/enc_mips32.c Source/LibWebP/src/dsp/enc_mips_dsp_r2.c Source/LibWebP/src/dsp/enc_msa.c Source/LibWebP/src/dsp/enc_neon.c Source/LibWebP/src/dsp/enc_sse2.c Source/LibWebP/src/dsp/enc_sse41.c Source/LibWebP/src/dsp/filters.c Source/LibWebP/src/dsp/filters_mips_dsp_r2.c Source/LibWebP/src/dsp/filters_msa.c Source/LibWebP/src/dsp/filters_neon.c Source/LibWebP/src/dsp/filters_sse2.c Source/LibWebP/src/dsp/lossless.c Source/LibWebP/src/dsp/lossless_enc.c Source/LibWebP/src/dsp/lossless_enc_mips32.c Source/LibWebP/src/dsp/lossless_enc_mips_dsp_r2.c Source/LibWebP/src/dsp/lossless_enc_msa.c Source/LibWebP/src/dsp/lossless_enc_neon.c Source/LibWebP/src/dsp/lossless_enc_sse2.c Source/LibWebP/src/dsp/lossless_enc_sse41.c Source/LibWebP/src/dsp/lossless_mips_dsp_r2.c Source/LibWebP/src/dsp/lossless_msa.c Source/LibWebP/src/dsp/lossless_neon.c Source/LibWebP/src/dsp/lossless_sse2.c Source/LibWebP/src/dsp/lossless_sse41.c Source/LibWebP/src/dsp/rescaler.c Source/LibWebP/src/dsp/rescaler_mips32.c Source/LibWebP/src/dsp/rescaler_mips_dsp_r2.c Source/LibWebP/src/dsp/rescaler_msa.c Source/LibWebP/src/dsp/rescaler_neon.c Source/LibWebP/src/dsp/rescaler_sse2.c Source/LibWebP/src/dsp/ssim.c Source/LibWebP/src/dsp/ssim_sse2.c Source/LibWebP/src/dsp/upsampling.c Source/LibWebP/src/dsp/upsampling_mips_dsp_r2.c Source/LibWebP/src/dsp/upsampling_msa.c Source/LibWebP/src/dsp/upsampling_neon.c Source/LibWebP/src/dsp/upsampling_sse2.c Source/LibWebP/src/dsp/upsampling_sse41.c Source/LibWebP/src/dsp/yuv.c Source/LibWebP/src/dsp/yuv_mips32.c Source/LibWebP/src/dsp/yuv_mips_dsp_r2.c Source/LibWebP/src/dsp/yuv_neon.c Source/LibWebP/src/dsp/yuv_sse2.c Source/LibWebP/src/dsp/yuv_sse41.c Source/LibWebP/src/enc/alpha_enc.c Source/LibWebP/src/enc/analysis_enc.c Source/LibWebP/src/enc/backward_references_cost_enc.c Source/LibWebP/src/enc/backward_references_enc.c Source/LibWebP/src/enc/config_enc.c Source/LibWebP/src/enc/cost_enc.c Source/LibWebP/src/enc/filter_enc.c Source/LibWebP/src/enc/frame_enc.c Source/LibWebP/src/enc/histogram_enc.c Source/LibWebP/src/enc/iterator_enc.c Source/LibWebP/src/enc/near_lossless_enc.c Source/LibWebP/src/enc/picture_csp_enc.c Source/LibWebP/src/enc/picture_enc.c Source/LibWebP/src/enc/picture_psnr_enc.c Source/LibWebP/src/enc/picture_rescale_enc.c Source/LibWebP/src/enc/picture_tools_enc.c Source/LibWebP/src/enc/predictor_enc.c Source/LibWebP/src/enc/quant_enc.c Source/LibWebP/src/enc/syntax_enc.c Source/LibWebP/src/enc/token_enc.c Source/LibWebP/src/enc/tree_enc.c Source/LibWebP/src/enc/vp8l_enc.c Source/LibWebP/src/enc/webp_enc.c Source/LibWebP/src/mux/anim_encode.c Source/LibWebP/src/mux/muxedit.c Source/LibWebP/src/mux/muxinternal.c Source/LibWebP/src/mux/muxread.c Source/LibWebP/src/utils/bit_reader_utils.c Source/LibWebP/src/utils/bit_writer_utils.c Source/LibWebP/src/utils/color_cache_utils.c Source/LibWebP/src/utils/filters_utils.c Source/LibWebP/src/utils/huffman_encode_utils.c Source/LibWebP/src/utils/huffman_utils.c Source/LibWebP/src/utils/quant_levels_dec_utils.c Source/LibWebP/src/utils/quant_levels_utils.c Source/LibWebP/src/utils/random_utils.c Source/LibWebP/src/utils/rescaler_utils.c Source/LibWebP/src/utils/thread_utils.c Source/LibWebP/src/utils/utils.c Source/LibJXR/image/decode/decode.c Source/LibJXR/image/decode/JXRTranscode.c Source/LibJXR/image/decode/postprocess.c Source/LibJXR/image/decode/segdec.c Source/LibJXR/image/decode/strdec.c Source/LibJXR/image/decode/strdec_x86.c Source/LibJXR/image/decode/strInvTransform.c Source/LibJXR/image/decode/strPredQuantDec.c Source/LibJXR/image/encode/encode.c Source/LibJXR/image/encode/segenc.c Source/LibJXR/image/encode/strenc.c Source/LibJXR/image/encode/strenc_x86.c Source/LibJXR/image/encode/strFwdTransform.c Source/LibJXR/image/encode/strPredQuantEnc.c Source/LibJXR/image/sys/adapthuff.c Source/LibJXR/image/sys/image.c Source/LibJXR/image/sys/strcodec.c Source/LibJXR/image/sys/strPredQuant.c Source/LibJXR/image/sys/strTransform.c Source/LibJXR/jxrgluelib/JXRGlue.c Source/LibJXR/jxrgluelib/JXRGlueJxr.c Source/LibJXR/jxrgluelib/JXRGluePFC.c Source/LibJXR/jxrgluelib/JXRMeta.c Source/Imath/ImathColorAlgo.cpp Source/Imath/ImathFun.cpp Source/Imath/ImathMatrixAlgo.cpp Source/Imath/ImathRandom.cpp Source/LibDeflate/lib/adler32.c Source/LibDeflate/lib/arm/cpu_features.c Source/LibDeflate/lib/crc32.c Source/LibDeflate/lib/deflate_compress.c Source/LibDeflate/lib/deflate_decompress.c Source/LibDeflate/lib/gzip_compress.c Source/LibDeflate/lib/gzip_decompress.c Source/LibDeflate/lib/utils.c Source/LibDeflate/lib/x86/cpu_features.c Source/LibDeflate/lib/zlib_compress.c Source/LibDeflate/lib/zlib_decompress.c Source/LibOpenJPEG/bio.c Source/LibOpenJPEG/cio.c Source/LibOpenJPEG/dwt.c Source/LibOpenJPEG/event.c Source/LibOpenJPEG/function_list.c Source/LibOpenJPEG/ht_dec.c Source/LibOpenJPEG/image.c Source/LibOpenJPEG/invert.c Source/LibOpenJPEG/j2k.c Source/LibOpenJPEG/jp2.c Source/LibOpenJPEG/mct.c Source/LibOpenJPEG/mqc.c Source/LibOpenJPEG/openjpeg.c Source/LibOpenJPEG/opj_clock.c Source/LibOpenJPEG/opj_malloc.c Source/LibOpenJPEG/pi.c Source/LibOpenJPEG/sparse_array.c Source/LibOpenJPEG/t1.c Source/LibOpenJPEG/t2.c Source/LibOpenJPEG/tcd.c Source/LibOpenJPEG/tgt.c Source/LibOpenJPEG/thread.c Source/OpenEXR/Half/half.cpp Source/OpenEXR/Iex/IexBaseExc.cpp Source/OpenEXR/Iex/IexMathFloatExc.cpp Source/OpenEXR/Iex/IexMathFpu.cpp Source/OpenEXR/Iex/IexThrowErrnoExc.cpp Source/OpenEXR/IlmImf/ImfAcesFile.cpp Source/OpenEXR/IlmImf/ImfAttribute.cpp Source/OpenEXR/IlmImf/ImfB44Compressor.cpp Source/OpenEXR/IlmImf/ImfBoxAttribute.cpp Source/OpenEXR/IlmImf/ImfCRgbaFile.cpp Source/OpenEXR/IlmImf/ImfChannelList.cpp Source/OpenEXR/IlmImf/ImfChannelListAttribute.cpp Source/OpenEXR/IlmImf/ImfChromaticities.cpp Source/OpenEXR/IlmImf/ImfChromaticitiesAttribute.cpp Source/OpenEXR/IlmImf/ImfCompositeDeepScanLine.cpp Source/OpenEXR/IlmImf/ImfCompression.cpp Source/OpenEXR/IlmImf/ImfCompressionAttribute.cpp Source/OpenEXR/IlmImf/ImfCompressor.cpp Source/OpenEXR/IlmImf/ImfContext.cpp Source/OpenEXR/IlmImf/ImfContextInit.cpp Source/OpenEXR/IlmImf/ImfConvert.cpp Source/OpenEXR/IlmImf/ImfDeepCompositing.cpp Source/OpenEXR/IlmImf/ImfDeepFrameBuffer.cpp Source/OpenEXR/IlmImf/ImfDeepImageStateAttribute.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineInputPart.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.cpp Source/OpenEXR/IlmImf/ImfDeepScanLineOutputPart.cpp Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.cpp Source/OpenEXR/IlmImf/ImfDeepTiledInputPart.cpp Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.cpp Source/OpenEXR/IlmImf/ImfDeepTiledOutputPart.cpp Source/OpenEXR/IlmImf/ImfDoubleAttribute.cpp Source/OpenEXR/IlmImf/ImfDwaCompressor.cpp Source/OpenEXR/IlmImf/ImfEnvmap.cpp Source/OpenEXR/IlmImf/ImfEnvmapAttribute.cpp Source/OpenEXR/IlmImf/ImfFastHuf.cpp Source/OpenEXR/IlmImf/ImfFloatAttribute.cpp Source/OpenEXR/IlmImf/ImfFloatVectorAttribute.cpp Source/OpenEXR/IlmImf/ImfFrameBuffer.cpp Source/OpenEXR/IlmImf/ImfFramesPerSecond.cpp Source/OpenEXR/IlmImf/ImfGenericInputFile.cpp Source/OpenEXR/IlmImf/ImfGenericOutputFile.cpp Source/OpenEXR/IlmImf/ImfHeader.cpp Source/OpenEXR/IlmImf/ImfHuf.cpp Source/OpenEXR/IlmImf/ImfIDManifest.cpp Source/OpenEXR/IlmImf/ImfIDManifestAttribute.cpp Source/OpenEXR/IlmImf/ImfIO.cpp Source/OpenEXR/IlmImf/ImfInputFile.cpp Source/OpenEXR/IlmImf/ImfInputPart.cpp Source/OpenEXR/IlmImf/ImfInputPartData.cpp Source/OpenEXR/IlmImf/ImfIntAttribute.cpp Source/OpenEXR/IlmImf/ImfKeyCode.cpp Source/OpenEXR/IlmImf/ImfKeyCodeAttribute.cpp Source/OpenEXR/IlmImf/ImfLineOrderAttribute.cpp Source/OpenEXR/IlmImf/ImfLut.cpp Source/OpenEXR/IlmImf/ImfMatrixAttribute.cpp Source/OpenEXR/IlmImf/ImfMisc.cpp Source/OpenEXR/IlmImf/ImfMultiPartInputFile.cpp Source/OpenEXR/IlmImf/ImfMultiPartOutputFile.cpp Source/OpenEXR/IlmImf/ImfMultiView.cpp Source/OpenEXR/IlmImf/ImfOpaqueAttribute.cpp Source/OpenEXR/IlmImf/ImfOutputFile.cpp Source/OpenEXR/IlmImf/ImfOutputPart.cpp Source/OpenEXR/IlmImf/ImfOutputPartData.cpp Source/OpenEXR/IlmImf/ImfPartType.cpp Source/OpenEXR/IlmImf/ImfPizCompressor.cpp Source/OpenEXR/IlmImf/ImfPreviewImage.cpp Source/OpenEXR/IlmImf/ImfPreviewImageAttribute.cpp Source/OpenEXR/IlmImf/ImfPxr24Compressor.cpp Source/OpenEXR/IlmImf/ImfRational.cpp Source/OpenEXR/IlmImf/ImfRationalAttribute.cpp Source/OpenEXR/IlmImf/ImfRgbaFile.cpp Source/OpenEXR/IlmImf/ImfRgbaYca.cpp Source/OpenEXR/IlmImf/ImfRle.cpp Source/OpenEXR/IlmImf/ImfRleCompressor.cpp Source/OpenEXR/IlmImf/ImfScanLineInputFile.cpp Source/OpenEXR/IlmImf/ImfStandardAttributes.cpp Source/OpenEXR/IlmImf/ImfStdIO.cpp Source/OpenEXR/IlmImf/ImfStringAttribute.cpp Source/OpenEXR/IlmImf/ImfStringVectorAttribute.cpp Source/OpenEXR/IlmImf/ImfSystemSpecific.cpp Source/OpenEXR/IlmImf/ImfTestFile.cpp Source/OpenEXR/IlmImf/ImfThreading.cpp Source/OpenEXR/IlmImf/ImfTileDescriptionAttribute.cpp Source/OpenEXR/IlmImf/ImfTileOffsets.cpp Source/OpenEXR/IlmImf/ImfTiledInputFile.cpp Source/OpenEXR/IlmImf/ImfTiledInputPart.cpp Source/OpenEXR/IlmImf/ImfTiledMisc.cpp Source/OpenEXR/IlmImf/ImfTiledOutputFile.cpp Source/OpenEXR/IlmImf/ImfTiledOutputPart.cpp Source/OpenEXR/IlmImf/ImfTiledRgbaFile.cpp Source/OpenEXR/IlmImf/ImfTimeCode.cpp Source/OpenEXR/IlmImf/ImfTimeCodeAttribute.cpp Source/OpenEXR/IlmImf/ImfVecAttribute.cpp Source/OpenEXR/IlmImf/ImfVersion.cpp Source/OpenEXR/IlmImf/ImfWav.cpp Source/OpenEXR/IlmImf/ImfZip.cpp Source/OpenEXR/IlmImf/ImfZipCompressor.cpp Source/OpenEXR/IlmThread/IlmThread.cpp Source/OpenEXR/IlmThread/IlmThreadPool.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphore.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphoreOSX.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphorePosix.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphorePosixCompat.cpp Source/OpenEXR/IlmThread/IlmThreadSemaphoreWin32.cpp Source/OpenEXR/OpenEXRCore/attributes.c Source/OpenEXR/OpenEXRCore/base.c Source/OpenEXR/OpenEXRCore/channel_list.c Source/OpenEXR/OpenEXRCore/chunk.c Source/OpenEXR/OpenEXRCore/coding.c Source/OpenEXR/OpenEXRCore/compression.c Source/OpenEXR/OpenEXRCore/context.c Source/OpenEXR/OpenEXRCore/debug.c Source/OpenEXR/OpenEXRCore/decoding.c Source/OpenEXR/OpenEXRCore/encoding.c Source/OpenEXR/OpenEXRCore/float_vector.c Source/OpenEXR/OpenEXRCore/internal_b44.c Source/OpenEXR/OpenEXRCore/internal_b44_table.c Source/OpenEXR/OpenEXRCore/internal_dwa.c Source/OpenEXR/OpenEXRCore/internal_huf.c Source/OpenEXR/OpenEXRCore/internal_piz.c Source/OpenEXR/OpenEXRCore/internal_pxr24.c Source/OpenEXR/OpenEXRCore/internal_rle.c Source/OpenEXR/OpenEXRCore/internal_structs.c Source/OpenEXR/OpenEXRCore/internal_zip.c Source/OpenEXR/OpenEXRCore/memory.c Source/OpenEXR/OpenEXRCore/opaque.c Source/OpenEXR/OpenEXRCore/pack.c Source/OpenEXR/OpenEXRCore/parse_header.c Source/OpenEXR/OpenEXRCore/part.c Source/OpenEXR/OpenEXRCore/part_attr.c Source/OpenEXR/OpenEXRCore/preview.c Source/OpenEXR/OpenEXRCore/std_attr.c Source/OpenEXR/OpenEXRCore/string.c Source/OpenEXR/OpenEXRCore/string_vector.c Source/OpenEXR/OpenEXRCore/unpack.c Source/OpenEXR/OpenEXRCore/validation.c Source/OpenEXR/OpenEXRCore/write_header.c Source/OpenEXR/OpenEXRCore/bytes.c Source/OpenEXR/OpenEXRCore/color_metadata.c Source/OpenEXR/OpenEXRCore/internal_b44_table_init.c Source/OpenEXR/OpenEXRCore/internal_dwa_table.c Source/OpenEXR/OpenEXRCore/internal_dwa_table_init.c Source/OpenEXR/OpenEXRCore/internal_zstd.c Source/OpenEXR/OpenEXRCore/internal_zstd_delta.c Source/OpenEXR/OpenEXRCore/internal_zstd_shuffle.c Source/OpenEXR/Zstd/lib/common/debug.c Source/OpenEXR/Zstd/lib/common/entropy_common.c Source/OpenEXR/Zstd/lib/common/error_private.c Source/OpenEXR/Zstd/lib/common/fse_decompress.c Source/OpenEXR/Zstd/lib/common/pool.c Source/OpenEXR/Zstd/lib/common/threading.c Source/OpenEXR/Zstd/lib/common/xxhash.c Source/OpenEXR/Zstd/lib/common/zstd_common.c Source/OpenEXR/Zstd/lib/compress/fse_compress.c Source/OpenEXR/Zstd/lib/compress/hist.c Source/OpenEXR/Zstd/lib/compress/huf_compress.c Source/OpenEXR/Zstd/lib/compress/zstd_compress.c Source/OpenEXR/Zstd/lib/compress/zstd_compress_literals.c Source/OpenEXR/Zstd/lib/compress/zstd_compress_sequences.c Source/OpenEXR/Zstd/lib/compress/zstd_compress_superblock.c Source/OpenEXR/Zstd/lib/compress/zstd_double_fast.c Source/OpenEXR/Zstd/lib/compress/zstd_fast.c Source/OpenEXR/Zstd/lib/compress/zstd_lazy.c Source/OpenEXR/Zstd/lib/compress/zstd_ldm.c Source/OpenEXR/Zstd/lib/compress/zstd_opt.c Source/OpenEXR/Zstd/lib/compress/zstd_preSplit.c Source/OpenEXR/Zstd/lib/compress/zstdmt_compress.c Source/OpenEXR/Zstd/lib/decompress/huf_decompress.c Source/OpenEXR/Zstd/lib/decompress/zstd_ddict.c Source/OpenEXR/Zstd/lib/decompress/zstd_decompress.c Source/OpenEXR/Zstd/lib/decompress/zstd_decompress_block.c Source/OpenEXR/OpenJPH/others/ojph_mem_c.c Source/OpenEXR/IlmImf/ImfBytesAttribute.cpp Source/OpenEXR/IlmImf/ImfColorMetadata.cpp Source/OpenEXR/IlmImf/ImfHTCompressor.cpp Source/OpenEXR/IlmImf/ImfZstdCompressor.cpp Source/OpenEXR/OpenEXRCore/internal_ht.cpp Source/OpenEXR/OpenEXRCore/internal_ht_common.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codeblock_fun.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codestream.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codestream_gen.cpp Source/OpenEXR/OpenJPH/codestream/ojph_codestream_local.cpp Source/OpenEXR/OpenJPH/codestream/ojph_params.cpp Source/OpenEXR/OpenJPH/codestream/ojph_precinct.cpp Source/OpenEXR/OpenJPH/codestream/ojph_resolution.cpp Source/OpenEXR/OpenJPH/codestream/ojph_subband.cpp Source/OpenEXR/OpenJPH/codestream/ojph_tile.cpp Source/OpenEXR/OpenJPH/codestream/ojph_tile_comp.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_common.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_decoder32.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_decoder64.cpp Source/OpenEXR/OpenJPH/coding/ojph_block_encoder.cpp Source/OpenEXR/OpenJPH/others/ojph_arch.cpp Source/OpenEXR/OpenJPH/others/ojph_file.cpp Source/OpenEXR/OpenJPH/others/ojph_mem.cpp Source/OpenEXR/OpenJPH/others/ojph_message.cpp Source/OpenEXR/OpenJPH/transform/ojph_colour.cpp Source/OpenEXR/OpenJPH/transform/ojph_transform.cpp Source/LibRawLite/src/decoders/olympus14.cpp Source/LibRawLite/src/decoders/pana8.cpp Source/LibRawLite/src/decoders/sonycc.cpp Source/LibRawLite/src/decompressors/losslessjpeg.cpp Source/LibRawLite/src/libraw_c_api.cpp Source/LibRawLite/src/write/apply_profile.cpp Source/LibRawLite/src/write/tiff_writer.cpp Source/LibTIFF4/tif_zstd.c Source/LibWebP/sharpyuv/sharpyuv.c Source/LibWebP/sharpyuv/sharpyuv_cpu.c Source/LibWebP/sharpyuv/sharpyuv_csp.c Source/LibWebP/sharpyuv/sharpyuv_dsp.c Source/LibWebP/sharpyuv/sharpyuv_gamma.c Source/LibWebP/sharpyuv/sharpyuv_neon.c Source/LibWebP/sharpyuv/sharpyuv_sse2.c Source/LibWebP/src/dsp/lossless_avx2.c Source/LibWebP/src/dsp/lossless_enc_avx2.c Source/LibWebP/src/utils/palette.c
+ INCLS = ./Dist/x64/FreeImage.h ./Examples/Generic/FIIO_Mem.h ./Examples/OpenGL/TextureManager/TextureManager.h ./Examples/Plugin/PluginCradle.h ./Source/CacheFile.h ./Source/FreeImage/J2KHelper.h ./Source/FreeImage/PSDParser.h ./Source/FreeImage.h ./Source/FreeImageIO.h ./Source/FreeImageToolkit/Filters.h ./Source/FreeImageToolkit/Resize.h ./Source/LibJPEG/cderror.h ./Source/LibJPEG/cdjpeg.h ./Source/LibJPEG/jconfig.h ./Source/LibJPEG/jdct.h ./Source/LibJPEG/jerror.h ./Source/LibJPEG/jinclude.h ./Source/LibJPEG/jmemsys.h ./Source/LibJPEG/jmorecfg.h ./Source/LibJPEG/jpegint.h ./Source/LibJPEG/jpeglib.h ./Source/LibJPEG/jversion.h ./Source/LibJPEG/transupp.h ./Source/LibJXR/common/include/guiddef.h ./Source/LibJXR/common/include/wmsal.h ./Source/LibJXR/common/include/wmspecstring.h ./Source/LibJXR/common/include/wmspecstrings_adt.h ./Source/LibJXR/common/include/wmspecstrings_strict.h ./Source/LibJXR/common/include/wmspecstrings_undef.h ./Source/LibJXR/image/decode/decode.h ./Source/LibJXR/image/encode/encode.h ./Source/LibJXR/image/sys/ansi.h ./Source/LibJXR/image/sys/common.h ./Source/LibJXR/image/sys/perfTimer.h ./Source/LibJXR/image/sys/strcodec.h ./Source/LibJXR/image/sys/strTransform.h ./Source/LibJXR/image/sys/windowsmediaphoto.h ./Source/LibJXR/image/sys/xplatform_image.h ./Source/LibJXR/image/x86/x86.h ./Source/LibJXR/jxrgluelib/JXRGlue.h ./Source/LibJXR/jxrgluelib/JXRMeta.h ./Source/LibPNG/png.h ./Source/LibPNG/pngconf.h ./Source/LibPNG/pngdebug.h ./Source/LibPNG/pnginfo.h ./Source/LibPNG/pnglibconf.h ./Source/LibPNG/pngpriv.h ./Source/LibPNG/pngstruct.h ./Source/LibRawLite/internal/dcraw_defs.h ./Source/LibRawLite/internal/dcraw_fileio_defs.h ./Source/LibRawLite/internal/defines.h ./Source/LibRawLite/internal/dmp_include.h ./Source/LibRawLite/internal/libraw_cameraids.h ./Source/LibRawLite/internal/libraw_cxx_defs.h ./Source/LibRawLite/internal/libraw_internal_funcs.h ./Source/LibRawLite/internal/var_defines.h ./Source/LibRawLite/internal/x3f_tools.h ./Source/LibRawLite/libraw/libraw.h ./Source/LibRawLite/libraw/libraw_alloc.h ./Source/LibRawLite/libraw/libraw_const.h ./Source/LibRawLite/libraw/libraw_datastream.h ./Source/LibRawLite/libraw/libraw_internal.h ./Source/LibRawLite/libraw/libraw_types.h ./Source/LibRawLite/libraw/libraw_version.h ./Source/LibTIFF4/t4.h ./Source/LibTIFF4/tiff.h ./Source/LibTIFF4/tiffconf.h ./Source/LibTIFF4/tiffconf.vc.h ./Source/LibTIFF4/tiffconf.wince.h ./Source/LibTIFF4/tiffio.h ./Source/LibTIFF4/tiffiop.h ./Source/LibTIFF4/tiffvers.h ./Source/LibTIFF4/tif_config.h ./Source/LibTIFF4/tif_config.vc.h ./Source/LibTIFF4/tif_config.wince.h ./Source/LibTIFF4/tif_dir.h ./Source/LibTIFF4/tif_fax3.h ./Source/LibTIFF4/tif_hash_set.h ./Source/LibTIFF4/tif_predict.h ./Source/LibTIFF4/uvcode.h ./Source/LibWebP/src/dec/alphai_dec.h ./Source/LibWebP/src/dec/common_dec.h ./Source/LibWebP/src/dec/vp8i_dec.h ./Source/LibWebP/src/dec/vp8li_dec.h ./Source/LibWebP/src/dec/vp8_dec.h ./Source/LibWebP/src/dec/webpi_dec.h ./Source/LibWebP/src/dsp/common_sse2.h ./Source/LibWebP/src/dsp/common_sse41.h ./Source/LibWebP/src/dsp/dsp.h ./Source/LibWebP/src/dsp/lossless.h ./Source/LibWebP/src/dsp/lossless_common.h ./Source/LibWebP/src/dsp/mips_macro.h ./Source/LibWebP/src/dsp/msa_macro.h ./Source/LibWebP/src/dsp/neon.h ./Source/LibWebP/src/dsp/quant.h ./Source/LibWebP/src/dsp/yuv.h ./Source/LibWebP/src/enc/backward_references_enc.h ./Source/LibWebP/src/enc/cost_enc.h ./Source/LibWebP/src/enc/histogram_enc.h ./Source/LibWebP/src/enc/vp8i_enc.h ./Source/LibWebP/src/enc/vp8li_enc.h ./Source/LibWebP/src/mux/animi.h ./Source/LibWebP/src/mux/muxi.h ./Source/LibWebP/src/utils/bit_reader_inl_utils.h ./Source/LibWebP/src/utils/bit_reader_utils.h ./Source/LibWebP/src/utils/bit_writer_utils.h ./Source/LibWebP/src/utils/color_cache_utils.h ./Source/LibWebP/src/utils/endian_inl_utils.h ./Source/LibWebP/src/utils/filters_utils.h ./Source/LibWebP/src/utils/huffman_encode_utils.h ./Source/LibWebP/src/utils/huffman_utils.h ./Source/LibWebP/src/utils/quant_levels_dec_utils.h ./Source/LibWebP/src/utils/quant_levels_utils.h ./Source/LibWebP/src/utils/random_utils.h ./Source/LibWebP/src/utils/rescaler_utils.h ./Source/LibWebP/src/utils/thread_utils.h ./Source/LibWebP/src/utils/utils.h ./Source/LibWebP/src/webp/decode.h ./Source/LibWebP/src/webp/demux.h ./Source/LibWebP/src/webp/encode.h ./Source/LibWebP/src/webp/format_constants.h ./Source/LibWebP/src/webp/mux.h ./Source/LibWebP/src/webp/mux_types.h ./Source/LibWebP/src/webp/types.h ./Source/MapIntrospector.h ./Source/Metadata/FIRational.h ./Source/Metadata/FreeImageTag.h ./Source/Plugin.h ./Source/Quantizers.h ./Source/ToneMapping.h ./Source/Utilities.h ./Source/ZLib/crc32.h ./Source/ZLib/deflate.h ./Source/ZLib/gzguts.h ./Source/ZLib/inffast.h ./Source/ZLib/inffixed.h ./Source/ZLib/inflate.h ./Source/ZLib/inftrees.h ./Source/ZLib/trees.h ./Source/ZLib/zconf.h ./Source/ZLib/zlib.h ./Source/ZLib/zutil.h ./TestAPI/TestSuite.h ./Wrapper/FreeImage.NET/cpp/FreeImageIO/FreeImageIO.Net.h ./Wrapper/FreeImage.NET/cpp/FreeImageIO/resource.h ./Wrapper/FreeImage.NET/cpp/FreeImageIO/Stdafx.h ./Wrapper/FreeImagePlus/dist/x64/FreeImagePlus.h ./Wrapper/FreeImagePlus/FreeImagePlus.h ./Wrapper/FreeImagePlus/test/fipTest.h ./Source/Imath/ImathBox.h ./Source/Imath/ImathBoxAlgo.h ./Source/Imath/ImathColor.h ./Source/Imath/ImathColorAlgo.h ./Source/Imath/ImathConfig.h ./Source/Imath/ImathEuler.h ./Source/Imath/ImathExport.h ./Source/Imath/ImathForward.h ./Source/Imath/ImathFrame.h ./Source/Imath/ImathFrustum.h ./Source/Imath/ImathFrustumTest.h ./Source/Imath/ImathFun.h ./Source/Imath/ImathGL.h ./Source/Imath/ImathGLU.h ./Source/Imath/ImathInt64.h ./Source/Imath/ImathInterval.h ./Source/Imath/ImathLine.h ./Source/Imath/ImathLineAlgo.h ./Source/Imath/ImathMath.h ./Source/Imath/ImathMatrix.h ./Source/Imath/ImathMatrixAlgo.h ./Source/Imath/ImathNamespace.h ./Source/Imath/ImathPlane.h ./Source/Imath/ImathPlatform.h ./Source/Imath/ImathQuat.h ./Source/Imath/ImathRandom.h ./Source/Imath/ImathRoots.h ./Source/Imath/ImathShear.h ./Source/Imath/ImathSphere.h ./Source/Imath/ImathTypeTraits.h ./Source/Imath/ImathVec.h ./Source/Imath/ImathVecAlgo.h ./Source/OpenEXR/Half/ImathConfig.h ./Source/OpenEXR/Half/ImathExport.h ./Source/OpenEXR/Half/ImathNamespace.h ./Source/OpenEXR/Half/ImathPlatform.h ./Source/OpenEXR/Half/half.h ./Source/OpenEXR/Half/halfFunction.h ./Source/OpenEXR/Half/halfLimits.h ./Source/OpenEXR/Half/toFloat.h ./Source/LibDeflate/common_defs.h ./Source/LibDeflate/lib/arm/adler32_impl.h ./Source/LibDeflate/lib/arm/cpu_features.h ./Source/LibDeflate/lib/arm/crc32_impl.h ./Source/LibDeflate/lib/arm/crc32_pmull_helpers.h ./Source/LibDeflate/lib/arm/crc32_pmull_wide.h ./Source/LibDeflate/lib/arm/matchfinder_impl.h ./Source/LibDeflate/lib/bt_matchfinder.h ./Source/LibDeflate/lib/cpu_features_common.h ./Source/LibDeflate/lib/crc32_multipliers.h ./Source/LibDeflate/lib/crc32_tables.h ./Source/LibDeflate/lib/decompress_template.h ./Source/LibDeflate/lib/deflate_compress.h ./Source/LibDeflate/lib/deflate_constants.h ./Source/LibDeflate/lib/gzip_constants.h ./Source/LibDeflate/lib/hc_matchfinder.h ./Source/LibDeflate/lib/ht_matchfinder.h ./Source/LibDeflate/lib/lib_common.h ./Source/LibDeflate/lib/matchfinder_common.h ./Source/LibDeflate/lib/riscv/matchfinder_impl.h ./Source/LibDeflate/lib/x86/adler32_impl.h ./Source/LibDeflate/lib/x86/adler32_template.h ./Source/LibDeflate/lib/x86/cpu_features.h ./Source/LibDeflate/lib/x86/crc32_impl.h ./Source/LibDeflate/lib/x86/crc32_pclmul_template.h ./Source/LibDeflate/lib/x86/decompress_impl.h ./Source/LibDeflate/lib/x86/matchfinder_impl.h ./Source/LibDeflate/lib/zlib_constants.h ./Source/LibDeflate/libdeflate.h ./Source/OpenEXR/Iex/Iex.h ./Source/OpenEXR/Iex/IexBaseExc.h ./Source/OpenEXR/Iex/IexConfigInternal.h ./Source/OpenEXR/Iex/IexErrnoExc.h ./Source/OpenEXR/Iex/IexExport.h ./Source/OpenEXR/Iex/IexForward.h ./Source/OpenEXR/Iex/IexMacros.h ./Source/OpenEXR/Iex/IexMathExc.h ./Source/OpenEXR/Iex/IexMathFloatExc.h ./Source/OpenEXR/Iex/IexMathFpu.h ./Source/OpenEXR/Iex/IexMathIeeeExc.h ./Source/OpenEXR/Iex/IexNamespace.h ./Source/OpenEXR/Iex/IexThrowErrnoExc.h ./Source/OpenEXR/IlmThread/IlmThread.h ./Source/OpenEXR/IlmThread/IlmThreadExport.h ./Source/OpenEXR/IlmThread/IlmThreadForward.h ./Source/OpenEXR/IlmThread/IlmThreadMutex.h ./Source/OpenEXR/IlmThread/IlmThreadNamespace.h ./Source/OpenEXR/IlmThread/IlmThreadPool.h ./Source/OpenEXR/IlmThread/IlmThreadProcessGroup.h ./Source/OpenEXR/IlmThread/IlmThreadSemaphore.h ./Source/OpenEXR/IexConfig.h ./Source/OpenEXR/IlmImf/ImfAcesFile.h ./Source/OpenEXR/IlmImf/ImfArray.h ./Source/OpenEXR/IlmImf/ImfAttribute.h ./Source/OpenEXR/IlmImf/ImfAutoArray.h ./Source/OpenEXR/IlmImf/ImfB44Compressor.h ./Source/OpenEXR/IlmImf/ImfBoxAttribute.h ./Source/OpenEXR/IlmImf/ImfBytesAttribute.h ./Source/OpenEXR/IlmImf/ImfCRgbaFile.h ./Source/OpenEXR/IlmImf/ImfChannelList.h ./Source/OpenEXR/IlmImf/ImfChannelListAttribute.h ./Source/OpenEXR/IlmImf/ImfCheckedArithmetic.h ./Source/OpenEXR/IlmImf/ImfChromaticities.h ./Source/OpenEXR/IlmImf/ImfChromaticitiesAttribute.h ./Source/OpenEXR/IlmImf/ImfColorMetadata.h ./Source/OpenEXR/IlmImf/ImfCompositeDeepScanLine.h ./Source/OpenEXR/IlmImf/ImfCompression.h ./Source/OpenEXR/IlmImf/ImfCompressionAttribute.h ./Source/OpenEXR/IlmImf/ImfCompressor.h ./Source/OpenEXR/IlmImf/ImfCompressorDeepInternal.h ./Source/OpenEXR/IlmImf/ImfContext.h ./Source/OpenEXR/IlmImf/ImfContextInit.h ./Source/OpenEXR/IlmImf/ImfConvert.h ./Source/OpenEXR/IlmImf/ImfDeepCompositing.h ./Source/OpenEXR/IlmImf/ImfDeepFrameBuffer.h ./Source/OpenEXR/IlmImf/ImfDeepImageState.h ./Source/OpenEXR/IlmImf/ImfDeepImageStateAttribute.h ./Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.h ./Source/OpenEXR/IlmImf/ImfDeepScanLineInputPart.h ./Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.h ./Source/OpenEXR/IlmImf/ImfDeepScanLineOutputPart.h ./Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.h ./Source/OpenEXR/IlmImf/ImfDeepTiledInputPart.h ./Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.h ./Source/OpenEXR/IlmImf/ImfDeepTiledOutputPart.h ./Source/OpenEXR/IlmImf/ImfDoubleAttribute.h ./Source/OpenEXR/IlmImf/ImfDwaCompressor.h ./Source/OpenEXR/IlmImf/ImfEnvmap.h ./Source/OpenEXR/IlmImf/ImfEnvmapAttribute.h ./Source/OpenEXR/IlmImf/ImfExport.h ./Source/OpenEXR/IlmImf/ImfFastHuf.h ./Source/OpenEXR/IlmImf/ImfFloatAttribute.h ./Source/OpenEXR/IlmImf/ImfFloatVectorAttribute.h ./Source/OpenEXR/IlmImf/ImfForward.h ./Source/OpenEXR/IlmImf/ImfFrameBuffer.h ./Source/OpenEXR/IlmImf/ImfFramesPerSecond.h ./Source/OpenEXR/IlmImf/ImfGenericInputFile.h ./Source/OpenEXR/IlmImf/ImfGenericOutputFile.h ./Source/OpenEXR/IlmImf/ImfHTCompressor.h ./Source/OpenEXR/IlmImf/ImfHeader.h ./Source/OpenEXR/IlmImf/ImfHuf.h ./Source/OpenEXR/IlmImf/ImfIDManifest.h ./Source/OpenEXR/IlmImf/ImfIDManifestAttribute.h ./Source/OpenEXR/IlmImf/ImfIO.h ./Source/OpenEXR/IlmImf/ImfInputFile.h ./Source/OpenEXR/IlmImf/ImfInputPart.h ./Source/OpenEXR/IlmImf/ImfInputPartData.h ./Source/OpenEXR/IlmImf/ImfInputStreamMutex.h ./Source/OpenEXR/IlmImf/ImfInt64.h ./Source/OpenEXR/IlmImf/ImfIntAttribute.h ./Source/OpenEXR/IlmImf/ImfKeyCode.h ./Source/OpenEXR/IlmImf/ImfKeyCodeAttribute.h ./Source/OpenEXR/IlmImf/ImfLineOrder.h ./Source/OpenEXR/IlmImf/ImfLineOrderAttribute.h ./Source/OpenEXR/IlmImf/ImfLut.h ./Source/OpenEXR/IlmImf/ImfMatrixAttribute.h ./Source/OpenEXR/IlmImf/ImfMisc.h ./Source/OpenEXR/IlmImf/ImfMultiPartInputFile.h ./Source/OpenEXR/IlmImf/ImfMultiPartOutputFile.h ./Source/OpenEXR/IlmImf/ImfMultiView.h ./Source/OpenEXR/IlmImf/ImfName.h ./Source/OpenEXR/IlmImf/ImfNamespace.h ./Source/OpenEXR/IlmImf/ImfOpaqueAttribute.h ./Source/OpenEXR/IlmImf/ImfOptimizedPixelReading.h ./Source/OpenEXR/IlmImf/ImfOutputFile.h ./Source/OpenEXR/IlmImf/ImfOutputPart.h ./Source/OpenEXR/IlmImf/ImfOutputPartData.h ./Source/OpenEXR/IlmImf/ImfOutputStreamMutex.h ./Source/OpenEXR/IlmImf/ImfPartHelper.h ./Source/OpenEXR/IlmImf/ImfPartType.h ./Source/OpenEXR/IlmImf/ImfPixelType.h ./Source/OpenEXR/IlmImf/ImfPizCompressor.h ./Source/OpenEXR/IlmImf/ImfPreviewImage.h ./Source/OpenEXR/IlmImf/ImfPreviewImageAttribute.h ./Source/OpenEXR/IlmImf/ImfPxr24Compressor.h ./Source/OpenEXR/IlmImf/ImfRational.h ./Source/OpenEXR/IlmImf/ImfRationalAttribute.h ./Source/OpenEXR/IlmImf/ImfRgba.h ./Source/OpenEXR/IlmImf/ImfRgbaFile.h ./Source/OpenEXR/IlmImf/ImfRgbaYca.h ./Source/OpenEXR/IlmImf/ImfRle.h ./Source/OpenEXR/IlmImf/ImfRleCompressor.h ./Source/OpenEXR/IlmImf/ImfScanLineInputFile.h ./Source/OpenEXR/IlmImf/ImfSimd.h ./Source/OpenEXR/IlmImf/ImfStandardAttributes.h ./Source/OpenEXR/IlmImf/ImfStdIO.h ./Source/OpenEXR/IlmImf/ImfStringAttribute.h ./Source/OpenEXR/IlmImf/ImfStringVectorAttribute.h ./Source/OpenEXR/IlmImf/ImfSystemSpecific.h ./Source/OpenEXR/IlmImf/ImfTestFile.h ./Source/OpenEXR/IlmImf/ImfThreading.h ./Source/OpenEXR/IlmImf/ImfTileDescription.h ./Source/OpenEXR/IlmImf/ImfTileDescriptionAttribute.h ./Source/OpenEXR/IlmImf/ImfTileOffsets.h ./Source/OpenEXR/IlmImf/ImfTiledInputFile.h ./Source/OpenEXR/IlmImf/ImfTiledInputPart.h ./Source/OpenEXR/IlmImf/ImfTiledMisc.h ./Source/OpenEXR/IlmImf/ImfTiledOutputFile.h ./Source/OpenEXR/IlmImf/ImfTiledOutputPart.h ./Source/OpenEXR/IlmImf/ImfTiledRgbaFile.h ./Source/OpenEXR/IlmImf/ImfTimeCode.h ./Source/OpenEXR/IlmImf/ImfTimeCodeAttribute.h ./Source/OpenEXR/IlmImf/ImfVecAttribute.h ./Source/OpenEXR/IlmImf/ImfVersion.h ./Source/OpenEXR/IlmImf/ImfWav.h ./Source/OpenEXR/IlmImf/ImfXdr.h ./Source/OpenEXR/IlmImf/ImfZip.h ./Source/OpenEXR/IlmImf/ImfZipCompressor.h ./Source/OpenEXR/IlmImf/ImfZstdCompressor.h ./Source/OpenEXR/IlmThreadConfig.h ./Source/OpenEXR/OpenEXRConfig.h ./Source/OpenEXR/OpenEXRConfigInternal.h ./Source/OpenEXR/OpenEXRCore/backward_compatibility.h ./Source/OpenEXR/OpenEXRCore/internal_attr.h ./Source/OpenEXR/OpenEXRCore/internal_bytes.h ./Source/OpenEXR/OpenEXRCore/internal_channel_list.h ./Source/OpenEXR/OpenEXRCore/internal_coding.h ./Source/OpenEXR/OpenEXRCore/internal_compress.h ./Source/OpenEXR/OpenEXRCore/internal_constants.h ./Source/OpenEXR/OpenEXRCore/internal_cpuid.h ./Source/OpenEXR/OpenEXRCore/internal_decompress.h ./Source/OpenEXR/OpenEXRCore/internal_dwa_channeldata.h ./Source/OpenEXR/OpenEXRCore/internal_dwa_classifier.h ./Source/OpenEXR/OpenEXRCore/internal_dwa_compressor.h ./Source/OpenEXR/OpenEXRCore/internal_dwa_decoder.h ./Source/OpenEXR/OpenEXRCore/internal_dwa_encoder.h ./Source/OpenEXR/OpenEXRCore/internal_dwa_helpers.h ./Source/OpenEXR/OpenEXRCore/internal_dwa_simd.h ./Source/OpenEXR/OpenEXRCore/internal_file.h ./Source/OpenEXR/OpenEXRCore/internal_float_vector.h ./Source/OpenEXR/OpenEXRCore/internal_huf.h ./Source/OpenEXR/OpenEXRCore/internal_memory.h ./Source/OpenEXR/OpenEXRCore/internal_opaque.h ./Source/OpenEXR/OpenEXRCore/internal_posix_file_impl.h ./Source/OpenEXR/OpenEXRCore/internal_preview.h ./Source/OpenEXR/OpenEXRCore/internal_string.h ./Source/OpenEXR/OpenEXRCore/internal_string_vector.h ./Source/OpenEXR/OpenEXRCore/internal_structs.h ./Source/OpenEXR/OpenEXRCore/internal_thread.h ./Source/OpenEXR/OpenEXRCore/internal_util.h ./Source/OpenEXR/OpenEXRCore/internal_win32_file_impl.h ./Source/OpenEXR/OpenEXRCore/internal_xdr.h ./Source/OpenEXR/OpenEXRCore/openexr.h ./Source/OpenEXR/OpenEXRCore/openexr_attr.h ./Source/OpenEXR/OpenEXRCore/openexr_base.h ./Source/OpenEXR/OpenEXRCore/openexr_chunkio.h ./Source/OpenEXR/OpenEXRCore/openexr_coding.h ./Source/OpenEXR/OpenEXRCore/openexr_color_metadata.h ./Source/OpenEXR/OpenEXRCore/openexr_compression.h ./Source/OpenEXR/OpenEXRCore/openexr_config.h ./Source/OpenEXR/OpenEXRCore/openexr_context.h ./Source/OpenEXR/OpenEXRCore/openexr_debug.h ./Source/OpenEXR/OpenEXRCore/openexr_decode.h ./Source/OpenEXR/OpenEXRCore/openexr_encode.h ./Source/OpenEXR/OpenEXRCore/openexr_errors.h ./Source/OpenEXR/OpenEXRCore/openexr_part.h ./Source/OpenEXR/OpenEXRCore/openexr_std_attr.h ./Source/OpenEXR/OpenEXRCore/openexr_version.h ./Source/OpenEXR/OpenJPH/codestream/ojph_bitbuffer_read.h ./Source/OpenEXR/OpenJPH/codestream/ojph_bitbuffer_write.h ./Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.h ./Source/OpenEXR/OpenJPH/codestream/ojph_codeblock_fun.h ./Source/OpenEXR/OpenJPH/codestream/ojph_codestream_local.h ./Source/OpenEXR/OpenJPH/codestream/ojph_params_local.h ./Source/OpenEXR/OpenJPH/codestream/ojph_precinct.h ./Source/OpenEXR/OpenJPH/codestream/ojph_resolution.h ./Source/OpenEXR/OpenJPH/codestream/ojph_subband.h ./Source/OpenEXR/OpenJPH/codestream/ojph_tile.h ./Source/OpenEXR/OpenJPH/codestream/ojph_tile_comp.h ./Source/OpenEXR/OpenJPH/coding/ojph_block_common.h ./Source/OpenEXR/OpenJPH/coding/ojph_block_decoder.h ./Source/OpenEXR/OpenJPH/coding/ojph_block_encoder.h ./Source/OpenEXR/OpenJPH/coding/ojph_block_encoder_avx2_apple.h ./Source/OpenEXR/OpenJPH/coding/table0.h ./Source/OpenEXR/OpenJPH/coding/table1.h ./Source/OpenEXR/OpenJPH/openjph/ojph_arch.h ./Source/OpenEXR/OpenJPH/openjph/ojph_arg.h ./Source/OpenEXR/OpenJPH/openjph/ojph_base.h ./Source/OpenEXR/OpenJPH/openjph/ojph_codestream.h ./Source/OpenEXR/OpenJPH/openjph/ojph_defs.h ./Source/OpenEXR/OpenJPH/openjph/ojph_file.h ./Source/OpenEXR/OpenJPH/openjph/ojph_mem.h ./Source/OpenEXR/OpenJPH/openjph/ojph_message.h ./Source/OpenEXR/OpenJPH/openjph/ojph_params.h ./Source/OpenEXR/OpenJPH/openjph/ojph_version.h ./Source/OpenEXR/OpenJPH/shared/ojph_simd_vsx.h ./Source/OpenEXR/OpenJPH/transform/ojph_colour.h ./Source/OpenEXR/OpenJPH/transform/ojph_colour_local.h ./Source/OpenEXR/OpenJPH/transform/ojph_transform.h ./Source/OpenEXR/OpenJPH/transform/ojph_transform_local.h
+ 
+ INCLUDE = -DZSTD_DISABLE_ASM -DPNG_ARM_NEON_OPT=0 -D_FILE_OFFSET_BITS=64 -I. -ISource -ISource/Metadata -ISource/FreeImageToolkit -ISource/LibJPEG -ISource/LibPNG -ISource/LibTIFF4 -ISource/ZLib -ISource/LibOpenJPEG -ISource/OpenEXR -ISource/OpenEXR/Half -ISource/OpenEXR/Iex -ISource/OpenEXR/IlmImf -ISource/OpenEXR/IlmThread -ISource/OpenEXR/OpenEXRCore -ISource/Imath -ISource/LibDeflate -ISource/LibRawLite -ISource/LibRawLite/dcraw -ISource/LibRawLite/internal -ISource/LibRawLite/libraw -ISource/LibRawLite/src -ISource/LibWebP -ISource/LibWebP/src -ISource/LibJXR -ISource/LibJXR/common/include -ISource/LibJXR/image/sys -ISource/LibJXR/jxrgluelib -ISource/OpenEXR/Zstd/lib -ISource/OpenEXR/OpenJPH -ISource/OpenEXR/OpenJPH/openjph
+diff --git a/README.md b/README.md
+index 2196005..a70bcf4 100644
+--- a/README.md
++++ b/README.md
+@@ -133,3 +133,23 @@ ctest --test-dir cmake-build-debug -C Debug # Optionally --rerun-failed --output
+ ```
+ 
+ > This ctest command only works with CMake 3.20 or higher. For earlier versions, you must `cd` into `cmake-build-debug` and call ctest without `--test-dir cmake-build-debug`.
++
++### Optional HEIF and AVIF decoding
++
++Install **libheif 1.12 or newer**, its HEVC/AV1 decoder backends, and pkg-config,
++then configure CMake with `-DBUILD_LIBHEIF=ON`. For example, Ubuntu 22.04 uses
++`sudo apt install libheif-dev pkg-config`; macOS uses `brew install libheif pkg-config`.
++This optional system dependency is disabled by default and is not bundled.
++The legacy make build registers the format names but does not enable decoding.
++
++Use `FIF_HEIF` for HEIF/HEIC and `FIF_AVIF` for AVIF, or detect the format with
++`FreeImage_GetFileType`. The decoder loads the primary still image as 8-bit RGB
++or RGBA, preserves embedded ICC profiles, and supports `FIF_LOAD_NOPIXELS`.
++High-bit-depth sources are converted to 8-bit output. Encoding, animation,
++EXIF/XMP import, and thumbnail import are not included in this initial plugin.
++Actual codec availability depends on the installed libheif backends. Regenerating the test fixtures additionally requires HEVC and AV1 encoders
++(x265 and AOM); ordinary tests only require decoders.
++
++The decoder is adapted from [FreeImageRe's PluginHEIF.cpp](https://github.com/agruzdev/FreeImageRe/blob/b51d3945bfe785ad382a0969f1376aee344af8c6/Source/Plugins/PluginHEIF.cpp)
++under its FIPL/GPLv2 licensing. System libheif is licensed under LGPL-3.0-or-later;
++its codec backends have their own licenses.
+diff --git a/Source/FreeImage.h b/Source/FreeImage.h
+index fc08da8..8e73fc1 100644
+--- a/Source/FreeImage.h
++++ b/Source/FreeImage.h
+@@ -449,7 +449,9 @@ FI_ENUM(FREE_IMAGE_FORMAT) {
+ 	FIF_PICT	= 33,
+ 	FIF_RAW		= 34,
+ 	FIF_WEBP	= 35,
+-	FIF_JXR		= 36
++	FIF_JXR		= 36,
++	FIF_HEIF	= 37,
++	FIF_AVIF	= 38
+ };
+ 
+ /** Image type used in FreeImage.
+diff --git a/Source/FreeImage/Plugin.cpp b/Source/FreeImage/Plugin.cpp
+index ad5913d..2a5848b 100644
+--- a/Source/FreeImage/Plugin.cpp
++++ b/Source/FreeImage/Plugin.cpp
+@@ -278,6 +278,8 @@ FreeImage_Initialise(BOOL load_local_plugins_only) {
+ #if !(defined(_MSC_VER) && (_MSC_VER <= 1310))
+ 			s_plugins->AddNode(InitJXR);
+ #endif // unsupported by MS Visual Studio 2003 !!!
++			s_plugins->AddNode(InitHEIF);
++			s_plugins->AddNode(InitAVIF);
+ 			
+ 			// external plugin initialization
+ 
+diff --git a/Source/FreeImage/PluginHEIF.cpp b/Source/FreeImage/PluginHEIF.cpp
+new file mode 100644
+index 0000000..661ead6
+--- /dev/null
++++ b/Source/FreeImage/PluginHEIF.cpp
+@@ -0,0 +1,174 @@
++// ==========================================================
++// HIEF and AVIF
++//
++// COVERED CODE IS PROVIDED UNDER THIS LICENSE ON AN "AS IS" BASIS, WITHOUT WARRANTY
++// OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES
++// THAT THE COVERED CODE IS FREE OF DEFECTS, MERCHANTABLE, FIT FOR A PARTICULAR PURPOSE
++// OR NON-INFRINGING. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE COVERED
++// CODE IS WITH YOU. SHOULD ANY COVERED CODE PROVE DEFECTIVE IN ANY RESPECT, YOU (NOT
++// THE INITIAL DEVELOPER OR ANY OTHER CONTRIBUTOR) ASSUME THE COST OF ANY NECESSARY
++// SERVICING, REPAIR OR CORRECTION. THIS DISCLAIMER OF WARRANTY CONSTITUTES AN ESSENTIAL
++// PART OF THIS LICENSE. NO USE OF ANY COVERED CODE IS AUTHORIZED HEREUNDER EXCEPT UNDER
++// THIS DISCLAIMER.
++//
++// Use at your own risk!
++// ==========================================================
++
++// Decoder adapted from agruzdev/FreeImageRe, Source/Plugins/PluginHEIF.cpp
++// revision b51d3945bfe785ad382a0969f1376aee344af8c6 (FIPL/GPLv2).
++// Adaptation: classic plugin API, optional system linkage, checked stream
++// callbacks, RGB/BGR conversion, and header-only loading. Encoding is omitted.
++#include "FreeImage.h"
++#include "Utilities.h"
++#include <cstring>
++
++static const char * DLL_CALLCONV HeifFormat() { return "HEIF"; }
++static const char * DLL_CALLCONV AvifFormat() { return "AVIF"; }
++static const char * DLL_CALLCONV HeifDescription() { return "HEIF image"; }
++static const char * DLL_CALLCONV AvifDescription() { return "AVIF image"; }
++static const char * DLL_CALLCONV HeifExtension() { return "heif,heic,heifs,heics"; }
++static const char * DLL_CALLCONV AvifExtension() { return "avif"; }
++static const char * DLL_CALLCONV HeifMime() { return "image/heif"; }
++static const char * DLL_CALLCONV AvifMime() { return "image/avif"; }
++
++#ifdef FREEIMAGE_LIBHEIF
++#include <libheif/heif.h>
++#include <climits>
++#include <memory>
++#include <limits>
++#include <stdexcept>
++#include <vector>
++
++namespace {
++struct Reader {
++    FreeImageIO *io;
++    fi_handle handle;
++    long start, length;
++    static int64_t Position(void *p) {
++        Reader &r = *static_cast<Reader *>(p);
++        const long position = r.io->tell_proc(r.handle);
++        return position < r.start ? -1 : position - r.start;
++    }
++    static int Read(void *dst, size_t size, void *p) {
++        Reader &r = *static_cast<Reader *>(p);
++        const int64_t position = Position(p);
++        if(position < 0 || position > r.length || size > static_cast<unsigned long>(r.length - position)) return 1;
++        BYTE *out = static_cast<BYTE *>(dst);
++        while(size) {
++            const unsigned part = size > UINT_MAX ? UINT_MAX : static_cast<unsigned>(size);
++            if(r.io->read_proc(out, 1, part, r.handle) != part) return 1;
++            out += part;
++            size -= part;
++        }
++        return 0;
++    }
++    static int Seek(int64_t position, void *p) {
++        Reader &r = *static_cast<Reader *>(p);
++        if(position < 0 || position > r.length) return 1;
++        return r.io->seek_proc(r.handle, r.start + static_cast<long>(position), SEEK_SET);
++    }
++    static heif_reader_grow_status Wait(int64_t size, void *p) {
++        Reader &r = *static_cast<Reader *>(p);
++        return size >= 0 && size <= r.length ? heif_reader_grow_status_size_reached : heif_reader_grow_status_size_beyond_eof;
++    }
++};
++void Check(heif_error error) {
++    if(error.code != heif_error_Ok) throw std::runtime_error(error.message ? error.message : "libheif error");
++}
++BOOL Validate(FreeImageIO *io, fi_handle handle, bool avif) {
++    const long start = io->tell_proc(handle);
++    if(start < 0) return FALSE;
++    BYTE bytes[128];
++    const unsigned count = io->read_proc(bytes, 1, sizeof(bytes), handle);
++    if(io->seek_proc(handle, start, SEEK_SET) != 0 || count < 12) return FALSE;
++    const char *mime = heif_get_file_mime_type(bytes, static_cast<int>(count));
++    return mime && (avif ? (!std::strcmp(mime, "image/avif") || !std::strcmp(mime, "image/avif-sequence")) :
++        (!std::strcmp(mime, "image/heif") || !std::strcmp(mime, "image/heic") || !std::strcmp(mime, "image/heif-sequence") || !std::strcmp(mime, "image/heic-sequence")));
++}
++}
++static BOOL DLL_CALLCONV ValidateHEIF(FreeImageIO *io, fi_handle handle) { return Validate(io, handle, false); }
++static BOOL DLL_CALLCONV ValidateAVIF(FreeImageIO *io, fi_handle handle) { return Validate(io, handle, true); }
++static BOOL DLL_CALLCONV SupportsNoPixels() { return TRUE; }
++static BOOL DLL_CALLCONV SupportsICC() { return TRUE; }
++template<FREE_IMAGE_FORMAT Format>
++static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int flags, void *) {
++    try {
++        const long start = io->tell_proc(handle);
++        if(start < 0 || io->seek_proc(handle, 0, SEEK_END) != 0) return NULL;
++        const long end = io->tell_proc(handle);
++        if(end < start || io->seek_proc(handle, start, SEEK_SET) != 0) return NULL;
++        Reader stream = {io, handle, start, end - start};
++        heif_reader reader = {};
++        reader.reader_api_version = 1;
++        reader.get_position = Reader::Position;
++        reader.read = Reader::Read;
++        reader.seek = Reader::Seek;
++        reader.wait_for_file_size = Reader::Wait;
++        std::unique_ptr<heif_context, void (*)(heif_context *)> context(heif_context_alloc(), heif_context_free);
++        if(!context) return NULL;
++        Check(heif_context_read_from_reader(context.get(), &reader, &stream, NULL));
++        heif_image_handle *raw_handle = NULL;
++        Check(heif_context_get_primary_image_handle(context.get(), &raw_handle));
++        std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> image_handle(raw_handle, heif_image_handle_release);
++        const int width = heif_image_handle_get_width(image_handle.get());
++        const int height = heif_image_handle_get_height(image_handle.get());
++        const bool alpha = heif_image_handle_has_alpha_channel(image_handle.get()) != 0;
++        const int channels = alpha ? 4 : 3;
++        if(width <= 0 || height <= 0 || width > INT_MAX / channels) return NULL;
++        const BOOL header_only = (flags & FIF_LOAD_NOPIXELS) != 0;
++        std::unique_ptr<FIBITMAP, void (*)(FIBITMAP *)> dib(
++            FreeImage_AllocateHeaderT(header_only, FIT_BITMAP, width, height, channels * 8,
++                FI_RGBA_RED_MASK, FI_RGBA_GREEN_MASK, FI_RGBA_BLUE_MASK), FreeImage_Unload);
++        if(!dib) return NULL;
++        if(!header_only) {
++            heif_image *raw_image = NULL;
++            Check(heif_decode_image(image_handle.get(), &raw_image, heif_colorspace_RGB,
++                alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB, NULL));
++            std::unique_ptr<heif_image, void (*)(const heif_image *)> image(raw_image, heif_image_release);
++            int stride = 0;
++            const uint8_t *pixels = heif_image_get_plane_readonly(image.get(), heif_channel_interleaved, &stride);
++            if(!pixels || stride < width * channels ||
++                heif_image_get_width(image.get(), heif_channel_interleaved) != width ||
++                heif_image_get_height(image.get(), heif_channel_interleaved) != height ||
++                static_cast<size_t>(height) > std::numeric_limits<size_t>::max() / static_cast<size_t>(stride)) return NULL;
++            for(int y = 0; y < height; ++y) {
++                const uint8_t *src = pixels + static_cast<size_t>(y) * stride;
++                BYTE *dst = FreeImage_GetScanLine(dib.get(), height - 1 - y);
++                for(int x = 0; x < width; ++x, src += channels, dst += channels) {
++                    dst[FI_RGBA_RED] = src[0];
++                    dst[FI_RGBA_GREEN] = src[1];
++                    dst[FI_RGBA_BLUE] = src[2];
++                    if(alpha) dst[FI_RGBA_ALPHA] = src[3];
++                }
++            }
++        }
++        const size_t profile_size = heif_image_handle_get_raw_color_profile_size(image_handle.get());
++        if(profile_size && profile_size <= static_cast<size_t>(LONG_MAX) && profile_size <= static_cast<size_t>(stream.length)) {
++            std::vector<BYTE> profile(profile_size);
++            Check(heif_image_handle_get_raw_color_profile(image_handle.get(), profile.data()));
++            FIICCPROFILE *icc = FreeImage_CreateICCProfile(dib.get(), profile.data(), static_cast<long>(profile_size));
++            if(!icc || !icc->data) return NULL;
++        }
++        return dib.release();
++    } catch(const std::exception &error) {
++        FreeImage_OutputMessageProc(Format, "%s", error.what());
++        return NULL;
++    }
++}
++#endif
++
++static void Init(Plugin *plugin, bool avif) {
++    std::memset(plugin, 0, sizeof(*plugin));
++    plugin->format_proc = avif ? AvifFormat : HeifFormat;
++    plugin->description_proc = avif ? AvifDescription : HeifDescription;
++    plugin->extension_proc = avif ? AvifExtension : HeifExtension;
++    plugin->mime_proc = avif ? AvifMime : HeifMime;
++#ifdef FREEIMAGE_LIBHEIF
++    plugin->validate_proc = avif ? ValidateAVIF : ValidateHEIF;
++    plugin->load_proc = avif ? Load<FIF_AVIF> : Load<FIF_HEIF>;
++    plugin->supports_no_pixels_proc = SupportsNoPixels;
++    plugin->supports_icc_profiles_proc = SupportsICC;
++#endif
++}
++void DLL_CALLCONV InitHEIF(Plugin *plugin, int) { Init(plugin, false); }
++void DLL_CALLCONV InitAVIF(Plugin *plugin, int) { Init(plugin, true); }
+diff --git a/Source/Plugin.h b/Source/Plugin.h
+index d5fc35b..2fe3b24 100644
+--- a/Source/Plugin.h
++++ b/Source/Plugin.h
+@@ -142,5 +142,7 @@ void DLL_CALLCONV InitRAW(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitJNG(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitWEBP(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitJXR(Plugin *plugin, int format_id);
++void DLL_CALLCONV InitHEIF(Plugin *plugin, int format_id);
++void DLL_CALLCONV InitAVIF(Plugin *plugin, int format_id);
+ 
+ #endif //!PLUGIN_H
+diff --git a/THIRD_PARTY_VERSIONS.md b/THIRD_PARTY_VERSIONS.md
+index a6d87b8..50b25b9 100644
+--- a/THIRD_PARTY_VERSIONS.md
++++ b/THIRD_PARTY_VERSIONS.md
+@@ -45,3 +45,9 @@ configuration choices, and local patches to preserve in the next update.
+ 
+ OpenEXR 3.5.2 and libpng 1.6.59 re-synced on 2026-10-08 for issue #148.
+ OpenEXR's auxiliary codec snapshots are unchanged from 3.5.1.
++
++Optional system-only codec: `BUILD_LIBHEIF=ON` requires libheif >= 1.12
++(LGPL-3.0-or-later) plus HEVC/AV1 decoder backends. It is not vendored and is
++disabled by default. Backend versions and licenses depend on the installation.
++The HEIF/AVIF plugin adapts FreeImageRe's FIPL/GPLv2-licensed decoder at commit
++`b51d3945bfe785ad382a0969f1376aee344af8c6`; see its source header and README.
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index b446f4b..fe7ea54 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -17,6 +17,7 @@ add_executable(MainTestSuite
+ 
+ if (BUILD_TESTS)
+     target_link_libraries(MainTestSuite FreeImage)
++    target_compile_definitions(MainTestSuite PRIVATE FREEIMAGE_TEST_LIBHEIF=$<BOOL:${BUILD_LIBHEIF}>)
+     if (DEFINED PNG_LIBRARY)
+         target_link_libraries(MainTestSuite ${PNG_LIBRARY})
+     endif()
+@@ -64,3 +65,18 @@ if(BUILD_TESTS AND FREEIMAGE_STATIC AND BUILD_OPENEXR AND NOT USE_SYSTEM_OPENEXR
+         FREEIMAGE_TEST_OPENJPH_SIMD=$<BOOL:${FREEIMAGE_OPENJPH_SIMD_ENABLED}>)
+     add_test(NAME VendorCodecTest COMMAND VendorCodecTest)
+ endif()
++
++if(BUILD_TESTS AND BUILD_LIBHEIF)
++    add_executable(HeifCodecTest testHeif.cpp)
++    target_link_libraries(HeifCodecTest PRIVATE FreeImage)
++    add_executable(GenerateHeifFixtures EXCLUDE_FROM_ALL heif/generate.cpp)
++    target_link_libraries(GenerateHeifFixtures PRIVATE PkgConfig::LIBHEIF)
++    if(WIN32 AND NOT FREEIMAGE_STATIC)
++        add_custom_command(TARGET HeifCodecTest POST_BUILD
++            COMMAND ${CMAKE_COMMAND} -E copy_if_different
++                $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:HeifCodecTest> VERBATIM)
++    endif()
++    add_test(NAME HeifCodecTest COMMAND HeifCodecTest)
++    set_tests_properties(HeifCodecTest PROPERTIES TIMEOUT 120
++        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
++endif()
+diff --git a/TestAPI/heif/README.md b/TestAPI/heif/README.md
+new file mode 100644
+index 0000000..6f8ccc6
+--- /dev/null
++++ b/TestAPI/heif/README.md
+@@ -0,0 +1,15 @@
++These four tiny fixtures are synthetic 32×24 colour fields generated by
++`generate.cpp`. The top half is RGB (220,70,30), the bottom half (30,70,220).
++RGBA fixtures additionally use alpha 255 and 100. Each contains a synthetic
++128-byte ICC block to verify opaque profile preservation, not colour management.
++No third-party photographs or copyrighted sample images are included.
++
++The decoder tests read the checked-in files and require only HEVC and AV1
++**decoders**. Fixture generation is deliberately separate: older x265 encoders
++can leak memory, which must not hide leaks in decoder tests.
++
++To regenerate, configure FreeImage with `BUILD_LIBHEIF=ON`, install libheif's
++x265 and AOM encoders, build the `GenerateHeifFixtures` target, and run it with
++this directory as its working directory. These fixtures were generated using
++libheif 1.23.2. Encoded bytes can differ across codec versions; tests compare
++pixel values with a tolerance for lossy colour conversion.
+diff --git a/TestAPI/heif/generate.cpp b/TestAPI/heif/generate.cpp
+new file mode 100644
+index 0000000..384197e
+--- /dev/null
++++ b/TestAPI/heif/generate.cpp
+@@ -0,0 +1,59 @@
++// Generate synthetic colour/alpha fixtures; requires x265 and AOM encoders.
++#include <cstdint>
++#include <fstream>
++typedef uint8_t BYTE;
++#include <libheif/heif.h>
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <vector>
++
++static void Require(bool ok, const char *what) {
++    if(!ok) { std::fprintf(stderr, "FAIL: %s\n", what); std::exit(1); }
++}
++static void Check(heif_error error) { Require(error.code == heif_error_Ok, error.message); }
++static heif_error Write(heif_context *, const void *data, size_t size, void *opaque) {
++    std::vector<BYTE> &bytes = *static_cast<std::vector<BYTE> *>(opaque);
++    const BYTE *p = static_cast<const BYTE *>(data);
++    bytes.insert(bytes.end(), p, p + size);
++    heif_error result = {heif_error_Ok, heif_suberror_Unspecified, "OK"};
++    return result;
++}
++static void Test(heif_compression_format codec, const char *filename, bool alpha) {
++    heif_context *context = heif_context_alloc();
++    Require(context != NULL, "context");
++    heif_encoder *encoder = NULL;
++    Check(heif_context_get_encoder_for_format(context, codec, &encoder));
++    Check(heif_encoder_set_lossy_quality(encoder, 100));
++    heif_image *image = NULL;
++    Check(heif_image_create(32, 24, heif_colorspace_RGB,
++        alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB, &image));
++    Check(heif_image_add_plane(image, heif_channel_interleaved, 32, 24, 8));
++    int stride = 0;
++    BYTE *pixels = heif_image_get_plane(image, heif_channel_interleaved, &stride);
++    for(int y = 0; y < 24; ++y) for(int x = 0; x < 32; ++x) {
++        BYTE *p = pixels + y * stride + x * (alpha ? 4 : 3);
++        p[0] = y < 12 ? 220 : 30; p[1] = 70; p[2] = y < 12 ? 30 : 220;
++        if(alpha) p[3] = y < 12 ? 255 : 100;
++    }
++    BYTE profile[128] = {};
++    profile[3] = 128;
++    std::memcpy(profile + 36, "acsp", 4);
++    Check(heif_image_set_raw_color_profile(image, "prof", profile, sizeof(profile)));
++    heif_image_handle *encoded = NULL;
++    Check(heif_context_encode_image(context, image, encoder, NULL, &encoded));
++    std::vector<BYTE> bytes;
++    heif_writer writer = {}; writer.writer_api_version = 1; writer.write = Write;
++    Check(heif_context_write(context, &writer, &bytes));
++    heif_image_handle_release(encoded); heif_image_release(image);
++    heif_encoder_release(encoder); heif_context_free(context);
++    std::ofstream output(filename, std::ios::binary);
++    output.write(reinterpret_cast<const char *>(bytes.data()), bytes.size());
++    Require(bool(output), "write fixture");
++}
++int main() {
++    Test(heif_compression_HEVC, "rgb.heic", false);
++    Test(heif_compression_HEVC, "rgba.heic", true);
++    Test(heif_compression_AV1, "rgb.avif", false);
++    Test(heif_compression_AV1, "rgba.avif", true);
++}
+diff --git a/TestAPI/heif/rgb.avif b/TestAPI/heif/rgb.avif
+new file mode 100644
+index 0000000000000000000000000000000000000000..d4bda1ab0a607b8b4858492ee70ba9e77de22cc7
+GIT binary patch
+literal 428
+zcmZQzV30{GsVqn=%S>Ycg51nBLl8SRGZDyVOwLU$Nd$=lfnr8VP7#F3z)+BxTmoam
+zXr;`Y{A3Wv#esnl2!VjH9YO<{sz9uqnVAQ+1}rKH<fJlzl`$|RmKhj=n0y79CAlC5
+zSjpqef}#Q-`$%R%az2peNh~vTZe-vA$@e7Z=M)tb<%0}t014m&iOIzvb7%!bGK&jR
+zp@u5}X$c?}D9EhH1c@<oaBu)A@yvo;SXcsshozB;nFT1Uo12nYBE-PODIsWI*1?fs
+fqF^NE!jRQ)Cgsq=RGY^Q|Eib1kNUGLRiFU?bXPj2
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestAPI/heif/rgb.heic b/TestAPI/heif/rgb.heic
+new file mode 100644
+index 0000000000000000000000000000000000000000..d7c923a674aee6e481ad74d5c97316d1c123e234
+GIT binary patch
+literal 680
+zcmZQzV30{GsVvAy%}izhg51nBLl8SRGck>Uf$?i@YDpqU90(LMQgVtQOa_L6%;XXn
+z8%8T-=H!D7adBW^1VSKSl7!GeW<L-sXJ+OBjRgXbtSFF^$^_+QlqDO2n0y79CAlC5
+zNC{(UW<gN_kPgi(NX`d}l>(JHGcp5(pg`^e!=JxDelRfbGbaFbNH{R^F#i7!QozhG
+z0Ym_i+%6`EM4+Um6C+qFlFR~yM%HPs*3EkMKykr=1_lNmAZBK0Ndl^7b74GKe6SN}
+zPfv1wPEkQoKFH-jdHf(TxftO({7T7@70E0vNQG*20Ma0=k(`qVvQq(wLE$O^qW}N@
+z{{Toc0qGkc8i)l7GAlBHGy^jS2M3Un$SlZB1o43Y7+<W7Ow6n;K=$<9ltfVEc55)M
+zXWJy7P;g=5di}@0K3UH_bzFVjGm(&QrTo_K>Ywj^_2KYI|A_M?)z))YJ#|l=E8V=v
+z{HpPd-be4ePR2jYeQz3hY_Gq)^?$ejE%p~YB=lFyhlCz=PfqkXed=7b@WLf)!{ps2
+tKQMoD-QbV7=YLs&*eSmae>9|By_WgwDAR<LRSLfPp%>!CGA!-|0szA&m+Alj
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestAPI/heif/rgba.avif b/TestAPI/heif/rgba.avif
+new file mode 100644
+index 0000000000000000000000000000000000000000..35bd66d820445184489ca67ed65f31bdbeaba971
+GIT binary patch
+literal 606
+zcmcJMzfZzY5XY|tO*LrH2qA_T7~F+0kcLDe=pW(sQXX=qkG`~}fw+{x=-@x$pnrvf
+zac1#va5d4HsPV1^-Q2w4-S<BC<F)Sqpxh59T140fGKKvbYlVVh<5S5{Fej@Hdaj>J
+z0F6$#)Jxw$*K;`Nw!s90m03+a$$er>PJT#<!Y1M{xj4xdD3D1Rb&Ker#vQ+qGE2Cr
+zF;tx8X+{gRugMotJ07u|h-#fF<T!uhc&@K~k8g<?{AI!kXwJXc4hC8-rdP=G3*<G9
+zky*yFEOLu)FEgUQOmhZjnqoBWFdq3sTWNWg97nc;j<$nI5K0x;RD&)Ge_{()50c&O
+zp;n2YR@zH;YG$%vW-l|VS44Kvm+1!RKI(Rp-O;PUvFeF%8`jrKTZhrLHE2}o#V(x3
+nv)<FKY`w%^7k6)`ANMjJQ_%_+73v#ZfZ6N(@p(FbXup30gbHDI
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestAPI/heif/rgba.heic b/TestAPI/heif/rgba.heic
+new file mode 100644
+index 0000000000000000000000000000000000000000..06f528cc12e4b3b7da21757f8312dcea7722842d
+GIT binary patch
+literal 1026
+zcmZQzV30{GsVvAy%}izhg51nBLl8SRGck>Uf$2$ZYDpqU90(LMQgVtQOa_L6%;XXn
+z8%CRC=H!D7adBW^VqgRbGjl*_AhRDR1`?SL7s&>4EiyCnfEED(NLCccNd+qd>dq)j
+zHUvo^1c5RzLB4{_l3b81$TTM9%z~l<AoF)-L2^D&tQ4rsnUNVN1O;**82<eI@q>YZ
+zpE&`jL&AZPhw=Y^kOF3g2_OQ9<aRMRBmyNhofyGdkz^JqG_p>6wQkn42Z{?0G%zsm
+z05LN|OA=5un+xN?;)9()dwP=dbBYRz@<HAK%Hs!#$;AlQ;a5tItVm{YK`K<E1CRz`
+zjpUp}kev!Z42m2H5dHuE{|7*t2}s`n(LgLvkXexlq=Avg!2zTS!GXyFVnP5YF#jL|
+zQydbQAO*|}^MPRu3{6;AssY0iRpLMsi&*rkUD>mNRxvXefe0o6)PMxWEyMwgAUo9)
+zODmi~7MB*~S>+a_rdwsCmL*#m85o*c0i`litiY*6A+sPi5#m0eFBn-HnV4By7?@bw
+znAtm8fZ|e_MX8X4#=yV_)RzNN1qug7rreZ7P+IQRU|i3(Nj{<A!o>CZkAHo#o_p%J
+z`nqQ#A>T^*t>4u@-~H;t;gkLm=S!-s=dOC{o;p{$d6D^5;~Tw?-g%vjf13N=H1gP9
+ze|ziyZvR{CFL+4kua*x9J?fsE=yUqixoY8sOV)<TyG?#z{^q*DA92tBvI4PFejEO1
+zNV|G1^Vd<P2`Q@-eDy;w#EWHE+zSLcCtZVa9dC-wgM|vauQL4p`ZNEYy<5bSzxzM)
+z@A0a(TT_=?C;H#^e)!#sKg9mcQGOx(m3>l^qOMTkuHQH8{)zw4U%F3n&Bo3<+tj~5
+j@H)4T#r{tP!z-2QP)CK@qpLP>I&@kY$OLq<b@&4Sw>|hV
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestAPI/testHeif.cpp b/TestAPI/testHeif.cpp
+new file mode 100644
+index 0000000..37a7fef
+--- /dev/null
++++ b/TestAPI/testHeif.cpp
+@@ -0,0 +1,62 @@
++#include "FreeImage.h"
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <fstream>
++#include <iterator>
++#include <vector>
++
++static void Require(bool ok, const char *what) {
++    if(!ok) { std::fprintf(stderr, "FAIL: %s\n", what); std::exit(1); }
++}
++static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
++    std::ifstream input(filename, std::ios::binary);
++    Require(bool(input), "open fixture");
++    std::vector<BYTE> bytes((std::istreambuf_iterator<char>(input)), std::istreambuf_iterator<char>());
++    Require(!bytes.empty(), "read fixture");
++    BYTE profile[128] = {};
++    profile[3] = 128;
++    std::memcpy(profile + 36, "acsp", 4);
++    FIMEMORY *memory = FreeImage_OpenMemory(bytes.data(), static_cast<DWORD>(bytes.size()));
++    Require(FreeImage_GetFileTypeFromMemory(memory) == format, "format detection");
++    Require(FreeImage_TellMemory(memory) == 0, "validation preserves position");
++    FIBITMAP *dib = FreeImage_LoadFromMemory(format, memory);
++    Require(dib && FreeImage_GetWidth(dib) == 32 && FreeImage_GetHeight(dib) == 24, "decode dimensions");
++    Require(FreeImage_GetBPP(dib) == (alpha ? 32U : 24U), "pixel depth");
++    for(int y = 3; y < 24; y += 17) {
++        const BYTE *p = FreeImage_GetScanLine(dib, 23 - y) + 4 * (alpha ? 4 : 3);
++        Require(std::abs(int(p[FI_RGBA_RED]) - (y < 12 ? 220 : 30)) < 35, "red and orientation");
++        Require(std::abs(int(p[FI_RGBA_BLUE]) - (y < 12 ? 30 : 220)) < 35, "blue and orientation");
++        if(alpha) Require(std::abs(int(p[FI_RGBA_ALPHA]) - (y < 12 ? 255 : 100)) < 4, "alpha");
++    }
++    FIICCPROFILE *icc = FreeImage_GetICCProfile(dib);
++    Require(icc && icc->size == sizeof(profile) && !std::memcmp(icc->data, profile, sizeof(profile)), "ICC profile");
++    FreeImage_Unload(dib);
++    FreeImage_SeekMemory(memory, 0, SEEK_SET);
++    dib = FreeImage_LoadFromMemory(format, memory, FIF_LOAD_NOPIXELS);
++    Require(dib && !FreeImage_HasPixels(dib) && FreeImage_GetWidth(dib) == 32, "header-only");
++    FreeImage_Unload(dib); FreeImage_CloseMemory(memory);
++    std::vector<BYTE> prefixed(17, 0);
++    prefixed.insert(prefixed.end(), bytes.begin(), bytes.end());
++    memory = FreeImage_OpenMemory(prefixed.data(), static_cast<DWORD>(prefixed.size()));
++    FreeImage_SeekMemory(memory, 17, SEEK_SET);
++    Require(FreeImage_GetFileTypeFromMemory(memory) == format && FreeImage_TellMemory(memory) == 17, "offset detection");
++    dib = FreeImage_LoadFromMemory(format, memory);
++    Require(dib && FreeImage_GetHeight(dib) == 24, "nonzero stream origin");
++    FreeImage_Unload(dib); FreeImage_CloseMemory(memory);
++    memory = FreeImage_OpenMemory(bytes.data(), 12);
++    Require(FreeImage_LoadFromMemory(format, memory) == NULL, "truncated input rejected");
++    FreeImage_CloseMemory(memory);
++}
++int main() {
++    FreeImage_Initialise();
++    Require(FreeImage_GetFIFFromFormat("HEIF") == FIF_HEIF, "HEIF index");
++    Require(FreeImage_GetFIFFromFormat("AVIF") == FIF_AVIF, "AVIF index");
++    Require(!FreeImage_FIFSupportsWriting(FIF_HEIF) && !FreeImage_FIFSupportsWriting(FIF_AVIF), "read-only");
++    Test("rgb.heic", FIF_HEIF, false);
++    Test("rgba.heic", FIF_HEIF, true);
++    Test("rgb.avif", FIF_AVIF, false);
++    Test("rgba.avif", FIF_AVIF, true);
++    FreeImage_DeInitialise();
++    std::puts("HEIF/AVIF RGB, alpha, orientation, header-only and truncated-input tests passed");
++}
+diff --git a/TestAPI/testPlugins.cpp b/TestAPI/testPlugins.cpp
+index 58acc84..e0351fc 100644
+--- a/TestAPI/testPlugins.cpp
++++ b/TestAPI/testPlugins.cpp
+@@ -27,6 +27,10 @@
+ // Show plugins
+ // ----------------------------------------------------------
+ void showPlugins() {
++	assert(FreeImage_GetFIFFromFormat("HEIF") == FIF_HEIF);
++	assert(FreeImage_GetFIFFromFormat("AVIF") == FIF_AVIF);
++	assert(!!FreeImage_FIFSupportsReading(FIF_HEIF) == FREEIMAGE_TEST_LIBHEIF);
++	assert(!!FreeImage_FIFSupportsReading(FIF_AVIF) == FREEIMAGE_TEST_LIBHEIF);
+ 	// print version & copyright infos
+ 
+ 	printf("FreeImage version: %s\n\n%s\n\n", FreeImage_GetVersion(), FreeImage_GetCopyrightMessage());
+diff --git a/cmake/FreeImageConfig.cmake.in b/cmake/FreeImageConfig.cmake.in
+index a33e092..5a8f699 100644
+--- a/cmake/FreeImageConfig.cmake.in
++++ b/cmake/FreeImageConfig.cmake.in
+@@ -1,3 +1,9 @@
+ @PACKAGE_INIT@
+ 
++if(@BUILD_LIBHEIF@)
++    include(CMakeFindDependencyMacro)
++    find_dependency(PkgConfig)
++    pkg_check_modules(LIBHEIF REQUIRED IMPORTED_TARGET libheif>=1.12)
++endif()
++
+ include("${CMAKE_CURRENT_LIST_DIR}/FreeImageTargets.cmake")

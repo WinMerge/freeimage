@@ -1,0 +1,28 @@
+diff --git a/Source/FreeImage/PluginBMP.cpp b/Source/FreeImage/PluginBMP.cpp
+index ce0de6e..ada3b0e 100644
+--- a/Source/FreeImage/PluginBMP.cpp
++++ b/Source/FreeImage/PluginBMP.cpp
+@@ -292,8 +292,9 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
+ 
+ 		// NB: width and height are file-driven ints: multiply in size_t so a
+ 		// huge image cannot wrap to a tiny buffer (CVE-2023-47994 integer
+-		// overflow in LoadPixelDataRLE4).
+-		if (width <= 0 || height <= 0) {
++		// overflow in LoadPixelDataRLE4). size_t is only 32 bits on 32-bit
++		// targets, so bound the product explicitly as well.
++		if (width <= 0 || height <= 0 || (size_t)width > ((size_t)-1) / (size_t)height) {
+ 			throw(1);
+ 		}
+ 		const size_t pixel_count = (size_t)width * (size_t)height;
+@@ -395,11 +396,6 @@ LoadPixelDataRLE4(FreeImageIO *io, fi_handle handle, int width, int height, FIBI
+ 			// Convert to 4-bit
+ 			for(int y = 0; y < height; y++) {
+ 				const BYTE *src = pixels + (size_t)y * (size_t)width;
+-			// NB: with a truncated stream src can run past the decoded
+-			// bytes: stop instead of reading out of bounds (CVE-2023-47994).
+-			if ((size_t)(src - pixels) + (size_t)width > pixel_count) {
+-				throw(1);
+-			}
+ 				BYTE *dst = FreeImage_GetScanLine(dib, y);
+ 
+ 				BOOL hinibble = TRUE;

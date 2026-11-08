@@ -1,0 +1,38 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6acdc8ac69334c4489abe279",
+  "mod_date": "2026-10-13 05:59:08.642000",
+  "labels": [
+    "patch",
+    " security"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "38d022e93c",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/38d022e93c/",
+  "created_date": "2026-10-13 05:59:08.414000",
+  "ticket_num": 185,
+  "summary": "Reject three-plane PCX images with insufficient bytes per plane",
+  "description": "Applies to FreeImage SVN trunk r1911, checked 2026-10-13.\n\nFor 8-bit, three-plane PCX, the expansion loop reads width bytes per plane while the file supplies bytes_per_line bytes. Reject width > bytes_per_line before expansion. The existing over-allocation can hide a physical out-of-bounds read while still exposing uninitialized data.\n\nOriginal contributor: wangshuo. License: retain the original FreeImage file license (FIPL/GPL).\nFork fix: https://github.com/danoli3/FreeImage/commit/a4473a4\n\n## Verification\n\nThe malformed four-pixel/two-byte-per-plane image loads before this fix and is rejected after it; a correctly sized two-pixel control still loads. ASan is not an uninitialized-memory detector.\n\nThe attached regression harness builds against the public FreeImage API. All six cases fail against unpatched r1911 versions of the affected files and pass after this batch. Each edited translation unit and the harness was built with `-fsanitize=address -g`, linked to the existing 3.19.21 core archive on macOS ARM64. The rest of that archive was not ASan-instrumented: this verifies the targeted code, not a full sanitized upstream build. The fork's existing MainTestSuite and VendorCodecTest also pass independently.\n\n## Apply\n\nAttach `pcx-plane-width.patch` and `pcx-plane-width-submission.zip` to this ticket. The ZIP contains the patch, harness and this description.\n\nFrom the upstream source root:\n\n```sh\npatch --dry-run -p0 < pcx-plane-width.patch\npatch -p0 < pcx-plane-width.patch\n```\n\nRun `regression pcx-plane-width` after linking regression.cpp to the built library. The harness returns 0 for the corrected behavior, 1 for a regression and 2 for usage errors. An ASan abort also indicates failure for the CUT baseline.\n\nAll patches dry-run successfully on pristine r1911. The two BMP patches also apply together. No dependency upgrades or ABI changes are needed.\n\nThe live ticket index and relevant attachments from #121/#143/#149/#154 were inspected. No equivalent patch was identified in that review; this is not an exhaustive audit of every historical discussion or attachment.",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 3330,
+      "url": "https://sourceforge.net/p/freeimage/patches/185/attachment/pcx-plane-width-submission.zip"
+    }
+  ],
+  "custom_fields": {}
+}

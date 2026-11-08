@@ -301,8 +301,14 @@ default_init_read_file (exr_context_t file)
     wcFn = widen_filename (file, file->filename.str);
     if (wcFn)
     {
-        // CreateFileW supports older Windows versions and provides all
-        // functionality used here, regardless of the build target macro.
+        //
+        // CreateFile2() is unavailable on Windows 7, and _WIN32_WINNT
+        // reflects the SDK used to compile, not the minimum OS the
+        // resulting binary actually targets/runs on, so it cannot be
+        // used to safely select CreateFile2() over CreateFileW() here.
+        // None of CreateFile2()'s extended functionality is used below,
+        // so just use CreateFileW() unconditionally.
+        //
         fd = CreateFileW (
             wcFn,
             GENERIC_READ,
@@ -345,8 +351,8 @@ default_init_write_file (exr_context_t file)
     wcFn = widen_filename (file, outfn);
     if (wcFn)
     {
-        // CreateFileW supports older Windows versions and provides all
-        // functionality used here, regardless of the build target macro.
+        // see default_init_read_file() above for why CreateFileW() is
+        // used unconditionally instead of CreateFile2()
         fd = CreateFileW (
             wcFn,
             GENERIC_WRITE | DELETE,

@@ -1,0 +1,51 @@
+[
+  {
+    "name": "zlib-1.3.2",
+    "title": "Update bundled zlib from 1.2.13 to 1.3.2",
+    "attachment": "zlib-1.3.2.patch.gz",
+    "sha256": "10fd567991bc1b417768acba2ac3ed4479f4252a5699379ec4cf652825294139",
+    "bytes": 88259
+  },
+  {
+    "name": "libpng-1.6.59",
+    "title": "Update bundled libpng from 1.6.39 to 1.6.59",
+    "attachment": "libpng-1.6.59.patch.gz",
+    "sha256": "636ac5da13009a02b4e735a6f28643dd3cc118b2a82470acbfbb266a313535f4",
+    "bytes": 599407
+  },
+  {
+    "name": "webp-1.6.0",
+    "title": "Update bundled WebP from 1.2.1 to 1.6.0",
+    "attachment": "webp-1.6.0.patch.gz",
+    "sha256": "f6ed2664ab67c835588ba453b47d630a51a910cbfc783f1a42b31b2ad5700f80",
+    "bytes": 1151702
+  },
+  {
+    "name": "libtiff-4.7.2",
+    "title": "Update bundled libtiff from 4.5.0 to 4.7.2",
+    "attachment": "libtiff-4.7.2.patch.gz",
+    "sha256": "6b1b08c07e6b036645320a532c89c70fdf45047a0212e29a66a834be4bf59773",
+    "bytes": 629242
+  },
+  {
+    "name": "libraw-0.22.2",
+    "title": "Update bundled LibRawLite from 0.21.1 to 0.22.2",
+    "attachment": "libraw-0.22.2.patch.gz",
+    "sha256": "0079dbd61ae135924277dbf66967eba28b62075b9a1f1a32fc8553539c159133",
+    "bytes": 751897
+  },
+  {
+    "name": "jpeg-10.0",
+    "title": "Update bundled IJG JPEG from 9d to 10.0",
+    "attachment": "jpeg-10.0.patch.gz",
+    "sha256": "c38291a4a972aa38ccb34bec812921f9dab4437d15c8263aece8b02b545cbb8a",
+    "bytes": 841154
+  },
+  {
+    "name": "openexr-3.5.2",
+    "title": "Updated replacement patch: OpenEXR 3.5.2, Imath 3.2.3 and libdeflate 1.26",
+    "attachment": "openexr-3.5.2.patch.gz",
+    "sha256": "a4c591b43939e09c20e9d23920c7530cf4267a3407a328f2b69c100a68740288",
+    "bytes": 2649117
+  }
+]

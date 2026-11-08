@@ -1,0 +1,40 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1ec60d2cea6ca6c1fa0",
+  "mod_date": "2026-09-07 15:02:04.528000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "58136e0cbc",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/58136e0cbc/",
+  "created_date": "2026-09-07 15:02:04.232000",
+  "ticket_num": 178,
+  "summary": "CVE-2024-28567: re-fetch TIFF ICC pointer after ExifIFD switch",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nCVE-2024-28567 — NVD says FreeImage_CreateICCProfile() overflow. The reproducible ASan hit is a use-after-free of libtiff's ICC pointer.\n\nLoad() calls TIFFGetField(TIFFTAG_ICCPROFILE) once, early. ReadMetadata() -> tiff_read_exif_profile() may call TIFFReadEXIFDirectory() when the file has an ExifIFD, which switches directory and back via TIFFFreeDirectory and frees the per-directory field storage iccBuf pointed into. FreeImage_CreateICCProfile(dib, iccBuf, iccSize) then uses a dangling pointer.\n\nThis patch re-fetches the ICC field after ReadMetadata() returns to the main IFD.\n\nNVD: https://nvd.nist.gov/vuln/detail/CVE-2024-28567\n\nGitHub: https://github.com/danoli3/FreeImage/commit/ce6fe58 (PR https://github.com/danoli3/FreeImage/pull/79)\n\nApply from the FreeImage tree root:\n\n    patch -p0 < CVE-2024-28567.patch\n\nIndependent of the TIFF AssignPixel patch (CVE-2024-28566); apply this first if you take both.\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 842,
+      "url": "https://sourceforge.net/p/freeimage/patches/178/attachment/CVE-2024-28567.patch"
+    }
+  ],
+  "custom_fields": {}
+}

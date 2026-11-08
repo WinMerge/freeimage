@@ -1,0 +1,132 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c6647f7..860950f 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -192,13 +192,83 @@ if(BUILD_LIBOPENJPEG)
+     endif()
+ endif()
+ 
+-    # DEFINED PNG_LIBRARY: back-compat with older FreeImage.cmake consumers
+-    # (e.g. openFrameworks' apothecary formula) that used -DBUILD_LIBPNG=OFF
+-    # itself (not just USE_SYSTEM_LIBPNG) to mean "link a system libpng"
+-    # rather than "no PNG support at all".
++    # DEFINED ZLIB_LIBRARY / DEFINED PNG_LIBRARY: back-compat with older
++    # FreeImage.cmake consumers (e.g. openFrameworks' apothecary formula)
++    # that used -DBUILD_ZLIB=OFF/-DBUILD_LIBPNG=OFF themselves (not just
++    # USE_SYSTEM_ZLIB/USE_SYSTEM_LIBPNG) to mean "link a system lib"
++    # rather than "no support at all".
++    #
++    # DEFINED alone isn't enough: find_package(PNG) internally calls
++    # find_package(ZLIB) to resolve libpng's own zlib dependency, and if
++    # that inner search fails it still sets the ZLIB_LIBRARY *cache*
++    # variable to ZLIB_LIBRARY-NOTFOUND - which DEFINED reports as true.
++    # A caller passing only -DPNG_LIBRARY=... (no zlib info at all,
++    # intending the bundled zlib below to satisfy libpng's dependency)
++    # would then wrongly hit the system-zlib branch and fail with a
++    # confusing "Could NOT find ZLIB" from our own find_package(ZLIB
++    # REQUIRED), instead of what should happen: bundle Source/ZLib and
++    # simply not use it as a global CMake target that a chosen PNG_LIBRARY
++    # might already have its own idea of zlib. So: treat NOTFOUND the same
++    # as unset, and resolve zlib before libpng, so that if a real
++    # ZLIB_LIBRARY *was* provided (or is found on the system), FindPNG's
++    # internal search reuses that same result instead of re-probing and
++    # potentially finding something else (or nothing).
++if(PNG_LIBRARY MATCHES "NOTFOUND")
++    unset(PNG_LIBRARY CACHE)
++endif()
++if(ZLIB_LIBRARY MATCHES "NOTFOUND")
++    unset(ZLIB_LIBRARY CACHE)
++endif()
++
++if(BUILD_ZLIB OR DEFINED ZLIB_LIBRARY)
++    if(USE_SYSTEM_ZLIB OR DEFINED ZLIB_LIBRARY)
++        find_package(ZLIB REQUIRED)
++        list(APPEND FreeImage_LIBS ZLIB::ZLIB)
++        add_definitions(-DFREEIMAGE_SYSTEM_ZLIB)
++    else()
++    set(FreeImage_ZLIB_SRCS
++        Source/ZLib/adler32.c Source/ZLib/compress.c Source/ZLib/crc32.c Source/ZLib/deflate.c
++        Source/ZLib/gzclose.c Source/ZLib/gzlib.c Source/ZLib/gzread.c Source/ZLib/gzwrite.c
++        Source/ZLib/infback.c Source/ZLib/inffast.c Source/ZLib/inflate.c Source/ZLib/inftrees.c
++        Source/ZLib/trees.c Source/ZLib/uncompr.c Source/ZLib/zutil.c
++        ./Source/ZLib/crc32.h ./Source/ZLib/deflate.h ./Source/ZLib/gzguts.h
++        ./Source/ZLib/inffast.h ./Source/ZLib/inffixed.h ./Source/ZLib/inflate.h
++        ./Source/ZLib/inftrees.h ./Source/ZLib/trees.h ./Source/ZLib/zconf.h
++        ./Source/ZLib/zlib.h ./Source/ZLib/zutil.h
++    )
++    list(APPEND FreeImage_SOURCES ${FreeImage_ZLIB_SRCS})
++    include_directories(Source/ZLib)
++    add_definitions(-DINCLUDE_LIB_ZLIB)
++    if(NOT WIN32)
++        # zlib >= 1.3 needs HAVE_UNISTD_H defined (normally set by zlib's own
++        # configure/CMake auto-detection) for gzread.c/gzwrite.c to see
++        # read()/write()/close() via zconf.h's Z_HAVE_UNISTD_H gate; we build
++        # its sources directly rather than through that build system.
++        add_definitions(-DHAVE_UNISTD_H)
++    endif()
++    endif()
++endif()
++
+ if(BUILD_LIBPNG OR DEFINED PNG_LIBRARY)
+     if(USE_SYSTEM_LIBPNG OR DEFINED PNG_LIBRARY)
+         find_package(PNG REQUIRED)
++        if(NOT TARGET PNG::PNG)
++            # FindPNG.cmake only creates the PNG::PNG target if it could also
++            # resolve zlib as a real target - it can silently report
++            # PNG_FOUND=TRUE from PNG_LIBRARY/PNG_PNG_INCLUDE_DIR alone while
++            # never creating PNG::PNG, which fails later with a much more
++            # confusing "target PNG::PNG was not found" generate-time error.
++            # A prebuilt PNG_LIBRARY needs a matching prebuilt zlib it was
++            # actually linked against - bundling a separately-compiled zlib
++            # here can't safely stand in for that, so require the caller to
++            # supply one (ZLIB_LIBRARY=..., or ensure system zlib is
++            # discoverable) rather than fail confusingly.
++            message(FATAL_ERROR "PNG_LIBRARY was given (${PNG_LIBRARY}) but "
++                "no zlib could be resolved for it to link against - pass "
++                "-DZLIB_LIBRARY=<path> (matching what PNG_LIBRARY was built "
++                "against) alongside -DPNG_LIBRARY, or ensure a system zlib "
++                "is discoverable.")
++        endif()
+         list(APPEND FreeImage_LIBS PNG::PNG)
+         add_definitions(-DFREEIMAGE_SYSTEM_LIBPNG)
+     else()
+@@ -255,39 +325,6 @@ if(BUILD_LIBTIFF)
+     endif()
+ endif()
+ 
+-    # DEFINED ZLIB_LIBRARY: back-compat with older FreeImage.cmake consumers
+-    # (e.g. openFrameworks' apothecary formula) that used -DBUILD_ZLIB=OFF
+-    # itself (not just USE_SYSTEM_ZLIB) to mean "link a system zlib" rather
+-    # than "no zlib support at all".
+-if(BUILD_ZLIB OR DEFINED ZLIB_LIBRARY)
+-    if(USE_SYSTEM_ZLIB OR DEFINED ZLIB_LIBRARY)
+-        find_package(ZLIB REQUIRED)
+-        list(APPEND FreeImage_LIBS ZLIB::ZLIB)
+-        add_definitions(-DFREEIMAGE_SYSTEM_ZLIB)
+-    else()
+-    set(FreeImage_ZLIB_SRCS
+-        Source/ZLib/adler32.c Source/ZLib/compress.c Source/ZLib/crc32.c Source/ZLib/deflate.c
+-        Source/ZLib/gzclose.c Source/ZLib/gzlib.c Source/ZLib/gzread.c Source/ZLib/gzwrite.c
+-        Source/ZLib/infback.c Source/ZLib/inffast.c Source/ZLib/inflate.c Source/ZLib/inftrees.c
+-        Source/ZLib/trees.c Source/ZLib/uncompr.c Source/ZLib/zutil.c
+-        ./Source/ZLib/crc32.h ./Source/ZLib/deflate.h ./Source/ZLib/gzguts.h
+-        ./Source/ZLib/inffast.h ./Source/ZLib/inffixed.h ./Source/ZLib/inflate.h
+-        ./Source/ZLib/inftrees.h ./Source/ZLib/trees.h ./Source/ZLib/zconf.h
+-        ./Source/ZLib/zlib.h ./Source/ZLib/zutil.h
+-    )
+-    list(APPEND FreeImage_SOURCES ${FreeImage_ZLIB_SRCS})
+-    include_directories(Source/ZLib)
+-    add_definitions(-DINCLUDE_LIB_ZLIB)
+-    if(NOT WIN32)
+-        # zlib >= 1.3 needs HAVE_UNISTD_H defined (normally set by zlib's own
+-        # configure/CMake auto-detection) for gzread.c/gzwrite.c to see
+-        # read()/write()/close() via zconf.h's Z_HAVE_UNISTD_H gate; we build
+-        # its sources directly rather than through that build system.
+-        add_definitions(-DHAVE_UNISTD_H)
+-    endif()
+-    endif()
+-endif()
+-
+ if(BUILD_JXR)
+     if(USE_SYSTEM_JXR)
+         find_package(PkgConfig REQUIRED)

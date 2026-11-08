@@ -1,6 +1,12 @@
 name: Upstream version check
 
 on:
+  pull_request:
+    paths:
+      - '.github/scripts/check_upstream_versions.sh'
+      - '.github/scripts/test_upstream_versions.py'
+      - '.github/workflows/upstream-versions.yml'
+      - 'Source/ThirdParty/sources.json'
   schedule:
     # Monday 08:00 UTC. Compares vendored Source/ versions with upstream
     # releases and opens one issue when any library is behind.
@@ -12,7 +18,17 @@ permissions:
   issues: write
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test checker coverage and reports without network access
+        run: python3 .github/scripts/test_upstream_versions.py
   check:
+    if: github.event_name != 'pull_request'
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

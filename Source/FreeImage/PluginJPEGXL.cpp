@@ -2,15 +2,23 @@
 // agruzdev/FreeImageRe (b51d3945bfe785ad382a0969f1376aee344af8c6), FIPL/GPLv2.
 // Uses the classic plugin API and system libjxl, without Plugin2/yato.
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 #include <cstring>
+// Build with FREEIMAGE_JXL_EXPORT=0 to compile JPEG XL saving out.
+// The plugin then registers as read-only.
+#ifndef FREEIMAGE_JXL_EXPORT
+#define FREEIMAGE_JXL_EXPORT 1
+#endif
 static const char * DLL_CALLCONV Format() { return "JXL"; }
 static const char * DLL_CALLCONV Description() { return "JPEG XL image"; }
 static const char * DLL_CALLCONV Extension() { return "jxl"; }
 static const char * DLL_CALLCONV Mime() { return "image/jxl"; }
 #ifdef FREEIMAGE_LIBJXL
 #include <jxl/decode.h>
+#if FREEIMAGE_JXL_EXPORT
 #include <jxl/encode.h>
+#endif
 #include <jxl/color_encoding.h>
 #include <jxl/version.h>
 #if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,7,0)
@@ -23,10 +31,12 @@ static const char * DLL_CALLCONV Mime() { return "image/jxl"; }
 #include <vector>
 static void Require(bool ok) { if(!ok) throw std::runtime_error("Invalid or unsupported JPEG XL image"); }
 static BOOL DLL_CALLCONV Yes() { return TRUE; }
+#if FREEIMAGE_JXL_EXPORT
 static BOOL DLL_CALLCONV Depth(int bpp) { return bpp == 8 || bpp == 24 || bpp == 32; }
 static BOOL DLL_CALLCONV Type(FREE_IMAGE_TYPE t) {
     return t == FIT_BITMAP || t == FIT_UINT16 || t == FIT_RGB16 || t == FIT_RGBA16 || t == FIT_FLOAT || t == FIT_RGBF || t == FIT_RGBAF;
 }
+#endif
 static BOOL DLL_CALLCONV Validate(FreeImageIO *io, fi_handle h) {
     const long start = io->tell_proc(h); if(start < 0) return FALSE;
     BYTE bytes[12]; const unsigned size = io->read_proc(bytes,1,12,h);
@@ -72,7 +82,7 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle h, int, int flags
 #else
                 const JxlDecoderStatus profile_status=JxlDecoderGetICCProfileSize(decoder.get(),JXL_COLOR_PROFILE_TARGET_DATA,&size);
 #endif
-                if(profile_status==JXL_DEC_SUCCESS && size) {
+                if(!FreeImageInternal::IsStrippingMetadata() && profile_status==JXL_DEC_SUCCESS && size) {
                     Require(size<=LONG_MAX); std::vector<BYTE> profile(size);
 #if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,9,0)
                     Require(JxlDecoderGetColorAsICCProfile(decoder.get(),&format,JXL_COLOR_PROFILE_TARGET_DATA,profile.data(),size)==JXL_DEC_SUCCESS);
@@ -102,6 +112,7 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle h, int, int flags
         }
     } catch(const std::exception &e) { FreeImage_OutputMessageProc(FIF_JPEGXL,"%s",e.what()); return NULL; }
 }
+#if FREEIMAGE_JXL_EXPORT
 static BOOL DLL_CALLCONV Save(FreeImageIO *io,FIBITMAP *dib,fi_handle h,int,int flags,void *) {
     try {
         Require(FreeImage_HasPixels(dib) && Type(FreeImage_GetImageType(dib)) && !(flags & ~(JXL_LOSSLESS|0x7f)) && (flags & 0x7f)<=100);
@@ -139,11 +150,15 @@ static BOOL DLL_CALLCONV Save(FreeImageIO *io,FIBITMAP *dib,fi_handle h,int,int 
         }
     } catch(const std::exception &e) { FreeImage_OutputMessageProc(FIF_JPEGXL,"%s",e.what()); return FALSE; }
 }
+#endif // FREEIMAGE_JXL_EXPORT
 #endif
 void DLL_CALLCONV InitJPEGXL(Plugin *plugin,int) {
     std::memset(plugin,0,sizeof(*plugin)); plugin->format_proc=Format; plugin->description_proc=Description; plugin->extension_proc=Extension; plugin->mime_proc=Mime;
 #ifdef FREEIMAGE_LIBJXL
-    plugin->load_proc=Load; plugin->save_proc=Save; plugin->validate_proc=Validate; plugin->supports_export_bpp_proc=Depth;
-    plugin->supports_export_type_proc=Type; plugin->supports_icc_profiles_proc=Yes; plugin->supports_no_pixels_proc=Yes;
+    plugin->load_proc=Load; plugin->validate_proc=Validate;
+    plugin->supports_icc_profiles_proc=Yes; plugin->supports_no_pixels_proc=Yes;
+#if FREEIMAGE_JXL_EXPORT
+    plugin->save_proc=Save; plugin->supports_export_bpp_proc=Depth; plugin->supports_export_type_proc=Type;
+#endif
 #endif
 }

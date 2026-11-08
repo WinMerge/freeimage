@@ -86,7 +86,9 @@ extern "C"
 #elif defined(USE_LCMS2)
 #include <lcms2.h>
 #else
-#define NO_LCMS
+    #ifndef NO_LCMS
+        #define NO_LCMS
+    #endif
 #endif
 
 #ifdef __cplusplus

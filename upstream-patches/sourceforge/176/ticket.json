@@ -1,0 +1,40 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1eaff0fb3b2f5c79571",
+  "mod_date": "2026-09-07 15:02:03.296000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "7a9a765874",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/7a9a765874/",
+  "created_date": "2026-09-07 15:02:02.985000",
+  "ticket_num": 176,
+  "summary": "CVE-2024-28584: NULL-check JPEG2000 image after opj_read_header",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nCVE-2024-28584 — NULL pointer dereference in J2KImageToFIBITMAP() when reading a malformed J2K/JP2 file.\n\nopj_read_header() can return success while leaving *image NULL. PluginJ2K.cpp / PluginJP2.cpp then passed that pointer into opj_decode() and J2KImageToFIBITMAP(), which immediately dereferences image->numcomps.\n\nThis patch checks image after opj_read_header() in both loaders, and also guards J2KImageToFIBITMAP() itself.\n\nThis is FreeImage glue, not a bundled OpenJPEG bump.\n\nNVD: https://nvd.nist.gov/vuln/detail/CVE-2024-28584\n\nGitHub: https://github.com/danoli3/FreeImage/commit/9286f7f (PR https://github.com/danoli3/FreeImage/pull/53)\n\nApply from the FreeImage tree root:\n\n    patch -p0 < CVE-2024-28584.patch\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 1703,
+      "url": "https://sourceforge.net/p/freeimage/patches/176/attachment/CVE-2024-28584.patch"
+    }
+  ],
+  "custom_fields": {}
+}

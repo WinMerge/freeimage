@@ -1,0 +1,77 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8ac70d6..1bca514 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1344,7 +1344,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC
+ # Preprocessor definitions
+ target_compile_definitions(${PROJECT_NAME} PUBLIC
+     DISABLE_PERF_MEASUREMENT
+-    OPJ_STATIC
++    $<$<NOT:$<BOOL:${USE_SYSTEM_LIBOPENJPEG}>>:OPJ_STATIC>
+     NO_LCMS
+     NO_WINDOWS
+ )
+diff --git a/packaging/arch/PKGBUILD b/packaging/arch/PKGBUILD
+index 841a06a..6bcba15 100644
+--- a/packaging/arch/PKGBUILD
++++ b/packaging/arch/PKGBUILD
+@@ -10,7 +10,7 @@ makedepends=('cmake' 'ninja' 'pkgconf')
+ conflicts=('freeimage' 'freeimage-git')
+ source=("FreeImage-$pkgver.tar.gz::https://github.com/danoli3/FreeImage/archive/refs/tags/$pkgver.tar.gz"
+         'linux-install.patch')
+-sha256sums=('52034b31614f1f5b91a7fa94a69e83e5d5438a72aecfb496fe99d9603ea95eb8' '3db535f8577f82121bcbf86aa1c8d2c9e2d70243001909074908d37d25e83fb5')
++sha256sums=('52034b31614f1f5b91a7fa94a69e83e5d5438a72aecfb496fe99d9603ea95eb8' 'e47e3a5e445257db7c0457e060bbf131d58c5c7073d23fb8f3d27a891ca13d7d')
+ 
+ prepare() {
+   cd "FreeImage-$pkgver"
+diff --git a/packaging/arch/linux-install.patch b/packaging/arch/linux-install.patch
+index e9268cb..fba803a 100644
+--- a/packaging/arch/linux-install.patch
++++ b/packaging/arch/linux-install.patch
+@@ -29,6 +29,15 @@
+  file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/include")
+  configure_file(
+      "${CMAKE_CURRENT_SOURCE_DIR}/Source/FreeImage.h"
++@@ -1338,7 +1344,7 @@
++ # Preprocessor definitions
++ target_compile_definitions(${PROJECT_NAME} PUBLIC
++     DISABLE_PERF_MEASUREMENT
++-    OPJ_STATIC
+++    $<$<NOT:$<BOOL:${USE_SYSTEM_LIBOPENJPEG}>>:OPJ_STATIC>
++     NO_LCMS
++     NO_WINDOWS
++ )
+ @@ -1373,6 +1379,20 @@
+      target_link_libraries(${PROJECT_NAME} ws2_32)
+  endif()
+diff --git a/packaging/arch/update-patch.py b/packaging/arch/update-patch.py
+new file mode 100644
+index 0000000..7b1c5d1
+--- /dev/null
++++ b/packaging/arch/update-patch.py
+@@ -0,0 +1,25 @@
++#!/usr/bin/env python3
++"""Refresh the release backport and its checksum after CMake changes."""
++from pathlib import Path
++import difflib
++import hashlib
++import re
++import subprocess
++
++root = Path(__file__).resolve().parents[2]
++recipe = root / "packaging/arch/PKGBUILD"
++data = recipe.read_text()
++version = re.search(r"^pkgver=(.+)$", data, re.M).group(1)
++patch = []
++for name in ("CMakeLists.txt", "cmake/freeimage.pc.in"):
++    result = subprocess.run(["git", "show", f"{version}:{name}"], cwd=root, capture_output=True)
++    old = result.stdout.decode() if result.returncode == 0 else ""
++    new = (root / name).read_text()
++    patch.extend(difflib.unified_diff(old.splitlines(True), new.splitlines(True),
++                 fromfile=f"a/{name}" if old else "/dev/null", tofile=f"b/{name}"))
++target = root / "packaging/arch/linux-install.patch"
++target.write_text("".join(patch))
++digest = hashlib.sha256(target.read_bytes()).hexdigest()
++data = re.sub(r"(sha256sums=\('[0-9a-f]{64}' ')[0-9a-f]{64}('\))",
++              lambda m: m[1] + digest + m[2], data)
++recipe.write_text(data)

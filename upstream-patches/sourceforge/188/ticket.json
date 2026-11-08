@@ -1,0 +1,38 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6acdc8afb52a26c1fb984e56",
+  "mod_date": "2026-10-13 05:59:11.756000",
+  "labels": [
+    "patch",
+    " bugfix"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "7b2f2d8096",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/7b2f2d8096/",
+  "created_date": "2026-10-13 05:59:11.540000",
+  "ticket_num": 188,
+  "summary": "Accept BMP information-header sizes already handled by the loader",
+  "description": "Applies to FreeImage SVN trunk r1911, checked 2026-10-13.\n\nThe header checker rejected supported larger information headers even though Load dispatches them. Accept sizes 40, 52, 56, 64, 108 and 124; continue rejecting unknown sizes.\n\nOriginal contributor: Thomas Beutlich. License: retain the original FreeImage file license (FIPL/GPL).\nFork fix: https://github.com/danoli3/FreeImage/commit/7646cfe\n\n## Verification\n\nRegression checks load one-pixel Windows BMPs with sizes 40/52/56/108/124. The OS/2 size 64 acceptance is reviewed in the patch but is not exercised by this fixture. This is separate from upstream #154, whose patch addresses a pixel source read.\n\nThe attached regression harness builds against the public FreeImage API. All six cases fail against unpatched r1911 versions of the affected files and pass after this batch. Each edited translation unit and the harness was built with `-fsanitize=address -g`, linked to the existing 3.19.21 core archive on macOS ARM64. The rest of that archive was not ASan-instrumented: this verifies the targeted code, not a full sanitized upstream build. The fork's existing MainTestSuite and VendorCodecTest also pass independently.\n\n## Apply\n\nAttach `bmp-extended-headers.patch` and `bmp-extended-headers-submission.zip` to this ticket. The ZIP contains the patch, harness and this description.\n\nFrom the upstream source root:\n\n```sh\npatch --dry-run -p0 < bmp-extended-headers.patch\npatch -p0 < bmp-extended-headers.patch\n```\n\nRun `regression bmp-extended-headers` after linking regression.cpp to the built library. The harness returns 0 for the corrected behavior, 1 for a regression and 2 for usage errors. An ASan abort also indicates failure for the CUT baseline.\n\nAll patches dry-run successfully on pristine r1911. The two BMP patches also apply together. No dependency upgrades or ABI changes are needed.\n\nThe live ticket index and relevant attachments from #121/#143/#149/#154 were inspected. No equivalent patch was identified in that review; this is not an exhaustive audit of every historical discussion or attachment.",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 3667,
+      "url": "https://sourceforge.net/p/freeimage/patches/188/attachment/bmp-extended-headers-submission.zip"
+    }
+  ],
+  "custom_fields": {}
+}

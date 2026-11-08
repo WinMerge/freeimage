@@ -1,0 +1,38 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6acdd467e63abac95d5a10ad",
+  "mod_date": "2026-10-13 06:49:12.167000",
+  "labels": [
+    "vendor",
+    "patch"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "e0e37da246",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/e0e37da246/",
+  "created_date": "2026-10-13 06:49:11.876000",
+  "ticket_num": 191,
+  "summary": "Update bundled zlib from 1.2.13 to 1.3.2",
+  "description": "Prepared 2026-10-13.\n\nReplace Source/ZLib with the fork-tested 1.3.2 sources and retain the checked-in configuration. Include the gzip source units in GNU make and VS project lists. GNU make requests unistd declarations.\n\n## Patch series and application\n\nStart from clean FreeImage SVN trunk r1911. Apply the existing OpenJPEG source upgrade from https://sourceforge.net/p/freeimage/patches/182/ first. Then apply this ordered vendor series:\n\n1. zlib-1.3.2.patch.gz\n2. libpng-1.6.59.patch.gz\n3. webp-1.6.0.patch.gz\n4. libtiff-4.7.2.patch.gz\n5. libraw-0.22.2.patch.gz\n6. jpeg-10.0.patch.gz\n7. openexr-3.5.2.patch.gz (replacement follow-up to #183)\n\nThese are separate reviewable patches with shared build-file prerequisites, not seven independent diffs against pristine SVN. The OpenEXR replacement must be used instead of the old #183 attachment: do not apply both. A small OpenJPEG Windows-project companion patch is submitted separately as a follow-up to #182; apply it after the existing #182 source patch.\n\nFor each patch, decompress it and apply from the FreeImage tree root with `patch --dry-run -E -p0`, then `patch -E -p0`. `-E` removes obsolete source/header files, including old Imath headers that must not shadow the new ones.\n\n## Scope and verification\n\nEach patch carries vendor code/configuration and reconciles GNU/macOS make source/header lists plus legacy VS source lists. File encodings and line endings are preserved. The library snapshots come from the current fork versions recorded at https://github.com/danoli3/FreeImage/blob/master/THIRD_PARTY_VERSIONS.md ; this is not a claim that every version is the newest available upstream release today. Retain all FreeImage and vendor license notices.\n\nAll patches dry-run and apply in order against r1911 plus the existing #182 source patch. The final combined tree builds a static library with GNU make and Apple Clang on macOS ARM64. An existing SVN jxrlib missing-declaration problem required a validation-only forced header declaring `_byteswap_ulong` and including wchar.h; that unrelated fix is not mixed into these vendor patches.\n\nRuntime validation of the combined tree passed PNG, JPEG, lossless WebP and JPEG-compressed TIFF memory round trips; FreeImage zlib compression/decompression; EXR ZIP, PIZ, ZSTD, HTJ2K256, HTJ2K32, LJ2K and variable-sample deep ZSTD; TIFF uncompressed/LZW/Deflate/PackBits; and raw G3 fax decoding. The linked LibRaw version reports 0.22.2-Release. Real-camera RAW decoding was not tested in this batch. VS project XML and every referenced compilation source were checked, but these exact adapted SVN patches have not been compiled on Windows, Android, Linux or 32-bit runners. This combined validation is not a separate build of every intermediate series step or a full ASan run.\n\nThe original SVN FreeImage version remains 3.19.0; these are dependency updates, not an upstream release-number bump. Upstream acceptance still requires an SVN revision.\n\nImmediately preceding series prerequisite: https://sourceforge.net/p/freeimage/patches/190/\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 88259,
+      "url": "https://sourceforge.net/p/freeimage/patches/191/attachment/zlib-1.3.2.patch.gz"
+    }
+  ],
+  "custom_fields": {}
+}

@@ -1,24 +1,59 @@
 name: Bundled modern codecs
 on:
   push:
+    paths-ignore:
+      - upstream-patches/**
     branches: [master]
   pull_request:
+    paths-ignore:
+      - upstream-patches/**
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
+  windows-build-output:
+    name: Windows nested build messages (${{ matrix.generator }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        generator: ['Visual Studio 17 2022', Ninja]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Check nested builds with Chinese language settings
+        run: python .github/tests/test-codec-build-output.py --generator "${{ matrix.generator }}"
   native:
+    name: native (${{ matrix.os }}, static=${{ matrix.static }}, export codec=${{ matrix.codec_export }} heif=${{ matrix.heif_export }} jxl=${{ matrix.jxl_export }})
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-24.04, macos-latest, windows-latest]
         static: ["ON", "OFF"]
+        codec_export: ["ON"]
+        heif_export: ["ON"]
+        jxl_export: ["ON"]
+        # Read-only builds: both codecs, then each codec alone. The export
+        # keys are matrix keys, so these add jobs rather than extend one. Each
+        # entry sets all three: a new job gets only the keys it lists, and an
+        # empty -DFREEIMAGE_*_EXPORT= would turn that codec off too.
+        include:
+          - {os: ubuntu-24.04, static: "ON", codec_export: "OFF", heif_export: "ON", jxl_export: "ON"}
+          - {os: windows-latest, static: "OFF", codec_export: "OFF", heif_export: "ON", jxl_export: "ON"}
+          - {os: macos-latest, static: "OFF", codec_export: "ON", heif_export: "OFF", jxl_export: "ON"}
+          - {os: ubuntu-24.04, static: "OFF", codec_export: "ON", heif_export: "ON", jxl_export: "OFF"}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
         shell: pwsh
     steps:
       - uses: actions/checkout@v4
+      - name: Detect available CPU threads
+        run: |
+          "CMAKE_BUILD_PARALLEL_LEVEL=$([Environment]::ProcessorCount)" >> $env:GITHUB_ENV
       - name: Configure without external codec SDKs
         run: >-
           cmake -S . -B build
@@ -26,9 +61,12 @@ jobs:
           -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=${{ matrix.static }}
           -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
           -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
+          -DFREEIMAGE_CODEC_EXPORT=${{ matrix.codec_export }}
+          -DFREEIMAGE_HEIF_EXPORT=${{ matrix.heif_export }}
+          -DFREEIMAGE_JXL_EXPORT=${{ matrix.jxl_export }}
           -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
       - name: Build from bundled archives
-        run: cmake --build build --config Release --parallel 4
+        run: cmake --build build --config Release
       - name: Test
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Install and test consumer
@@ -40,16 +78,142 @@ jobs:
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
           cmake --build consumer --config Release --parallel 2
           if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          # Expected writers come from the matrix, not from CMake, so a broken
+          # FREEIMAGE_CODEC_EXPORT override fails here.
+          $codec = "${{ matrix.codec_export }}" -eq "ON"
+          $heif = [int]($codec -and "${{ matrix.heif_export }}" -eq "ON")
+          $jxl = [int]($codec -and "${{ matrix.jxl_export }}" -eq "ON")
           if ($IsWindows) {
             $env:PATH = "$prefix/bin;$env:PATH"
-            & ./consumer/Release/CodecConsumer.exe
+            & ./consumer/Release/CodecConsumer.exe $heif $jxl
           } else {
-            & ./consumer/CodecConsumer
+            & ./consumer/CodecConsumer $heif $jxl
           }
+  windows-msvc-runtime:
+    name: Windows MSVC bundled codecs (${{ matrix.runtime }}, ${{ matrix.config }})
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [MD, MT]
+        config: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect available CPU threads
+        run: |
+          "CMAKE_BUILD_PARALLEL_LEVEL=$([Environment]::ProcessorCount)" >> $env:GITHUB_ENV
+      - name: Configure bundled codecs with selected CRT
+        run: >-
+          cmake -S . -B build-runtime
+          -DCMAKE_CXX_STANDARD=11 -DBUILD_TESTS=ON
+          -DFREEIMAGE_STATIC=OFF
+          -DFREEIMAGE_MSVC_RUNTIME=${{ matrix.runtime }}
+          -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+          -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
+          -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+      - name: Build FreeImage, AOM, Highway, and tests
+        run: cmake --build build-runtime --config ${{ matrix.config }}
+      - name: Run tests
+        run: ctest --test-dir build-runtime -C ${{ matrix.config }} --output-on-failure
+  windows-mingw-gcc:
+    # Issue #211: GCC targeting Windows cannot realign the stack for AVX
+    # spills, so libjxl's AVX2 decoder crashed under MinGW GCC while MSVC,
+    # clang and Linux GCC were fine. Debug matters: -O0 spills every vector
+    # temporary, which is where the reported crash came from.
+    # This must be an upstream GCC. MSYS2 patches its GCC to default to
+    # unaligned vector moves (0200-add-m-no-align-vector-insn-option-for-i386),
+    # so the windows-msys2-gcc job below cannot reproduce the bug. The
+    # runner's preinstalled C:\mingw64 is unpatched mingw-builds GCC, like
+    # the WinLibs/mingw-builds toolchains users download.
+    name: Windows MinGW GCC bundled codecs (${{ matrix.config }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      MINGW: C:/mingw64/bin
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show the upstream GCC in use
+        run: |
+          & "$env:MINGW/gcc.exe" --version
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          & "$env:MINGW/gcc.exe" -Q --help=target | Select-String "align-vector"
+          "$env:MINGW" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "CMAKE_BUILD_PARALLEL_LEVEL=$([Environment]::ProcessorCount)" >> $env:GITHUB_ENV
+      - name: Configure bundled codecs
+        run: >-
+          cmake -S . -B build -G "MinGW Makefiles"
+          "-DCMAKE_C_COMPILER=$env:MINGW/gcc.exe" "-DCMAKE_CXX_COMPILER=$env:MINGW/g++.exe"
+          -DCMAKE_BUILD_TYPE=${{ matrix.config }} -DCMAKE_CXX_STANDARD=17
+          -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=OFF
+          -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+          -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
+          -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+      - name: Build
+        run: cmake --build build
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 300
+  windows-msys2-gcc:
+    # Build coverage for MSYS2's own GCC with the bundled codecs. See the job
+    # above for why this one cannot catch #211.
+    name: Windows MSYS2 GCC bundled codecs (MINGW64, Debug, static)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+      # mirror.msys2.org sometimes stalls while syncing the package databases.
+      # Retry once instead of failing the whole job on a mirror timeout.
+      - name: Set up MSYS2 (MINGW64)
+        id: msys2
+        continue-on-error: true
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            perl
+      - name: Set up MSYS2 (MINGW64) (retry)
+        if: steps.msys2.outcome == 'failure'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-toolchain
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-ninja
+            perl
+      - name: Configure bundled codecs
+        run: >-
+          cmake -S . -B build -G Ninja
+          -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_STANDARD=17
+          -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=ON
+          -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+          -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
+          -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+      - name: Build
+        run: cmake --build build -j$(nproc)
+      - name: Test
+        run: ctest --test-dir build --output-on-failure --timeout 300
   linux-x86:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+      - name: Detect available CPU threads
+        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
       - run: sudo apt-get update && sudo apt-get install -y gcc-multilib g++-multilib ninja-build
       - name: Configure 32-bit codecs
         run: >-
@@ -58,7 +222,7 @@ jobs:
           -DCMAKE_CXX_STANDARD=11 -DBUILD_TESTS=ON
           -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
           -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
-      - run: cmake --build build --parallel 4
+      - run: cmake --build build
       - run: ctest --test-dir build --output-on-failure
   android-api25:
     runs-on: ubuntu-24.04
@@ -68,6 +232,8 @@ jobs:
         abi: [arm64-v8a, armeabi-v7a, x86]
     steps:
       - uses: actions/checkout@v4
+      - name: Detect available CPU threads
+        run: echo "CMAKE_BUILD_PARALLEL_LEVEL=$(getconf _NPROCESSORS_ONLN)" >> "$GITHUB_ENV"
       - name: Install Android NDK
         run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108"'
       - name: Cross-compile bundled codecs for API 25
@@ -78,4 +244,4 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=11 \
             -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON -DBUILD_TESTS=OFF \
             -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
-          cmake --build build --parallel 4
+          cmake --build build

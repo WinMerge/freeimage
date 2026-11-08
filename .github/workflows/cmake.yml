@@ -2,6 +2,8 @@ name: "CMake build"
 
 on:
   push:
+    paths-ignore:
+      - upstream-patches/**
     # unscoped push: would also fire for every push to an open PR's branch,
     # duplicating the pull_request run below for the same commit. Scoping
     # to master keeps a post-merge signal without doubling PR CI - the
@@ -10,6 +12,8 @@ on:
     branches:
       - master
   pull_request:
+    paths-ignore:
+      - upstream-patches/**
   workflow_dispatch:
 
 defaults:
@@ -81,6 +85,17 @@ jobs:
         run: |
           ctest --test-dir build --build-config ${{ matrix.configuration }} --verbose
 
+      - name: Verify static Debug PDB installation
+        if: matrix.compiler == 'msvc' && matrix.cppstandard == 17
+        shell: pwsh
+        run: |
+          $prefix = "$env:RUNNER_TEMP/freeimage-static-pdb"
+          cmake --install build --config Debug --component Development --prefix "$prefix"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (!(Test-Path "$prefix/lib/FreeImage.lib")) { throw "Static library was not installed" }
+          if (!(Test-Path "$prefix/lib/FreeImage.pdb")) { throw "Compiler PDB was not installed beside the static library" }
+          if ((Get-Item "$prefix/lib/FreeImage.pdb").Length -eq 0) { throw "Compiler PDB is empty" }
+
   shared-linux:
     # Keep at least one Linux shared-library build in CI. The main matrix
     # uses the static default, so new public APIs can otherwise miss shared
@@ -119,6 +134,14 @@ jobs:
         run: cmake --build build-shared --config Debug --parallel 2
       - name: Test
         run: ctest --test-dir build-shared --build-config Debug --output-on-failure --verbose
+      - name: Verify DLL Debug PDB installation
+        run: |
+          $prefix = "$env:RUNNER_TEMP/freeimage-dll-pdb"
+          cmake --install build-shared --config Debug --component Runtime --prefix "$prefix"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (!(Test-Path "$prefix/bin/FreeImage.dll")) { throw "DLL was not installed" }
+          if (!(Test-Path "$prefix/bin/FreeImage.pdb")) { throw "Linker PDB was not installed beside the DLL" }
+          if ((Get-Item "$prefix/bin/FreeImage.pdb").Length -eq 0) { throw "Linker PDB is empty" }
 
   windows-msys2:
     # Dedicated job (rather than another `build` matrix entry) because it
@@ -151,7 +174,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      # mirror.msys2.org sometimes stalls while syncing the package databases.
+      # Retry once instead of failing the whole job on a mirror timeout.
       - name: Set up MSYS2 (${{ matrix.msystem }})
+        id: msys2
+        continue-on-error: true
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          update: true
+          install: >-
+            ${{ matrix.prefix }}-toolchain
+            ${{ matrix.prefix }}-cmake
+            ${{ matrix.prefix }}-ninja
+      - name: Set up MSYS2 (${{ matrix.msystem }}) (retry)
+        if: steps.msys2.outcome == 'failure'
         uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem }}
@@ -183,7 +220,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      # mirror.msys2.org sometimes stalls while syncing the package databases.
+      # Retry once instead of failing the whole job on a mirror timeout.
       - name: Set up 32-bit GCC
+        id: msys2
+        continue-on-error: true
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: true
+          install: >-
+            mingw-w64-i686-toolchain
+            mingw-w64-i686-cmake
+            mingw-w64-i686-ninja
+      - name: Set up 32-bit GCC (retry)
+        if: steps.msys2.outcome == 'failure'
         uses: msys2/setup-msys2@v2
         with:
           msystem: MINGW32
@@ -253,6 +304,9 @@ jobs:
         run: |
           ctest --test-dir build --build-config Debug --verbose
 
+      - name: Install clang-cl static library with optional compiler PDB
+        run: cmake --install build --config Debug --component Development --prefix "$env:RUNNER_TEMP/freeimage-clang-cl"
+
   windows-win32:
     # Pin VS 2022: its x86 Debug compiler hit OpenJPH's AVX2 encoder ICE.
     name: Windows Win32 (${{ matrix.toolset }}, ${{ matrix.config }})
@@ -284,9 +338,17 @@ jobs:
         run: cmake --build build-win32 --config ${{ matrix.config }} --parallel 2
       - name: Run 32-bit test suites
         run: ctest --test-dir build-win32 --build-config ${{ matrix.config }} --output-on-failure --verbose
+      - name: Verify Release installation omits Debug PDB
+        if: matrix.toolset == 'v143' && matrix.config == 'Release'
+        run: |
+          $prefix = "$env:RUNNER_TEMP/freeimage-release-pdb"
+          cmake --install build-win32 --config Release --component Development --prefix "$prefix"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (!(Test-Path "$prefix/lib/FreeImage.lib")) { throw "Release static library was not installed" }
+          if (Test-Path "$prefix/lib/FreeImage.pdb") { throw "Release installation included a Debug PDB" }
       - name: Check OpenEXR Windows API imports
         run: |
-          $exe = "build-win32/TestAPI/${{ matrix.config }}/VendorCodecTest.exe"
+          $exe = "build-win32/TestAPI/VendorCodecTest/${{ matrix.config }}/VendorCodecTest.exe"
           $imports = & dumpbin /imports $exe
           if ($LASTEXITCODE -ne 0) { throw "Cannot inspect codec test imports" }
           if ($imports -match '\bCreateFile2\b') { throw "OpenEXR imports Windows 8-only CreateFile2" }
@@ -322,7 +384,8 @@ jobs:
     # host at all (the VS generators don't exist in a macOS/Linux CMake
     # build), so this is the only real signal for that workflow.
     name: Visual Studio project generation (CMakePresets)
-    runs-on: windows-latest
+    # The required vs2022 preset needs VS 2022; VS 2026 remains best-effort.
+    runs-on: windows-2022
     defaults:
       run:
         # Not bash (the workflow-level default): Git Bash can't represent
@@ -359,6 +422,12 @@ jobs:
           cmake --preset ninja-msvc
           cmake --build build-ninja-msvc
           ctest --test-dir build-ninja-msvc --build-config Debug --verbose
+      - name: Verify Ninja MSVC static Debug PDB installation
+        run: |
+          $prefix = "$env:RUNNER_TEMP/freeimage-ninja-pdb"
+          cmake --install build-ninja-msvc --config Debug --component Development --prefix "$prefix"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          if (!(Test-Path "$prefix/lib/FreeImage.pdb")) { throw "Ninja compiler PDB was not installed" }
 
   openframeworks-tests:
     # Builds this FreeImage checkout and drops it into a real openFrameworks
@@ -368,8 +437,16 @@ jobs:
     # that only show up when FreeImage is actually linked into a consuming
     # application rather than exercised through FreeImage's own TestAPI.
     name: openFrameworks image format tests (macOS)
-    runs-on: macos-latest
+    # Match oF master while its prebuilt curl requires the macOS 27 SDK's
+    # pipe2 symbol. Revisit when curl's older-SDK compatibility fix lands.
+    runs-on: xcode-27
+    env:
+      DEVELOPER_DIR: /Applications/Xcode_27.1.app/Contents/Developer
     steps:
+      - name: Show selected Xcode and macOS SDK
+        run: |
+          xcodebuild -version
+          xcrun --sdk macosx --show-sdk-version
       - name: Checkout FreeImage
         uses: actions/checkout@v4
         with:
@@ -432,10 +509,10 @@ jobs:
           "-DCMAKE_C_FLAGS=-fsanitize=address -g"
           "-DCMAKE_CXX_FLAGS=-fsanitize=address -g"
           -DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address
-      - name: Build codec and PBM RLE regression tests
-        run: cmake --build build-simd --target VendorCodecTest IffPbmRleTest -j2
+      - name: Build codec, NLT marker, PBM RLE and large-file regression tests
+        run: cmake --build build-simd --target VendorCodecTest OpenJphNltTest IffPbmRleTest LargeFileTIFFTest -j2
       - name: Verify runtime dispatch and codec round trips
-        run: ctest --test-dir build-simd -R 'VendorCodecTest|IffPbmRleTest' --output-on-failure --verbose
+        run: ctest --test-dir build-simd -R 'VendorCodecTest|OpenJphNltTest|IffPbmRleTest|LargeFileTIFFTest' --output-on-failure --verbose
 
   android-api25:
     name: Android API 25 (${{ matrix.abi }})

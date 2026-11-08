@@ -53,6 +53,30 @@ void LibRaw::tiff_set(struct tiff_hdr *th, ushort *ntag, ushort tag,
   tt->tag = tag;
 }
 
+// local strnlen: we cannot use LibRaw::strnlen b/c it is protected
+static size_t local_static_strnlen(const char *s, size_t n)
+{
+#if !defined(__FreeBSD__) && !defined(__OpenBSD__)
+  const char *p = (const char *)memchr(s, 0, n);
+  return (p ? p - s : n);
+#else
+  return strnlen(s, n);
+#endif
+}
+
+
+static void tiff_set_str4(struct tiff_hdr *th, ushort *ntag, ushort tag, ushort type, int count, const uchar* val)
+{
+  struct libraw_tiff_tag *tt;
+  int c;
+  tt = (struct libraw_tiff_tag *)(ntag + 1) + (*ntag)++;
+  count = int(local_static_strnlen((const char*)val, count-1)) + 1;
+  FORC(4) tt->val.c[c] = val[c];
+  tt->count = count;
+  tt->type = type;
+  tt->tag = tag;
+}
+
 #define TOFF(ptr) int((char *)(&(ptr)) - (char *)th)
 
 void LibRaw::tiff_head(struct tiff_hdr *th, int full)
@@ -100,8 +124,11 @@ void LibRaw::tiff_head(struct tiff_hdr *th, int full)
     tiff_set(th, &th->ntag, 273, 4, 1, sizeof *th + psize);
     tiff_set(th, &th->ntag, 277, 3, 1, colors);
     tiff_set(th, &th->ntag, 278, 4, 1, height);
-    tiff_set(th, &th->ntag, 279, 4, 1,
-             height * width * colors * output_bps / 8);
+	INT64 strip_bytes = INT64(height) * INT64(width) * INT64(colors) * INT64(output_bps) / 8LL;
+	if (strip_bytes >= 2147483647LL)
+		throw LIBRAW_EXCEPTION_TOOBIG; // bigtiff is not supported...
+	int strip_bytes_32 = strip_bytes;
+	tiff_set(th, &th->ntag, 279, 4, 1, strip_bytes_32);
   }
   else
     tiff_set(th, &th->ntag, 274, 3, 1, "12435867"[flip] - '0');
@@ -125,9 +152,9 @@ void LibRaw::tiff_head(struct tiff_hdr *th, int full)
           lonref[4] = { (uchar)(gpsdata[30]),0,0,0 };
     tiff_set(th, &th->ntag, 34853, 4, 1, TOFF(th->ngps));
     tiff_set(th, &th->ngps, 0, 1, 4, 0x202);
-    tiff_set(th, &th->ngps, 1, 2, 2, TOFF(latref));
+    tiff_set_str4(th, &th->ngps, 1, 2, 2, latref);
     tiff_set(th, &th->ngps, 2, 5, 3, TOFF(th->gps[0]));
-    tiff_set(th, &th->ngps, 3, 2, 2, TOFF(lonref));
+    tiff_set_str4(th, &th->ngps, 3, 2, 2, lonref);
     tiff_set(th, &th->ngps, 4, 5, 3, TOFF(th->gps[6]));
     tiff_set(th, &th->ngps, 5, 1, 1, gpsdata[31]);
     tiff_set(th, &th->ngps, 6, 5, 1, TOFF(th->gps[18]));

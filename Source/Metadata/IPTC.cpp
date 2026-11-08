@@ -26,6 +26,7 @@
 #endif
 
 #include "FreeImage.h"
+#include "MetadataStrip.h"
 #include "Utilities.h"
 #include "FreeImageTag.h"
 
@@ -39,6 +40,7 @@ static const char* IPTC_DELIMITER = ";";	// keywords/supplemental category delim
 */
 BOOL 
 read_iptc_profile(FIBITMAP *dib, const BYTE *dataptr, unsigned int datalen) {
+    if(FreeImageInternal::IsStrippingMetadata()) return TRUE;
 	char defaultKey[16];
 	size_t length = datalen;
 	BYTE *profile = (BYTE*)dataptr;

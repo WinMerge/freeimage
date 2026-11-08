@@ -19,14 +19,21 @@
 // Adaptation: classic plugin API, optional system linkage, checked stream
 // callbacks, RGB/BGR conversion, and header-only loading. Encoding is omitted.
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 #include <cstring>
+
+// Build with FREEIMAGE_HEIF_EXPORT=0 to compile HEIF/AVIF saving out.
+// The plugins then register as read-only.
+#ifndef FREEIMAGE_HEIF_EXPORT
+#define FREEIMAGE_HEIF_EXPORT 1
+#endif
 
 static const char * DLL_CALLCONV HeifFormat() { return "HEIF"; }
 static const char * DLL_CALLCONV AvifFormat() { return "AVIF"; }
 static const char * DLL_CALLCONV HeifDescription() { return "HEIF image"; }
 static const char * DLL_CALLCONV AvifDescription() { return "AVIF image"; }
-static const char * DLL_CALLCONV HeifExtension() { return "heif,heic,heifs,heics"; }
+static const char * DLL_CALLCONV HeifExtension() { return "heif,heic,heifs,heics,hif"; }
 static const char * DLL_CALLCONV AvifExtension() { return "avif"; }
 static const char * DLL_CALLCONV HeifMime() { return "image/heif"; }
 static const char * DLL_CALLCONV AvifMime() { return "image/avif"; }
@@ -128,7 +135,7 @@ static FIBITMAP *DecodeImage(heif_image_handle *handle, int flags, long length) 
             }
         }
         const size_t profile_size = heif_image_handle_get_raw_color_profile_size(handle);
-        if(profile_size && profile_size <= static_cast<size_t>(LONG_MAX) && profile_size <= static_cast<size_t>(length)) {
+        if(!FreeImageInternal::IsStrippingMetadata() && profile_size && profile_size <= static_cast<size_t>(LONG_MAX) && profile_size <= static_cast<size_t>(length)) {
             std::vector<BYTE> profile(profile_size);
             Check(heif_image_handle_get_raw_color_profile(handle, profile.data()));
             FIICCPROFILE *icc = FreeImage_CreateICCProfile(dib.get(), profile.data(), static_cast<long>(profile_size));
@@ -177,13 +184,18 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int 
             }
         }
         if(!(flags & FIF_LOAD_NOPIXELS) && heif_image_handle_get_number_of_thumbnails(image_handle.get()) > 0) {
-            heif_item_id id;
-            if(heif_image_handle_get_list_of_thumbnail_IDs(image_handle.get(), &id, 1) == 1) {
-                heif_image_handle *raw_thumbnail = NULL;
-                Check(heif_image_handle_get_thumbnail(image_handle.get(), id, &raw_thumbnail));
-                std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> thumbnail_handle(raw_thumbnail, heif_image_handle_release);
-                std::unique_ptr<FIBITMAP, void (*)(FIBITMAP *)> thumbnail(DecodeImage(thumbnail_handle.get(), 0, stream.length), FreeImage_Unload);
-                if(thumbnail) FreeImage_SetThumbnail(dib.get(), thumbnail.get());
+            // A broken or unsupported thumbnail must not discard the decoded main image.
+            try {
+                heif_item_id id;
+                if(heif_image_handle_get_list_of_thumbnail_IDs(image_handle.get(), &id, 1) == 1) {
+                    heif_image_handle *raw_thumbnail = NULL;
+                    Check(heif_image_handle_get_thumbnail(image_handle.get(), id, &raw_thumbnail));
+                    std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> thumbnail_handle(raw_thumbnail, heif_image_handle_release);
+                    std::unique_ptr<FIBITMAP, void (*)(FIBITMAP *)> thumbnail(DecodeImage(thumbnail_handle.get(), 0, stream.length), FreeImage_Unload);
+                    if(thumbnail) FreeImage_SetThumbnail(dib.get(), thumbnail.get());
+                }
+            } catch(const std::exception &error) {
+                FreeImage_OutputMessageProc(Format, "Ignoring embedded thumbnail: %s", error.what());
             }
         }
         return dib.release();
@@ -192,6 +204,7 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int 
         return NULL;
     }
 }
+#if FREEIMAGE_HEIF_EXPORT
 static heif_error WriteEncoded(heif_context *, const void *bytes, size_t size, void *opaque) {
     Reader &stream = *static_cast<Reader *>(opaque);
     const BYTE *p = static_cast<const BYTE *>(bytes);
@@ -274,6 +287,7 @@ static BOOL DLL_CALLCONV Save(FreeImageIO *io, FIBITMAP *dib, fi_handle output, 
         return TRUE;
     } catch(const std::exception &error) { FreeImage_OutputMessageProc(Format, "%s", error.what()); return FALSE; }
 }
+#endif // FREEIMAGE_HEIF_EXPORT
 
 #endif
 
@@ -286,11 +300,13 @@ static void Init(Plugin *plugin, bool avif) {
 #ifdef FREEIMAGE_LIBHEIF
     plugin->validate_proc = avif ? ValidateAVIF : ValidateHEIF;
     plugin->load_proc = avif ? Load<FIF_AVIF> : Load<FIF_HEIF>;
+#if FREEIMAGE_HEIF_EXPORT
     // Registration can run from FreeImage's shared-library initializer before
     // the bundled libheif C++ globals. Query encoders only from runtime calls.
     plugin->save_proc = avif ? Save<heif_compression_AV1, FIF_AVIF> : Save<heif_compression_HEVC, FIF_HEIF>;
     plugin->supports_export_bpp_proc = avif ? SupportsDepth<heif_compression_AV1> : SupportsDepth<heif_compression_HEVC>;
     plugin->supports_export_type_proc = avif ? SupportsType<heif_compression_AV1> : SupportsType<heif_compression_HEVC>;
+#endif
     plugin->supports_no_pixels_proc = SupportsNoPixels;
     plugin->supports_icc_profiles_proc = SupportsICC;
 #endif

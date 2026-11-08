@@ -1,0 +1,53 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7e21bd2..bcc9904 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -38,6 +38,18 @@ option(USE_SYSTEM_LIBRAWLITE "Link against system libraw instead of the bundled
+ option(USE_SYSTEM_OPENEXR "Link against system OpenEXR/Imath instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
+ option(USE_SYSTEM_JXR "Link against system jxrlib instead of the bundled copy" ${FREEIMAGE_SYSTEM_DEFAULT})
+ 
++# find_package(PNG)/find_package(ZLIB)'s actual include-dir hint variables
++# (PNG_PNG_INCLUDE_DIR, ZLIB_INCLUDE_DIR) don't match the names older
++# FreeImage.cmake consumers (e.g. openFrameworks' apothecary formula) pass
++# for the same purpose (PNG_INCLUDE_DIR, ZLIB_INCLUDE_DIRS) - map them over
++# so those older invocations keep working.
++if(DEFINED PNG_INCLUDE_DIR AND NOT DEFINED PNG_PNG_INCLUDE_DIR)
++    set(PNG_PNG_INCLUDE_DIR ${PNG_INCLUDE_DIR} CACHE PATH "Path to libpng include directory")
++endif()
++if(DEFINED ZLIB_INCLUDE_DIRS AND NOT DEFINED ZLIB_INCLUDE_DIR)
++    set(ZLIB_INCLUDE_DIR ${ZLIB_INCLUDE_DIRS} CACHE PATH "Path to zlib include directory")
++endif()
++
+ if(BUILD_SHARED_LIBS)
+     message(STATUS "Building FreeImage as a shared library.")
+ else()
+@@ -180,8 +192,12 @@ if(BUILD_LIBOPENJPEG)
+     endif()
+ endif()
+ 
+-if(BUILD_LIBPNG)
+-    if(USE_SYSTEM_LIBPNG)
++    # DEFINED PNG_LIBRARY: back-compat with older FreeImage.cmake consumers
++    # (e.g. openFrameworks' apothecary formula) that used -DBUILD_LIBPNG=OFF
++    # itself (not just USE_SYSTEM_LIBPNG) to mean "link a system libpng"
++    # rather than "no PNG support at all".
++if(BUILD_LIBPNG OR DEFINED PNG_LIBRARY)
++    if(USE_SYSTEM_LIBPNG OR DEFINED PNG_LIBRARY)
+         find_package(PNG REQUIRED)
+         list(APPEND FreeImage_LIBS PNG::PNG)
+         add_definitions(-DFREEIMAGE_SYSTEM_LIBPNG)
+@@ -239,8 +255,12 @@ if(BUILD_LIBTIFF)
+     endif()
+ endif()
+ 
+-if(BUILD_ZLIB)
+-    if(USE_SYSTEM_ZLIB)
++    # DEFINED ZLIB_LIBRARY: back-compat with older FreeImage.cmake consumers
++    # (e.g. openFrameworks' apothecary formula) that used -DBUILD_ZLIB=OFF
++    # itself (not just USE_SYSTEM_ZLIB) to mean "link a system zlib" rather
++    # than "no zlib support at all".
++if(BUILD_ZLIB OR DEFINED ZLIB_LIBRARY)
++    if(USE_SYSTEM_ZLIB OR DEFINED ZLIB_LIBRARY)
+         find_package(ZLIB REQUIRED)
+         list(APPEND FreeImage_LIBS ZLIB::ZLIB)
+         add_definitions(-DFREEIMAGE_SYSTEM_ZLIB)

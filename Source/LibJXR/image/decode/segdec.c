@@ -29,6 +29,11 @@
 #include "strcodec.h"
 #include "decode.h"
 
+/* Prototype for the portable implementation in strcodec.c. */
+#if !defined(WIN32) && !defined(UNDER_CE)
+U32 _byteswap_ulong(U32 bits);
+#endif
+
 #ifdef MEM_TRACE
 #define TRACE_MALLOC    1
 #define TRACE_NEW       0

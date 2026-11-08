@@ -1,0 +1,49 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ece39d38808e7a4858805",
+  "mod_date": "2026-09-07 14:46:17.393000",
+  "labels": [],
+  "related_artifacts": [
+    "/p/freeimage/svn/1828/"
+  ],
+  "discussion_thread": {
+    "_id": "c5a8049029",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "0d5b",
+        "text": "SVN-style unified diff against FreeImage trunk r1911 is attached (CVE-2020-22524, PluginPFM.cpp Load 32-bit 3*width overflow before malloc).\n\nThis is the earlier GitHub fix: https://github.com/danoli3/FreeImage/commit/668385e / PR https://github.com/danoli3/FreeImage/pull/56\n\nSiblings just posted for the 2020 ICO/PSD heap overflows: 170, 171, 172. Original ICO/PSD report: https://sourceforge.net/p/freeimage/discussion/36111/thread/afb98701eb/\n\nApply from the FreeImage tree root: patch -p0 < CVE-2020-22524.patch",
+        "subject": "#173 CVE-2020-22524: fix PFM integer overflow in line buffer allocation",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 14:53:31.084000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/c5a8049029/",
+  "created_date": "2026-09-07 14:46:17.024000",
+  "ticket_num": 173,
+  "summary": "CVE-2020-22524: fix PFM integer overflow in line buffer allocation",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.18.0 / 3.19.0 [r1828]).\n\nCVE-2020-22524 — integer overflow leading to undersized allocation in PluginPFM.cpp Load().\n\nLoad() computed the PFM scanline buffer as `const unsigned lineWidth = 3 * width` (RGBF) or `= width` (FLOAT). width is an int from the PFM header (only `width <= 0` is rejected). For RGBF, `3 * width` is a 32-bit signed multiply, so a large width (~715M+) wraps to a small value. malloc() then succeeds with a buffer far smaller than one scanline, while the unpack loop still iterates `for (x = 0; x < width; x++)` and reads/writes past the end of that buffer.\n\nFix: compute lineWidth in size_t so the multiply cannot overflow before malloc. Unreasonable widths fail malloc(), which Load() already handles.\n\nApply from the FreeImage tree root:\n\n  patch -p0 < CVE-2020-22524.patch\n\nCWE-190 leading to CWE-787/CWE-125. CVSS 3.1 6.5 (AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H)\n\nReferences:\n- https://www.cve.org/CVERecord?id=CVE-2020-22524\n- https://nvd.nist.gov/vuln/detail/CVE-2020-22524\n- GitHub fork: https://github.com/danoli3/FreeImage/commit/668385e561a4a338f5b3513a6f09a0502933281e\n- GitHub PR: https://github.com/danoli3/FreeImage/pull/56\n\nLicense: same as FreeImage (GPL or FIPL).\n",
+  "reported_by": "*anonymous",
+  "assigned_to": null,
+  "reported_by_id": null,
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 924,
+      "url": "https://sourceforge.net/p/freeimage/patches/173/attachment/CVE-2020-22524.patch"
+    }
+  ],
+  "custom_fields": {}
+}

@@ -1,0 +1,75 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed415c5682b0367692c56",
+  "mod_date": "2026-09-07 15:13:22.772000",
+  "labels": [
+    "cve",
+    "security",
+    "vendor"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "7abed73fd7",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "5fd4",
+        "text": "Vendor-tree replacement #1 of 2 (OpenJPEG 2.0.0 -> 2.5.4). OpenEXR 2.2 -> 3.3.13 follows in a few minutes so the tracker is not flooded. Apply this first: gzip -dc CVE-2024-28574.patch.gz | patch -p0",
+        "subject": "#182 CVE-2024-28574/28575/28576: replace bundled OpenJPEG 2.0.0 with 2.5.4",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 15:12:06.671000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "15db",
+        "text": "Sorry this one is a bit huge hopefully patch works on it. added to gz compressed. ",
+        "subject": "#182 CVE-2024-28574/28575/28576: replace bundled OpenJPEG 2.0.0 with 2.5.4",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 15:13:22.348000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      },
+      {
+        "slug": "36b8",
+        "text": "OpenEXR vendor-tree replacement is now #183 (CVE-2024-28562/28563/28564/28569: OpenEXR 2.2 -> 3.3.13). Apply this ticket first:\n\n    gzip -dc CVE-2024-28574.patch.gz | patch -p0\n\nthen the OpenEXR patch from #183:\n\n    gzip -dc CVE-2024-28562.patch.gz | patch -p0\n\nhttps://sourceforge.net/p/freeimage/patches/183/",
+        "subject": "#182 CVE-2024-28574/28575/28576: replace bundled OpenJPEG 2.0.0 with 2.5.4",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 15:18:15.854000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/7abed73fd7/",
+  "created_date": "2026-09-07 15:11:17.613000",
+  "ticket_num": 182,
+  "summary": "CVE-2024-28574/28575/28576: replace bundled OpenJPEG 2.0.0 with 2.5.4",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nCVE-2024-28574 / CVE-2024-28575 / CVE-2024-28576 live in the bundled OpenJPEG 2.0.0 copy (Source/LibOpenJPEG/j2k.c: opj_j2k_copy_default_tcp_and_create_tcd, opj_j2k_read_mct, opj_j2k_tcp_destroy). They are not bugs in FreeImage glue. OpenJPEG 2.5.4 (and current system libopenjp2) contains the upstream fixes (28576 traces to openjpeg#477).\n\nThis is a vendor-tree replacement of Source/LibOpenJPEG 2.0.0 -> 2.5.4 plus Makefile.srcs so the GNU makefile still compiles the new units (ht_dec.c, opj_malloc.c, sparse_array.c, thread.c) and drops the removed raw.c.\n\nNVD:\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28574\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28575\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28576\n\nGitHub: https://github.com/danoli3/FreeImage/commit/229de19 (PR https://github.com/danoli3/FreeImage/pull/68)\n\nApply from the FreeImage tree root (gzipped because the unified diff is ~2.7MB):\n\n    gzip -dc CVE-2024-28574.patch.gz | patch -p0\n\nApply this BEFORE the OpenEXR vendor patch (CVE-2024-28562); that patch's Makefile.srcs hunk is based on this one.\n\nAlternative to a tree bump: link system OpenJPEG 2.5+ instead of the bundled copy.\n\nRelated glue already on this tracker: #176 CVE-2024-28584 (J2KImageToFIBITMAP NULL check) — that is FreeImage code, independent of this replacement.\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 386892,
+      "url": "https://sourceforge.net/p/freeimage/patches/182/attachment/CVE-2024-28574.patch.gz"
+    }
+  ],
+  "custom_fields": {}
+}

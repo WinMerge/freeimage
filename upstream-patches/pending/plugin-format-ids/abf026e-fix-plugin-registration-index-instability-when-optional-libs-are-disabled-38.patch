@@ -1,0 +1,328 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4e7a707..ca87b84 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -99,7 +99,8 @@ set(FreeImage_SOURCES
+     ./Source/FreeImage/PluginHDR.cpp ./Source/FreeImage/PluginICO.cpp
+     ./Source/FreeImage/PluginIFF.cpp ./Source/FreeImage/PluginJ2K.cpp
+     ./Source/FreeImage/PluginJNG.cpp ./Source/FreeImage/PluginJP2.cpp
+-    ./Source/FreeImage/PluginJPEG.cpp ./Source/FreeImage/PluginKOALA.cpp
++    ./Source/FreeImage/PluginJPEG.cpp ./Source/FreeImage/PluginJXR.cpp
++    ./Source/FreeImage/PluginKOALA.cpp
+     ./Source/FreeImage/PluginMNG.cpp ./Source/FreeImage/PluginPCD.cpp
+     ./Source/FreeImage/PluginPCX.cpp ./Source/FreeImage/PluginPFM.cpp
+     ./Source/FreeImage/PluginPICT.cpp ./Source/FreeImage/PluginPNG.cpp
+@@ -337,14 +338,12 @@ if(BUILD_JXR)
+         find_package(PkgConfig REQUIRED)
+         pkg_check_modules(JXR REQUIRED IMPORTED_TARGET libjxr)
+         list(APPEND FreeImage_LIBS PkgConfig::JXR)
+-        list(APPEND FreeImage_SOURCES ./Source/FreeImage/PluginJXR.cpp)
+         add_definitions(-DFREEIMAGE_SYSTEM_JXR -DINCLUDE_LIB_JXR)
+     else()
+     set(FreeImage_JXR_SRCS
+         ./Source/LibJXR/image/decode/decode.c ./Source/LibJXR/image/decode/JXRTranscode.c
+         ./Source/LibJXR/image/decode/postprocess.c ./Source/LibJXR/image/decode/segdec.c
+         ./Source/LibJXR/image/decode/strInvTransform.c ./Source/LibJXR/image/
+-        ./Source/FreeImage/PluginJXR.cpp
+         ./Source/LibJXR/common/include/wmspecstring.h
+         ./Source/LibJXR/common/include/wmspecstrings_adt.h
+         ./Source/LibJXR/common/include/wmspecstrings_strict.h
+diff --git a/Source/FreeImage/Plugin.cpp b/Source/FreeImage/Plugin.cpp
+index 09b8442..9339bd2 100644
+--- a/Source/FreeImage/Plugin.cpp
++++ b/Source/FreeImage/Plugin.cpp
+@@ -266,24 +266,16 @@ FreeImage_Initialise(BOOL load_local_plugins_only) {
+ 	        s_plugins->AddNode(InitHDR);
+ 			s_plugins->AddNode(InitG3);
+ 			s_plugins->AddNode(InitSGI);
+-			#if INCLUDE_LIB_OPENEXR
+ 			s_plugins->AddNode(InitEXR);
+-			#endif
+ 			s_plugins->AddNode(InitJ2K);
+ 			s_plugins->AddNode(InitJP2);
+ 			s_plugins->AddNode(InitPFM);
+ 			s_plugins->AddNode(InitPICT);
+-			#if INCLUDE_LIB_RAW
+ 			s_plugins->AddNode(InitRAW);
+-			#endif
+-			#if INCLUDE_LIB_WEBP
+ 			s_plugins->AddNode(InitWEBP);
+-			#endif
+-			#if INCLUDE_LIB_JXR
+ #if !(defined(_MSC_VER) && (_MSC_VER <= 1310))
+ 			s_plugins->AddNode(InitJXR);
+ #endif // unsupported by MS Visual Studio 2003 !!!
+-			#endif
+ 			
+ 			// external plugin initialization
+ 
+diff --git a/Source/FreeImage/PluginEXR.cpp b/Source/FreeImage/PluginEXR.cpp
+index 351a320..a051c53 100644
+--- a/Source/FreeImage/PluginEXR.cpp
++++ b/Source/FreeImage/PluginEXR.cpp
+@@ -801,4 +801,52 @@ InitEXR(Plugin *plugin, int format_id) {
+ 	plugin->supports_no_pixels_proc = SupportsNoPixels;
+ }
+ 
+-#endif
+\ No newline at end of file
++#else // !INCLUDE_LIB_OPENEXR
++
++#include "FreeImage.h"
++
++// This build was compiled without OpenEXR support (BUILD_OPENEXR=OFF).
++// Still register the EXR format so its slot in the FREE_IMAGE_FORMAT
++// enum stays occupied - otherwise every plugin registered after it
++// would silently shift down one runtime index while FreeImage.h's
++// compile-time FIF_* constants stay fixed, breaking whichever plugin
++// happens to land on the now-mismatched index (see issue #38). All
++// procs other than format/description/extension are left NULL, which
++// the rest of Plugin.cpp already treats as "unsupported" everywhere.
++
++static const char * DLL_CALLCONV
++Format() {
++	return "EXR";
++}
++
++static const char * DLL_CALLCONV
++Description() {
++	return "ILM OpenEXR (not compiled in this build)";
++}
++
++static const char * DLL_CALLCONV
++Extension() {
++	return "exr";
++}
++
++void DLL_CALLCONV
++InitEXR(Plugin *plugin, int format_id) {
++	plugin->format_proc = Format;
++	plugin->description_proc = Description;
++	plugin->extension_proc = Extension;
++	plugin->regexpr_proc = NULL;
++	plugin->open_proc = NULL;
++	plugin->close_proc = NULL;
++	plugin->pagecount_proc = NULL;
++	plugin->pagecapability_proc = NULL;
++	plugin->load_proc = NULL;
++	plugin->save_proc = NULL;
++	plugin->validate_proc = NULL;
++	plugin->mime_proc = NULL;
++	plugin->supports_export_bpp_proc = NULL;
++	plugin->supports_export_type_proc = NULL;
++	plugin->supports_icc_profiles_proc = NULL;
++	plugin->supports_no_pixels_proc = NULL;
++}
++
++#endif // INCLUDE_LIB_OPENEXR
+\ No newline at end of file
+diff --git a/Source/FreeImage/PluginJXR.cpp b/Source/FreeImage/PluginJXR.cpp
+index ca380da..5ad5dc4 100644
+--- a/Source/FreeImage/PluginJXR.cpp
++++ b/Source/FreeImage/PluginJXR.cpp
+@@ -1490,4 +1490,53 @@ InitJXR(Plugin *plugin, int format_id) {
+ 	plugin->supports_no_pixels_proc = SupportsNoPixels;
+ }
+ 
+-#endif
+\ No newline at end of file
++#else // !INCLUDE_LIB_JXR
++
++#include "FreeImage.h"
++#include "Utilities.h"
++
++// This build was compiled without JPEG XR support (BUILD_JXR=OFF). Still
++// register the JPEG-XR format so its slot in the FREE_IMAGE_FORMAT enum
++// stays occupied - otherwise every plugin registered after it would
++// silently shift down one runtime index while FreeImage.h's compile-time
++// FIF_* constants stay fixed, breaking whichever plugin happens to land
++// on the now-mismatched index (see issue #38). All procs other than
++// format/description/extension are left NULL, which the rest of
++// Plugin.cpp already treats as "unsupported" everywhere.
++
++static const char * DLL_CALLCONV
++Format() {
++	return "JPEG-XR";
++}
++
++static const char * DLL_CALLCONV
++Description() {
++	return "JPEG XR image format (not compiled in this build)";
++}
++
++static const char * DLL_CALLCONV
++Extension() {
++	return "jxr,wdp,hdp";
++}
++
++void DLL_CALLCONV
++InitJXR(Plugin *plugin, int format_id) {
++	plugin->format_proc = Format;
++	plugin->description_proc = Description;
++	plugin->extension_proc = Extension;
++	plugin->regexpr_proc = NULL;
++	plugin->open_proc = NULL;
++	plugin->close_proc = NULL;
++	plugin->pagecount_proc = NULL;
++	plugin->pagecapability_proc = NULL;
++	plugin->load_proc = NULL;
++	plugin->save_proc = NULL;
++	plugin->validate_proc = NULL;
++	plugin->mime_proc = NULL;
++	plugin->supports_export_bpp_proc = NULL;
++	plugin->supports_export_type_proc = NULL;
++	plugin->supports_icc_profiles_proc = NULL;
++	plugin->supports_no_pixels_proc = NULL;
++}
++
++#endif // INCLUDE_LIB_JXR
+\ No newline at end of file
+diff --git a/Source/FreeImage/PluginRAW.cpp b/Source/FreeImage/PluginRAW.cpp
+index b5358a8..ce0e380 100644
+--- a/Source/FreeImage/PluginRAW.cpp
++++ b/Source/FreeImage/PluginRAW.cpp
+@@ -801,4 +801,53 @@ InitRAW(Plugin *plugin, int format_id) {
+ 	plugin->supports_no_pixels_proc = SupportsNoPixels;
+ }
+ 
+-#endif
+\ No newline at end of file
++#else // !INCLUDE_LIB_RAW
++
++#include "FreeImage.h"
++#include "Utilities.h"
++
++// This build was compiled without LibRaw support (BUILD_LIBRAWLITE=OFF).
++// Still register the RAW format so its slot in the FREE_IMAGE_FORMAT
++// enum stays occupied - otherwise every plugin registered after it
++// would silently shift down one runtime index while FreeImage.h's
++// compile-time FIF_* constants stay fixed, breaking whichever plugin
++// happens to land on the now-mismatched index (see issue #38). All
++// procs other than format/description/extension are left NULL, which
++// the rest of Plugin.cpp already treats as "unsupported" everywhere.
++
++static const char * DLL_CALLCONV
++Format() {
++	return "RAW";
++}
++
++static const char * DLL_CALLCONV
++Description() {
++	return "RAW camera image (not compiled in this build)";
++}
++
++static const char * DLL_CALLCONV
++Extension() {
++	return "raw";
++}
++
++void DLL_CALLCONV
++InitRAW(Plugin *plugin, int format_id) {
++	plugin->format_proc = Format;
++	plugin->description_proc = Description;
++	plugin->extension_proc = Extension;
++	plugin->regexpr_proc = NULL;
++	plugin->open_proc = NULL;
++	plugin->close_proc = NULL;
++	plugin->pagecount_proc = NULL;
++	plugin->pagecapability_proc = NULL;
++	plugin->load_proc = NULL;
++	plugin->save_proc = NULL;
++	plugin->validate_proc = NULL;
++	plugin->mime_proc = NULL;
++	plugin->supports_export_bpp_proc = NULL;
++	plugin->supports_export_type_proc = NULL;
++	plugin->supports_icc_profiles_proc = NULL;
++	plugin->supports_no_pixels_proc = NULL;
++}
++
++#endif // INCLUDE_LIB_RAW
+\ No newline at end of file
+diff --git a/Source/FreeImage/PluginWebP.cpp b/Source/FreeImage/PluginWebP.cpp
+index 19bd681..8bba65c 100644
+--- a/Source/FreeImage/PluginWebP.cpp
++++ b/Source/FreeImage/PluginWebP.cpp
+@@ -697,4 +697,53 @@ InitWEBP(Plugin *plugin, int format_id) {
+ 	plugin->supports_no_pixels_proc = SupportsNoPixels;
+ }
+ 
+-#endif
+\ No newline at end of file
++#else // !INCLUDE_LIB_WEBP
++
++#include "FreeImage.h"
++#include "Utilities.h"
++
++// This build was compiled without WebP support (BUILD_WEBP=OFF). Still
++// register the WebP format so its slot in the FREE_IMAGE_FORMAT enum
++// stays occupied - otherwise every plugin registered after it would
++// silently shift down one runtime index while FreeImage.h's compile-time
++// FIF_* constants stay fixed, breaking whichever plugin happens to land
++// on the now-mismatched index (see issue #38). All procs other than
++// format/description/extension are left NULL, which the rest of
++// Plugin.cpp already treats as "unsupported" everywhere.
++
++static const char * DLL_CALLCONV
++Format() {
++	return "WebP";
++}
++
++static const char * DLL_CALLCONV
++Description() {
++	return "Google WebP image format (not compiled in this build)";
++}
++
++static const char * DLL_CALLCONV
++Extension() {
++	return "webp";
++}
++
++void DLL_CALLCONV
++InitWEBP(Plugin *plugin, int format_id) {
++	plugin->format_proc = Format;
++	plugin->description_proc = Description;
++	plugin->extension_proc = Extension;
++	plugin->regexpr_proc = NULL;
++	plugin->open_proc = NULL;
++	plugin->close_proc = NULL;
++	plugin->pagecount_proc = NULL;
++	plugin->pagecapability_proc = NULL;
++	plugin->load_proc = NULL;
++	plugin->save_proc = NULL;
++	plugin->validate_proc = NULL;
++	plugin->mime_proc = NULL;
++	plugin->supports_export_bpp_proc = NULL;
++	plugin->supports_export_type_proc = NULL;
++	plugin->supports_icc_profiles_proc = NULL;
++	plugin->supports_no_pixels_proc = NULL;
++}
++
++#endif // INCLUDE_LIB_WEBP
+\ No newline at end of file
+diff --git a/Source/Plugin.h b/Source/Plugin.h
+index 16c82dd..5886fd7 100644
+--- a/Source/Plugin.h
++++ b/Source/Plugin.h
+@@ -131,22 +131,14 @@ void DLL_CALLCONV InitGIF(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitHDR(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitG3(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitSGI(Plugin *plugin, int format_id);
+-#if INCLUDE_LIB_OPENEXR
+ void DLL_CALLCONV InitEXR(Plugin *plugin, int format_id);
+-#endif
+ void DLL_CALLCONV InitJ2K(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitJP2(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitPFM(Plugin *plugin, int format_id);
+ void DLL_CALLCONV InitPICT(Plugin *plugin, int format_id);
+-#if INCLUDE_LIB_RAW
+ void DLL_CALLCONV InitRAW(Plugin *plugin, int format_id);
+-#endif
+ void DLL_CALLCONV InitJNG(Plugin *plugin, int format_id);
+-#if INCLUDE_LIB_WEBP
+ void DLL_CALLCONV InitWEBP(Plugin *plugin, int format_id);
+-#endif
+-#if INCLUDE_LIB_JXR
+ void DLL_CALLCONV InitJXR(Plugin *plugin, int format_id);
+-#endif
+ 
+ #endif //!PLUGIN_H

@@ -46,6 +46,16 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
         Require(without_exif && !FreeImage_GetMetadata(FIMD_EXIF_RAW,without_exif,"ExifRaw",&tag),"invalid EXIF offset ignored");
         FreeImage_Unload(without_exif); FreeImage_CloseMemory(malformed);
     }
+#if !FREEIMAGE_TEST_HEIF_EXPORT
+    if(encode) {
+        // Built with FREEIMAGE_HEIF_EXPORT=OFF: the plugin must be read-only.
+        Require(!FreeImage_FIFSupportsWriting(format), "read-only build reports no writer");
+        Require(!FreeImage_FIFSupportsExportBPP(format, alpha ? 32 : 24), "read-only build exports no depth");
+        FIMEMORY *encoded = FreeImage_OpenMemory();
+        Require(!FreeImage_SaveToMemory(format, dib, encoded, 0), "read-only build rejects save");
+        FreeImage_CloseMemory(encoded);
+    }
+#else
     if(encode && FreeImage_FIFSupportsWriting(format)) {
         const BYTE exif[] = {'E','x','i','f',0,0,'I','I',42,0,8,0,0,0,1,0,0x12,1,3,0,1,0,0,0,1,0,0,0,0,0,0,0};
         FITAG *tag = FreeImage_CreateTag();
@@ -83,6 +93,7 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
         FreeImage_Unload(roundtrip); FreeImage_CloseMemory(encoded);
         }
     }
+#endif
     FreeImage_Unload(dib);
     FreeImage_SeekMemory(memory, 0, SEEK_SET);
     dib = FreeImage_LoadFromMemory(format, memory, FIF_LOAD_NOPIXELS);
@@ -100,6 +111,25 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
     Require(FreeImage_LoadFromMemory(format, memory) == NULL, "truncated input rejected");
     FreeImage_CloseMemory(memory);
 }
+// Primary pixels and metadata must survive errors in an optional thumbnail.
+static void TestBadThumbnail(const char *filename, bool must_reject_thumbnail) {
+    FIBITMAP *reference = FreeImage_Load(FIF_HEIF, "metadata.heic");
+    FIBITMAP *dib = FreeImage_Load(FIF_HEIF, filename);
+    Require(reference && dib, "invalid thumbnail must not discard main image");
+    Require(FreeImage_GetWidth(dib) == 32 && FreeImage_GetHeight(dib) == 24, "bad-thumbnail main dimensions");
+    Require(FreeImage_GetBPP(dib) == 24 && FreeImage_HasPixels(dib), "bad-thumbnail main pixels");
+    for(unsigned y = 0; y < 24; ++y)
+        Require(!std::memcmp(FreeImage_GetScanLine(reference, y), FreeImage_GetScanLine(dib, y),
+            FreeImage_GetLine(reference)), "thumbnail failure preserves main pixels");
+    if(must_reject_thumbnail) Require(FreeImage_GetThumbnail(dib) == NULL, "invalid thumbnail omitted");
+    FITAG *tag = NULL;
+    Require(FreeImage_GetMetadata(FIMD_EXIF_MAIN, dib, "Orientation", &tag), "thumbnail failure preserves EXIF");
+    FreeImage_Unload(reference);
+    FreeImage_Unload(dib);
+    dib = FreeImage_Load(FIF_HEIF, filename, FIF_LOAD_NOPIXELS);
+    Require(dib && !FreeImage_HasPixels(dib) && FreeImage_GetWidth(dib) == 32, "bad-thumbnail header-only");
+    FreeImage_Unload(dib);
+}
 int main(int argc, char **) {
     encode = argc > 1;
     FreeImage_Initialise();
@@ -108,9 +138,19 @@ int main(int argc, char **) {
 
     Test("rgb.heic", FIF_HEIF, false);
     Test("rgba.heic", FIF_HEIF, true);
+#if !defined(FREEIMAGE_TEST_BUNDLED_HEIF) || defined(FREEIMAGE_TEST_BUNDLED_AOM)
     Test("rgb.avif", FIF_AVIF, false);
     Test("rgba.avif", FIF_AVIF, true);
+#endif
     Test("metadata.heic", FIF_HEIF, false);
+    TestBadThumbnail("bad-thumbnail.heic", true);
+    // Older libheif versions may accept the inconsistent dimensions. Either
+    // way, a thumbnail must not make loading the primary image fail.
+    TestBadThumbnail("thumbnail-size-mismatch.heic", false);
     FreeImage_DeInitialise();
+#if defined(FREEIMAGE_TEST_BUNDLED_HEIF) && !defined(FREEIMAGE_TEST_BUNDLED_AOM)
+    std::puts("HEIF RGB, alpha, orientation, header-only and truncated-input tests passed (AVIF backend disabled)");
+#else
     std::puts("HEIF/AVIF RGB, alpha, orientation, header-only and truncated-input tests passed");
+#endif
 }

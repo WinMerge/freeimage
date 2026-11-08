@@ -1,0 +1,63 @@
+diff --git a/.github/workflows/cmake.yml b/.github/workflows/cmake.yml
+index e9c60b7..c0225a0 100644
+--- a/.github/workflows/cmake.yml
++++ b/.github/workflows/cmake.yml
+@@ -319,6 +319,29 @@ jobs:
+       - name: Verify runtime dispatch and codec round trips
+         run: ctest --test-dir build-simd -R VendorCodecTest --output-on-failure --verbose
+ 
++  android-api25:
++    name: Android API 25 (${{ matrix.abi }})
++    runs-on: ubuntu-latest
++    strategy:
++      fail-fast: false
++      matrix:
++        abi: [armeabi-v7a, arm64-v8a]
++    steps:
++      - name: Checkout repository
++        uses: actions/checkout@v4
++      - name: Install Android NDK
++        run: |
++          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;28.0.13004108"
++      - name: Configure bundled codecs
++        run: >-
++          cmake -S . -B build-android
++          -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/28.0.13004108/build/cmake/android.toolchain.cmake"
++          -DANDROID_ABI=${{ matrix.abi }} -DANDROID_PLATFORM=android-25
++          -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_STANDARD=17
++          -DFREEIMAGE_STATIC=ON -DBUILD_OPENEXR=ON -DBUILD_TESTS=ON
++      - name: Build Android library and test executables
++        run: cmake --build build-android -j2
++
+   linux-arm64-cross:
+     name: Linux ARM64 cross build (libdeflate C11)
+     runs-on: ubuntu-latest
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_zstd.c b/Source/OpenEXR/OpenEXRCore/internal_zstd.c
+index 78b27ab..344633a 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_zstd.c
++++ b/Source/OpenEXR/OpenEXRCore/internal_zstd.c
+@@ -224,6 +224,12 @@ ensure_tls_resources (size_t required_size)
+ 
+ #if defined(_WIN32) || defined(_WIN64)
+         tls->shuffle_buf = (uint8_t*) _aligned_malloc (aligned_size, 64);
++#elif defined(__ANDROID__) && __ANDROID_API__ < 28
++        // Android added aligned_alloc in API 28; posix_memalign is available
++        // on older targets and its allocation is also released with free.
++        void* aligned_buf = NULL;
++        if (posix_memalign (&aligned_buf, 64, aligned_size) != 0) return false;
++        tls->shuffle_buf = (uint8_t*) aligned_buf;
+ #else
+         tls->shuffle_buf = (uint8_t*) aligned_alloc (64, aligned_size);
+ #endif
+diff --git a/scripts/vendor/NOTES.md b/scripts/vendor/NOTES.md
+index 68da201..f3790fb 100644
+--- a/scripts/vendor/NOTES.md
++++ b/scripts/vendor/NOTES.md
+@@ -58,3 +58,7 @@ but exclude table-generator executables (`b44ExpLogTable.cpp`, `dwaLookups.cpp`)
+ After an update, run TestAPI and EXR/TIFF/G3 round trips, including EXR's new
+ compression methods and variable-sample deep ZSTD data, with AddressSanitizer.
+ Windows, ARM64EC, and Linux GNU make validation belongs in the existing CI matrix.
++
++OpenEXRCore ZSTD uses posix_memalign on Android below API 28, where
++aligned_alloc is unavailable. Preserve its 64-byte alignment, overflow
++checks, and matching free cleanup when refreshing the vendor snapshot.

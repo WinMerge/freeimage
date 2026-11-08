@@ -47,7 +47,6 @@ namespace ojph {
     //////////////////////////////////////////////////////////////////////////
     void sse_mem_clear(void* addr, size_t count)
     {
-      // Keep this SSE-dispatched kernel free of SSE2 integer intrinsics.
       __m128 zero = _mm_setzero_ps();
       for (size_t i = 0; i < count; i += 16, addr = (char*)addr + 16)
         _mm_storeu_ps((float*)addr, zero);

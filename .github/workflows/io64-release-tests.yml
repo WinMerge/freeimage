@@ -1,0 +1,96 @@
+name: Published large-file image tests
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/io64-release-tests.yml
+      - CMakeLists.txt
+      - Source/FreeImage.h
+      - Source/FreeImage/Plugin.cpp
+      - Source/FreeImage/PluginTIFF.cpp
+      - Source/FreeImage/PluginPNG.cpp
+      - Source/FreeImage/PluginBMP.cpp
+      - Source/FreeImage/FreeImageIO.cpp
+      - Source/LibTIFF4/**
+      - Source/LibPNG/**
+      - TestAPI/CMakeLists.txt
+      - TestAPI/testLargeFileTIFF.cpp
+      - TestAPI/testIO64FixtureDecoder.cpp
+      - scripts/tests/io64-fixtures.py
+      - scripts/tests/test-io64-fixtures.py
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/io64-release-tests.yml
+      - Source/FreeImage.h
+      - Source/FreeImage/Plugin.cpp
+      - Source/FreeImage/PluginTIFF.cpp
+      - Source/FreeImage/PluginPNG.cpp
+      - Source/FreeImage/PluginBMP.cpp
+      - Source/FreeImage/FreeImageIO.cpp
+      - Source/LibTIFF4/**
+      - Source/LibPNG/**
+      - TestAPI/testIO64FixtureDecoder.cpp
+      - scripts/tests/io64-fixtures.py
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: io64-release-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  images:
+    name: Release payloads (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: ubuntu-latest, label: Linux ASan, static: 'ON', standard: 17, asan: true}
+          - {os: macos-latest, label: macOS C++11, static: 'ON', standard: 11, asan: false}
+          - {os: windows-latest, label: MSVC x64 DLL, arch: x64, static: 'OFF', standard: 17, asan: false}
+          - {os: windows-latest, label: MSVC Win32, arch: Win32, static: 'ON', standard: 17, asan: false}
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+      PYTHONUTF8: '1'
+      FIXTURE_URL: https://github.com/danoli3/FreeImage/releases/download/test-fixtures-io64-v1
+      FIXTURE_MANIFEST_SHA256: a8e57fb37b0a1116d61b70c098bb168daaaba74807994f565973ee82e8d9975a
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Check packaging and cleanup behavior
+        run: python scripts/tests/test-io64-fixtures.py
+      - name: Configure decoder
+        run: |
+          $configureArgs = @('-S', '.', '-B', 'build', '-DBUILD_TESTS=ON', '-DBUILD_OPENEXR=OFF',
+            '-DBUILD_LIBHEIF=OFF', '-DBUILD_LIBJXL=OFF', '-DCMAKE_BUILD_TYPE=Debug',
+            '-DFREEIMAGE_STATIC=${{ matrix.static }}', '-DCMAKE_CXX_STANDARD=${{ matrix.standard }}')
+          if ($IsWindows) { $configureArgs += @('-A', '${{ matrix.arch }}') }
+          else { $configureArgs += @('-G', 'Ninja') }
+          if ('${{ matrix.asan }}' -eq 'true') {
+            $configureArgs += @('-DCMAKE_C_FLAGS=-fsanitize=address -g',
+              '-DCMAKE_CXX_FLAGS=-fsanitize=address -g', '-DCMAKE_EXE_LINKER_FLAGS=-fsanitize=address')
+          }
+          cmake @configureArgs
+      - name: Build decoder and callback regression
+        run: cmake --build build --config Debug --target IO64FixtureDecoder LargeFileTIFFTest
+      - name: Test wide callbacks and error handling
+        run: ctest --test-dir build -C Debug -R '^LargeFileTIFFTest$' --output-on-failure
+      - name: Download pinned release manifest
+        run: |
+          python -c "import os, urllib.request; urllib.request.urlretrieve(os.environ['FIXTURE_URL'] + '/manifest.json', 'io64-manifest.json')"
+      - name: Download, test and remove each image separately
+        run: |
+          $decoder = (Get-Content -Raw build/TestAPI/io64-decoder-Debug.txt).Trim()
+          if (!(Test-Path -LiteralPath $decoder -PathType Leaf)) { throw "Decoder not found: $decoder" }
+          python scripts/tests/io64-fixtures.py run --manifest io64-manifest.json `
+            --manifest-sha256 $env:FIXTURE_MANIFEST_SHA256 --release-url $env:FIXTURE_URL `
+            --allow-known-failures -- $decoder '{format}' '{expect}' '{path}' '{known}'

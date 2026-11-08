@@ -1,0 +1,234 @@
+diff --git a/.github/workflows/bundled-codecs.yml b/.github/workflows/bundled-codecs.yml
+index 41f1669..a5562ac 100644
+--- a/.github/workflows/bundled-codecs.yml
++++ b/.github/workflows/bundled-codecs.yml
+@@ -28,12 +28,13 @@ jobs:
+       matrix:
+         os: [ubuntu-24.04, macos-latest, windows-latest]
+         static: ["ON", "OFF"]
+-        heif_export: ["ON"]
+-        # Read-only HEIF/AVIF: no save functions, Kvazaar or AV1 encoder.
+-        # heif_export is a matrix key, so these add jobs rather than extend one.
++        codec_export: ["ON"]
++        # Read-only HEIF/AVIF and JPEG XL: no save functions, Kvazaar or AV1
++        # encoder. codec_export is a matrix key, so these add jobs rather than
++        # extend one.
+         include:
+-          - {os: ubuntu-24.04, static: "ON", heif_export: "OFF"}
+-          - {os: windows-latest, static: "OFF", heif_export: "OFF"}
++          - {os: ubuntu-24.04, static: "ON", codec_export: "OFF"}
++          - {os: windows-latest, static: "OFF", codec_export: "OFF"}
+     runs-on: ${{ matrix.os }}
+     defaults:
+       run:
+@@ -50,7 +51,7 @@ jobs:
+           -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=${{ matrix.static }}
+           -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
+           -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
+-          -DFREEIMAGE_HEIF_EXPORT=${{ matrix.heif_export }}
++          -DFREEIMAGE_CODEC_EXPORT=${{ matrix.codec_export }}
+           -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
+       - name: Build from bundled archives
+         run: cmake --build build --config Release
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index d1c424b..e7fc11b 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -5,6 +5,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
+ ## Unreleased
+ 
+ - Add `FREEIMAGE_HEIF_EXPORT` (default ON). Turning it off builds HEIF/AVIF as read-only: the save functions are not compiled, and bundled builds skip Kvazaar and libaom's AV1 encoder.
++- Add `FREEIMAGE_JXL_EXPORT` (default ON) for read-only JPEG XL, and `FREEIMAGE_CODEC_EXPORT` (default ON) to turn off HEIF/AVIF and JPEG XL saving together. With both codecs bundled, a read-only shared library is about a third smaller.
+ 
+ ## 3.19.29 — Unreleased
+ 
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a6108ca..4855558 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -185,9 +185,18 @@ option(USE_SYSTEM_JXR "Link against system jxrlib instead of the bundled copy" $
+ # Modern codecs remain optional; enabled codecs use bundled source archives
+ # unless their system-library switch (or the master switch) selects an SDK.
+ option(BUILD_LIBHEIF "Enable HEIF/AVIF support" OFF)
+-# OFF builds HEIF/AVIF as read-only: no save functions, and bundled builds
+-# skip the kvazaar HEVC encoder and build libaom without its AV1 encoder.
++# Read-only modern codecs. FREEIMAGE_CODEC_EXPORT=OFF turns off saving for
++# both HEIF/AVIF and JPEG XL; the per-codec options turn off one of them.
++# HEIF OFF also skips the bundled kvazaar HEVC encoder and builds libaom
++# without its AV1 encoder. JPEG XL OFF leaves libjxl's encoder unreferenced,
++# so the linker drops it.
++option(FREEIMAGE_CODEC_EXPORT "Build HEIF/AVIF and JPEG XL saving" ON)
+ option(FREEIMAGE_HEIF_EXPORT "Build HEIF/AVIF saving" ON)
++option(FREEIMAGE_JXL_EXPORT "Build JPEG XL saving" ON)
++if(NOT FREEIMAGE_CODEC_EXPORT)
++    set(FREEIMAGE_HEIF_EXPORT OFF)
++    set(FREEIMAGE_JXL_EXPORT OFF)
++endif()
+ option(BUILD_LIBJXL "Enable JPEG XL support" OFF)
+ option(FREEIMAGE_BUNDLE_AOM "Build bundled libaom for AV1 support in bundled libheif" ON)
+ option(USE_SYSTEM_LIBHEIF "Use an installed libheif SDK" ${FREEIMAGE_SYSTEM_DEFAULT})
+@@ -211,8 +220,8 @@ foreach(codec HEIF JXL)
+         endif()
+         list(APPEND FreeImage_LIBS FreeImageCodec::${codec})
+         add_compile_definitions(FREEIMAGE_LIB${codec})
+-        if(codec STREQUAL "HEIF" AND NOT FREEIMAGE_HEIF_EXPORT)
+-            add_compile_definitions(FREEIMAGE_HEIF_EXPORT=0)
++        if(NOT FREEIMAGE_${codec}_EXPORT)
++            add_compile_definitions(FREEIMAGE_${codec}_EXPORT=0)
+         endif()
+     endif()
+ endforeach()
+diff --git a/README.md b/README.md
+index 9618ab0..d2ea5da 100644
+--- a/README.md
++++ b/README.md
+@@ -327,7 +327,8 @@ Set `-DFREEIMAGE_HEIF_EXPORT=OFF` for read-only HEIF/AVIF. The save
+ functions are not compiled, so `FreeImage_FIFSupportsWriting` returns FALSE
+ for both formats and saving fails. Bundled builds also skip Kvazaar and build
+ libaom without its AV1 encoder. With a system SDK only the plugin changes.
+-`FREEIMAGE_HEIF_EXPORT` defaults to ON.
++`FREEIMAGE_HEIF_EXPORT` defaults to ON. `-DFREEIMAGE_CODEC_EXPORT=OFF` turns
++off saving for HEIF/AVIF and JPEG XL together.
+ 
+ Use `FIF_HEIF` for HEIF/HEIC/HIF and `FIF_AVIF` for AVIF, or detect the format
+ with `FreeImage_GetFileType`. The decoder loads the primary still image as
+@@ -366,6 +367,12 @@ Animations are rejected. EXIF/XMP and thumbnails are not imported initially.
+ Pass JXL_LOSSLESS for exact lossless encoding; otherwise quality flags 1..100
+ map to distance (100-quality)/10, with 90 as the default.
+ The classic make build registers an unsupported stub; enable with CMake.
++Set `-DFREEIMAGE_JXL_EXPORT=OFF` for read-only JPEG XL, or
++`-DFREEIMAGE_CODEC_EXPORT=OFF` for read-only HEIF/AVIF and JPEG XL. The save
++function is not compiled, so `FreeImage_FIFSupportsWriting(FIF_JPEGXL)`
++returns FALSE and saving fails. libjxl is still built in full, but nothing
++references its encoder, so the linker leaves it out of FreeImage.
++`FREEIMAGE_JXL_EXPORT` defaults to ON.
+ 
+ ### Windows HEIF/AVIF and JPEG XL SDKs
+ 
+diff --git a/Source/FreeImage/PluginJPEGXL.cpp b/Source/FreeImage/PluginJPEGXL.cpp
+index 0b3b932..dc60321 100644
+--- a/Source/FreeImage/PluginJPEGXL.cpp
++++ b/Source/FreeImage/PluginJPEGXL.cpp
+@@ -4,13 +4,20 @@
+ #include "FreeImage.h"
+ #include "Utilities.h"
+ #include <cstring>
++// Build with FREEIMAGE_JXL_EXPORT=0 to compile JPEG XL saving out.
++// The plugin then registers as read-only.
++#ifndef FREEIMAGE_JXL_EXPORT
++#define FREEIMAGE_JXL_EXPORT 1
++#endif
+ static const char * DLL_CALLCONV Format() { return "JXL"; }
+ static const char * DLL_CALLCONV Description() { return "JPEG XL image"; }
+ static const char * DLL_CALLCONV Extension() { return "jxl"; }
+ static const char * DLL_CALLCONV Mime() { return "image/jxl"; }
+ #ifdef FREEIMAGE_LIBJXL
+ #include <jxl/decode.h>
++#if FREEIMAGE_JXL_EXPORT
+ #include <jxl/encode.h>
++#endif
+ #include <jxl/color_encoding.h>
+ #include <jxl/version.h>
+ #if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,7,0)
+@@ -23,10 +30,12 @@ static const char * DLL_CALLCONV Mime() { return "image/jxl"; }
+ #include <vector>
+ static void Require(bool ok) { if(!ok) throw std::runtime_error("Invalid or unsupported JPEG XL image"); }
+ static BOOL DLL_CALLCONV Yes() { return TRUE; }
++#if FREEIMAGE_JXL_EXPORT
+ static BOOL DLL_CALLCONV Depth(int bpp) { return bpp == 8 || bpp == 24 || bpp == 32; }
+ static BOOL DLL_CALLCONV Type(FREE_IMAGE_TYPE t) {
+     return t == FIT_BITMAP || t == FIT_UINT16 || t == FIT_RGB16 || t == FIT_RGBA16 || t == FIT_FLOAT || t == FIT_RGBF || t == FIT_RGBAF;
+ }
++#endif
+ static BOOL DLL_CALLCONV Validate(FreeImageIO *io, fi_handle h) {
+     const long start = io->tell_proc(h); if(start < 0) return FALSE;
+     BYTE bytes[12]; const unsigned size = io->read_proc(bytes,1,12,h);
+@@ -102,6 +111,7 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle h, int, int flags
+         }
+     } catch(const std::exception &e) { FreeImage_OutputMessageProc(FIF_JPEGXL,"%s",e.what()); return NULL; }
+ }
++#if FREEIMAGE_JXL_EXPORT
+ static BOOL DLL_CALLCONV Save(FreeImageIO *io,FIBITMAP *dib,fi_handle h,int,int flags,void *) {
+     try {
+         Require(FreeImage_HasPixels(dib) && Type(FreeImage_GetImageType(dib)) && !(flags & ~(JXL_LOSSLESS|0x7f)) && (flags & 0x7f)<=100);
+@@ -139,11 +149,15 @@ static BOOL DLL_CALLCONV Save(FreeImageIO *io,FIBITMAP *dib,fi_handle h,int,int
+         }
+     } catch(const std::exception &e) { FreeImage_OutputMessageProc(FIF_JPEGXL,"%s",e.what()); return FALSE; }
+ }
++#endif // FREEIMAGE_JXL_EXPORT
+ #endif
+ void DLL_CALLCONV InitJPEGXL(Plugin *plugin,int) {
+     std::memset(plugin,0,sizeof(*plugin)); plugin->format_proc=Format; plugin->description_proc=Description; plugin->extension_proc=Extension; plugin->mime_proc=Mime;
+ #ifdef FREEIMAGE_LIBJXL
+-    plugin->load_proc=Load; plugin->save_proc=Save; plugin->validate_proc=Validate; plugin->supports_export_bpp_proc=Depth;
+-    plugin->supports_export_type_proc=Type; plugin->supports_icc_profiles_proc=Yes; plugin->supports_no_pixels_proc=Yes;
++    plugin->load_proc=Load; plugin->validate_proc=Validate;
++    plugin->supports_icc_profiles_proc=Yes; plugin->supports_no_pixels_proc=Yes;
++#if FREEIMAGE_JXL_EXPORT
++    plugin->save_proc=Save; plugin->supports_export_bpp_proc=Depth; plugin->supports_export_type_proc=Type;
++#endif
+ #endif
+ }
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index 33cc5dd..22491ad 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -202,6 +202,8 @@ endif()
+ if(BUILD_TESTS AND BUILD_LIBJXL)
+     add_executable(JpegXLTest testJpegXL.cpp)
+     target_link_libraries(JpegXLTest PRIVATE FreeImage)
++    target_compile_definitions(JpegXLTest PRIVATE
++        FREEIMAGE_TEST_JXL_EXPORT=$<BOOL:${FREEIMAGE_JXL_EXPORT}>)
+     if(WIN32 AND NOT FREEIMAGE_STATIC)
+         add_custom_command(TARGET JpegXLTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
+             $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:JpegXLTest>)
+diff --git a/TestAPI/testJpegXL.cpp b/TestAPI/testJpegXL.cpp
+index 3331319..8f2521c 100644
+--- a/TestAPI/testJpegXL.cpp
++++ b/TestAPI/testJpegXL.cpp
+@@ -11,6 +11,7 @@
+ #define JXL_TEST_ALLOCA alloca
+ #endif
+ static void Check(bool v) { if(!v) { std::fprintf(stderr,"JXL regression failed\n"); std::exit(1); } }
++#if FREEIMAGE_TEST_JXL_EXPORT
+ static void Test(FREE_IMAGE_TYPE type,int bpp) {
+     FIBITMAP *src=FreeImage_AllocateT(type,17,9,bpp); Check(src!=NULL);
+     for(unsigned y=0;y<9;++y) {
+@@ -29,6 +30,7 @@ static void Test(FREE_IMAGE_TYPE type,int bpp) {
+     FIMEMORY *truncated=FreeImage_OpenMemory(bytes,size/2); Check(FreeImage_LoadFromMemory(FIF_JPEGXL,truncated)==NULL); FreeImage_CloseMemory(truncated);
+     FreeImage_CloseMemory(memory); FreeImage_Unload(src);
+ }
++#endif
+ // Lossy files from cjxl run VarDCT and the upsampling stages' SIMD row code,
+ // which a lossless roundtrip never reaches. Issue #211 crashed in that
+ // stage's AVX2 constructor on MinGW GCC (every decode builds an 8x upsampler).
+@@ -63,9 +65,29 @@ static void TestFixturesShifted(const char *dir,FIBITMAP *reference,unsigned shi
+     TestFixture(dir,"alpha-upsampled.jxl",reference,9);
+     pad[0]=1;
+ }
++#if !FREEIMAGE_TEST_JXL_EXPORT
++// Built with FREEIMAGE_JXL_EXPORT=OFF: the plugin must be read-only, and
++// header-only and truncated loads are checked on a fixture instead.
++static void TestReadOnly(const char *dir) {
++    Check(!FreeImage_FIFSupportsWriting(FIF_JPEGXL) && !FreeImage_FIFSupportsExportBPP(FIF_JPEGXL,24));
++    FIBITMAP *src=FreeImage_Allocate(17,9,24); Check(src!=NULL);
++    FIMEMORY *memory=FreeImage_OpenMemory(); Check(!FreeImage_SaveToMemory(FIF_JPEGXL,src,memory,JXL_LOSSLESS));
++    FreeImage_CloseMemory(memory); FreeImage_Unload(src);
++    if(!dir) return;
++    char path[1024]; std::snprintf(path,sizeof(path),"%s/lossy.jxl",dir);
++    FIBITMAP *header=FreeImage_Load(FIF_JPEGXL,path,FIF_LOAD_NOPIXELS); Check(header && !FreeImage_HasPixels(header)); FreeImage_Unload(header);
++    FILE *file=std::fopen(path,"rb"); Check(file!=NULL);
++    BYTE bytes[65536]; const size_t size=std::fread(bytes,1,sizeof(bytes),file); std::fclose(file); Check(size>16 && size<sizeof(bytes));
++    FIMEMORY *truncated=FreeImage_OpenMemory(bytes,static_cast<DWORD>(size/2)); Check(FreeImage_LoadFromMemory(FIF_JPEGXL,truncated)==NULL); FreeImage_CloseMemory(truncated);
++}
++#endif
+ int main(int argc,char **argv) {
+     FreeImage_Initialise(); Check(FreeImage_GetFIFFromFormat("JXL")==FIF_JPEGXL);
++#if FREEIMAGE_TEST_JXL_EXPORT
+     Test(FIT_BITMAP,24); Test(FIT_BITMAP,32); Test(FIT_RGB16,48); Test(FIT_RGBF,96);
++#else
++    TestReadOnly(argc>1 ? argv[1] : NULL);
++#endif
+     if(argc>1) {
+         char path[1024]; std::snprintf(path,sizeof(path),"%s/reference.png",argv[1]);
+         FIBITMAP *reference=FreeImage_Load(FIF_PNG,path,0); Check(reference && FreeImage_GetBPP(reference)==32);

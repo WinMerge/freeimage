@@ -1,0 +1,132 @@
+diff --git a/.github/workflows/bundled-codecs.yml b/.github/workflows/bundled-codecs.yml
+index 269bcfd..b31b0d9 100644
+--- a/.github/workflows/bundled-codecs.yml
++++ b/.github/workflows/bundled-codecs.yml
+@@ -46,6 +46,32 @@ jobs:
+           } else {
+             & ./consumer/CodecConsumer
+           }
++  windows-msvc-runtime:
++    name: Windows MSVC bundled codecs (${{ matrix.runtime }}, ${{ matrix.config }})
++    runs-on: windows-latest
++    defaults:
++      run:
++        shell: pwsh
++    strategy:
++      fail-fast: false
++      matrix:
++        runtime: [MD, MT]
++        config: [Debug, Release]
++    steps:
++      - uses: actions/checkout@v4
++      - name: Configure bundled codecs with selected CRT
++        run: >-
++          cmake -S . -B build-runtime
++          -DCMAKE_CXX_STANDARD=11 -DBUILD_TESTS=ON
++          -DFREEIMAGE_STATIC=OFF
++          -DFREEIMAGE_MSVC_RUNTIME=${{ matrix.runtime }}
++          -DBUILD_LIBHEIF=ON -DBUILD_LIBJXL=ON
++          -DUSE_SYSTEM_LIBHEIF=OFF -DUSE_SYSTEM_LIBJXL=OFF
++          -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE
++      - name: Build FreeImage, AOM, Highway, and tests
++        run: cmake --build build-runtime --config ${{ matrix.config }} --parallel 4
++      - name: Run tests
++        run: ctest --test-dir build-runtime -C ${{ matrix.config }} --output-on-failure
+   linux-x86:
+     runs-on: ubuntu-24.04
+     steps:
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 4ba7537..4cae7e5 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -34,6 +34,33 @@ endif()
+ 
+ project(FreeImage VERSION ${FREEIMAGE_VERSION} LANGUAGES C CXX)
+ 
++# Keep the MSVC CRT selectable for consumers that need to match another
++# library's RuntimeLibrary setting. CMake's policy CMP0091 is NEW from the
++# minimum version above, so this initializes the runtime property on targets
++# created below. Default deliberately leaves CMake's choice untouched.
++set(FREEIMAGE_MSVC_RUNTIME "Default" CACHE STRING
++    "MSVC runtime library: Default, MD (dynamic CRT), or MT (static CRT)")
++set_property(CACHE FREEIMAGE_MSVC_RUNTIME PROPERTY STRINGS Default MD MT)
++if(NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "Default"
++   AND NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "MD"
++   AND NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "MT")
++    message(FATAL_ERROR
++        "Invalid FREEIMAGE_MSVC_RUNTIME='${FREEIMAGE_MSVC_RUNTIME}'. Choose Default, MD, or MT.")
++endif()
++if(MSVC)
++    if(FREEIMAGE_MSVC_RUNTIME STREQUAL "MD")
++        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
++        message(STATUS "MSVC runtime library: dynamic CRT (/MDd Debug, /MD Release)")
++    elseif(FREEIMAGE_MSVC_RUNTIME STREQUAL "MT")
++        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
++        message(STATUS "MSVC runtime library: static CRT (/MTd Debug, /MT Release)")
++    else()
++        message(STATUS "MSVC runtime library: CMake default (FREEIMAGE_MSVC_RUNTIME=Default)")
++    endif()
++elseif(NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "Default")
++    message(STATUS "FREEIMAGE_MSVC_RUNTIME is only applied by MSVC-compatible toolchains")
++endif()
++
+ set(FREEIMAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+ set(FREEIMAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+ set(FREEIMAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+diff --git a/README.md b/README.md
+index 59d4275..b96054c 100644
+--- a/README.md
++++ b/README.md
+@@ -70,6 +70,24 @@ cmake --build build --config Debug
+ ```
+ See [Generate Visual Studio project files](#generate-visual-studio-project-files) below for opening the solution directly in the IDE.
+ 
++To select the MSVC C runtime, pass `-DFREEIMAGE_MSVC_RUNTIME=MD` for the
++dynamic CRT (`/MDd` in Debug and `/MD` in Release), or
++`-DFREEIMAGE_MSVC_RUNTIME=MT` for the static CRT (`/MTd` in Debug and `/MT` in
++Release). The default `Default` leaves CMake's runtime selection unchanged;
++CMake's default with this project's policy is `/MDd` in Debug and `/MD`
++in Release.
++This setting is forwarded to bundled HEIF and JPEG XL dependencies, including
++AOM and Highway. Prebuilt system libraries are not changed by this option; use
++libraries built with the same CRT setting. Static FreeImage consumers should
++also use the same CRT.
++
++For example, to build and test a DLL with the static CRT:
++```powershell
++cmake -S . -B build -DBUILD_TESTS=ON -DFREEIMAGE_STATIC=OFF -DFREEIMAGE_MSVC_RUNTIME=MT
++cmake --build build --config Release
++ctest --test-dir build -C Release --output-on-failure
++```
++
+ **Windows (MinGW, e.g. a toolchain already on `PATH`)**
+ ```bash
+ cmake -S . -B build -DBUILD_TESTS=ON -DCMAKE_BUILD_TYPE=Debug -G "MinGW Makefiles"
+diff --git a/cmake/FreeImageBundledCodecs.cmake b/cmake/FreeImageBundledCodecs.cmake
+index 4666dea..33d501e 100644
+--- a/cmake/FreeImageBundledCodecs.cmake
++++ b/cmake/FreeImageBundledCodecs.cmake
+@@ -25,8 +25,9 @@ function(freeimage_bundled_project name archive hash)
+         -DCMAKE_CXX_FLAGS:STRING=${CMAKE_CXX_FLAGS}
+         -DCMAKE_EXE_LINKER_FLAGS:STRING=${CMAKE_EXE_LINKER_FLAGS}
+         -DCMAKE_DISABLE_FIND_PACKAGE_PkgConfig=TRUE)
+-    # Forward target configuration, not host-specific dependency paths. Each
+-    # upstream project chooses its own language standard in its isolated build.
++    # Forward target configuration, including the selected MSVC CRT, not
++    # host-specific dependency paths. Each upstream project chooses its own
++    # language standard in its isolated build.
+     foreach(var CMAKE_TOOLCHAIN_FILE CMAKE_SYSROOT CMAKE_OSX_SYSROOT
+                 CMAKE_OSX_DEPLOYMENT_TARGET CMAKE_OSX_ARCHITECTURES
+                 CMAKE_SYSTEM_NAME CMAKE_SYSTEM_PROCESSOR
+@@ -38,6 +39,11 @@ function(freeimage_bundled_project name archive hash)
+             list(APPEND common "-D${var}:STRING=${value}")
+         endif()
+     endforeach()
++    # Highway's CMake minimum is older than 3.15, so CMP0091 would otherwise
++    # remain unset/OLD and it would ignore CMAKE_MSVC_RUNTIME_LIBRARY.
++    if(DEFINED CMAKE_MSVC_RUNTIME_LIBRARY AND MSVC)
++        list(APPEND common "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW")
++    endif()
+     if(POLICY CMP0135)
+         cmake_policy(SET CMP0135 NEW)
+     endif()

@@ -6,7 +6,7 @@ Current vendored releases (issue #137, updated for issue #148):
 |---|---|---|---|
 | libdeflate | `v1.26` | `92e6a0db9fa848d742f9eb286c92afc60f2c3dda` | `common_defs.h`, `libdeflate.h`, `lib/` |
 | libtiff | `v4.7.2` | `d01a94be176f5f6a87f7ee1c0b32e65416aa2b4d` | `libtiff/`, plus `port/libport.h` |
-| OpenEXR | `v3.5.2` | `69b2604fc76e370615438bdc8d2cd95b9349c12e` | `src/lib/{Iex,IlmThread,OpenEXR,OpenEXRCore}` |
+| OpenEXR | `v3.5.3` | `3950290530c4fd4776667d0dc4d65a9d003eb936` | `src/lib/{Iex,IlmThread,OpenEXR,OpenEXRCore}` |
 
 OpenEXR's `OpenEXR` library directory maps to `Source/OpenEXR/IlmImf`.
 Its installed-style `Imath/` include prefixes are removed because this fork
@@ -15,8 +15,10 @@ configuration headers, update version numbers and internal namespaces together,
 and preserve the include-order guards in `OpenEXRCore/openexr_version.h`.
 The upstream ARM64EC SIMD guards are now present in 3.5.1.
 
-OpenEXR's auxiliary Zstandard 1.5.7 and OpenJPH 0.32.0 snapshots come from
-that same tag's `external/` tree, including their licenses. CMake and GNU/macOS
+OpenEXR's auxiliary Zstandard 1.5.7 snapshot comes from that same tag's
+`external/` tree. OpenJPH was updated independently from 0.32.0 to 0.33.0
+(345a8bc; upstream tag `0.33.0`) for #259, copying `src/core/`, the README,
+and license from the upstream release. CMake and GNU/macOS
 make enable OpenJPH's runtime-dispatched x86 kernels by default. Each SSE,
 SSE2, SSSE3, AVX, AVX2, and AVX512 source group gets its own compiler flags;
 scalar and CPU-detection sources keep the baseline ISA. Unsupported compiler
@@ -66,7 +68,7 @@ checks, and matching free cleanup when refreshing the vendor snapshot.
 OpenJPH's AVX2 encoder includes the upstream MSVC 2022 Win32 Debug
 compiler-crash workaround from [OpenJPH #395](https://github.com/aous72/OpenJPH/pull/395).
 Copy the referenced previous context value into a local before inserting it
-into the SIMD vector. Preserve this patch until the bundled snapshot includes it.
+into the SIMD vector. OpenJPH 0.33.0 includes this workaround upstream.
 
 libpng 1.6.59 comes from v1.6.59 (cd952f49f95bb27154ae77dbb103032d95f6e580).
 Its prebuilt pnglibconf.h changes only the version comment; retain this fork's
@@ -75,14 +77,27 @@ configuration. Library source lists are unchanged for both codec updates.
 OpenEXR 3.5.2 introduces OpenJPH NLT lookup tables for lossy LJ2K and a
 compatibility fallback for files written by 3.5.0/3.5.1 without the tables.
 Regenerate those older lossy LJ2K files for best results, per upstream notes.
-The Zstandard and OpenJPH snapshots are unchanged; retain all local patches above.
+At the 3.5.2 update, the Zstandard and OpenJPH snapshots were unchanged.
 
-OpenEXRCore's Windows file backend uses CreateFileW unconditionally, following
-the proposed [OpenEXR #2712](https://github.com/AcademySoftwareFoundation/openexr/pull/2712)
-fix for #2701. Preserve this local patch until upstream includes it; selecting
-CreateFile2 for newer build targets introduces an unnecessary Windows 8 API
-dependency in binaries intended to retain Windows 7 compatibility.
+OpenEXRCore's Windows file backend uses CreateFileW unconditionally. This was
+a local patch until upstream merged [OpenEXR #2712](https://github.com/AcademySoftwareFoundation/openexr/pull/2712)
+in 3.5.3, which now ships the same code, so it no longer needs preserving.
 
-OpenJPH's SSE memory-clear kernel uses _mm_setzero_ps/_mm_storeu_ps, rather
-than SSE2 integer intrinsics. Preserve this local fix for GCC i686 builds:
-the file is compiled with -msse and dispatched on SSE-only CPUs.
+OpenEXR 3.5.3 adds its own posix_memalign fallback in OpenEXRCore ZSTD for
+macOS deployment targets below 10.15. It sits beside the Android fallback
+above; keep both. The 3.5.3 update was applied as the upstream
+v3.5.2..v3.5.3 diff of the four library directories, with no new or removed
+source files. Zstandard was unchanged by the 3.5.3 update. OpenJPH stayed at
+0.32.0 for that update and moved to 0.33.0 separately; see below.
+
+OpenJPH 0.33.0 also includes the SSE memory-clear fix upstream, using
+_mm_setzero_ps/_mm_storeu_ps rather than SSE2 integer intrinsics for i686.
+The remaining local changes are the FreeImage SIMD opt-in/ARM64EC guards
+in `ojph_arch.h` and removal of the unconditional `_BitScanForward64`
+intrinsic pragma (unavailable on Win32). No library sources were added or
+removed, so both build paths keep the same source lists.
+
+The NLT LUT setter in 0.33.0 adds defaulted encoder options; OpenEXR 3.5.3
+remains source compatible and uses upstream's precise inverse-LUT default.
+`OpenJphNltTest` covers the 8-bit LUT read overflow and truncated markers;
+`VendorCodecTest` exercises HTJ2K/LJ2K EXR round trips.

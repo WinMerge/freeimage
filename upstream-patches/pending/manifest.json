@@ -1,0 +1,1024 @@
+{
+  "checked": "2026-11-05",
+  "fork_tip": "f376729ec99dcb00f93d32e3ee26aaffdc55f4d8",
+  "patches": [
+    {
+      "commit": "182483211b6bb06a96d43f0877cf60eb4849e892",
+      "parent": "606fbf3fdbdd31f9143fac48e1dd99fd5618c254",
+      "subject": "Fix heap-buffer-overflow write in PICT UnpackPictRow",
+      "author": "Jorge Barredo Ferreira <jorge@barredo.info>",
+      "path": "upstream-patches/pending/pict-bounds/1824832-fix-heap-buffer-overflow-write-in-pict-unpackpictrow.patch",
+      "sha256": "1b72b101eb3ec47385ea0a25d8228f5dd0aae392b323b27305889989861bdc62",
+      "bytes": 1265,
+      "files": [
+        "Source/FreeImage/PluginPICT.cpp"
+      ]
+    },
+    {
+      "commit": "051e9dacbe230a8e8cb8307cf47fe3f0ea159239",
+      "parent": "625117b48e18a82f3f68e9be3514ae584ebfcf7b",
+      "subject": "Fix heap-buffer-overflow write in PICT UnpackBits",
+      "author": "Michael Bommarito <michael.bommarito@gmail.com>",
+      "path": "upstream-patches/pending/pict-bounds/051e9da-fix-heap-buffer-overflow-write-in-pict-unpackbits.patch",
+      "sha256": "d45fab2b08157782abd8a4bdcf36f9f5f13b9dd98eec0d87c0e5a95acc06c51d",
+      "bytes": 2547,
+      "files": [
+        "Source/FreeImage/PluginPICT.cpp"
+      ]
+    },
+    {
+      "commit": "a3eb9649e2a63e9e3e90737c23abbc9e0a98cda7",
+      "parent": "28d9bc5d7391b424638cee2ece5a98106636d04c",
+      "subject": "Fix PICT color table buffer overflow",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/pict-bounds/a3eb964-fix-pict-color-table-buffer-overflow.patch",
+      "sha256": "82ed14869ef6137f5eaea6a1e68724d945d679bf499691843d10642ce8ad1364",
+      "bytes": 575,
+      "files": [
+        "Source/FreeImage/PluginPICT.cpp"
+      ]
+    },
+    {
+      "commit": "0da5ddb4d311e5222251348cca1aa988478b1034",
+      "parent": "22373433307c9ebd0307f3d71075cf439fc7e9da",
+      "subject": "Clip GIF playback frames to logical screen",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/gif-frame-bounds/0da5ddb-clip-gif-playback-frames-to-logical-screen.patch",
+      "sha256": "11387ebf7529bbe909e6389a39b043c63c34edb4b03c06198551bcd79be1c002",
+      "bytes": 9354,
+      "files": [
+        "Source/FreeImage/PluginGIF.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testGifPlaybackBounds.cpp",
+        "TestAPI/testRasWordLoop.cpp"
+      ]
+    },
+    {
+      "commit": "2124a26aceab5d124ec6728672d216f8a1eb1019",
+      "parent": "8fea9cd34bf941143eda2f82dc05129a02957985",
+      "subject": "PluginTARGA: bound RLE decode by image rows (CVE-2024-28581)",
+      "author": "w4ffl35 <25737761+w4ffl35@users.noreply.github.com>",
+      "path": "upstream-patches/pending/targa-rle-bounds/2124a26-plugintarga-bound-rle-decode-by-image-rows-cve-2024-28581.patch",
+      "sha256": "aa76e06e72e3479ed1e6393342f2d6354849ca522dffb73815a802251742309a",
+      "bytes": 3973,
+      "files": [
+        "Source/FreeImage/PluginTARGA.cpp"
+      ]
+    },
+    {
+      "commit": "a8c20af92e9b7546e780037955d1042421d47c02",
+      "parent": "8fea9cd34bf941143eda2f82dc05129a02957985",
+      "subject": "PluginBMP: size_t arithmetic in LoadPixelDataRLE4 (CVE-2023-47994)",
+      "author": "w4ffl35 <25737761+w4ffl35@users.noreply.github.com>",
+      "path": "upstream-patches/pending/bmp-rle4-size/a8c20af-pluginbmp-size-t-arithmetic-in-loadpixeldatarle4-cve-2023-47994.patch",
+      "sha256": "e9f8147dae89c43ed6089840e1faacbcf9e40bc84b89e265ba0bdb4304fb4ada",
+      "bytes": 2267,
+      "files": [
+        "Source/FreeImage/PluginBMP.cpp"
+      ]
+    },
+    {
+      "commit": "5be4529e696c948ea938d85f9dd3bd83275345b8",
+      "parent": "6576846519ad9cb444827a18c9dec6e9a3407989",
+      "subject": "PluginBMP: bound the RLE4 pixel count for 32-bit size_t",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/bmp-rle4-size/5be4529-pluginbmp-bound-the-rle4-pixel-count-for-32-bit-size-t.patch",
+      "sha256": "198f36925f86c7965a887057ae98e5c3ff128ff0449004a7245e2e5d7d0fdf46",
+      "bytes": 1335,
+      "files": [
+        "Source/FreeImage/PluginBMP.cpp"
+      ]
+    },
+    {
+      "commit": "f89723b04846f97e996e9aed96216a9e171bfafa",
+      "parent": "5813b07b344e310f621f98b59208dc9c3e683b58",
+      "subject": "Reject wrapped BMP RLE cursors before they write",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/bmp-rle-cursor/f89723b-reject-wrapped-bmp-rle-cursors-before-they-write.patch",
+      "sha256": "9f46d191b94737c2327405589c419001c6deaed520a11fdc8e1b527a1c67c490",
+      "bytes": 14552,
+      "files": [
+        "CHANGELOG.md",
+        "Source/FreeImage/PluginBMP.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testBmpRleCursor.cpp"
+      ]
+    },
+    {
+      "commit": "7f93bf8b0b1ff27c77d5f487443c9f9ec63c5754",
+      "parent": "8fea9cd34bf941143eda2f82dc05129a02957985",
+      "subject": "FreeImageIO: width-safe _MemoryReadProc total (3.19 regression of CVE-2023-47992 class)",
+      "author": "w4ffl35 <25737761+w4ffl35@users.noreply.github.com>",
+      "path": "upstream-patches/pending/memory-stream-bounds/7f93bf8-freeimageio-width-safe-memoryreadproc-total-3-19-regression-of-cve-2023-47992-class.patch",
+      "sha256": "e981db906b2d5f4f0dffc1b21b6b4738a3fc0d27a208d1b6bcfffaa9d460af3f",
+      "bytes": 2337,
+      "files": [
+        "Source/FreeImage/FreeImageIO.cpp"
+      ]
+    },
+    {
+      "commit": "23ea250de4d7deab70fb370acb33aff577a8c79c",
+      "parent": "7f93bf8b0b1ff27c77d5f487443c9f9ec63c5754",
+      "subject": "FreeImageIO: overflow-safe _MemoryWriteProc total (same bug class)",
+      "author": "w4ffl35 <25737761+w4ffl35@users.noreply.github.com>",
+      "path": "upstream-patches/pending/memory-stream-bounds/23ea250-freeimageio-overflow-safe-memorywriteproc-total-same-bug-class.patch",
+      "sha256": "5e4003b43fcf5d58e04661cb608de201d293a2575981fe1dae4b4596f18bac4f",
+      "bytes": 1185,
+      "files": [
+        "Source/FreeImage/FreeImageIO.cpp"
+      ]
+    },
+    {
+      "commit": "d1439d0d2dc0ff21eb00e6adf90f6ab35fee6b51",
+      "parent": "9793cc71cf8a3d60a1bfab5a18c9274e7a79f20d",
+      "subject": "FreeImageIO: bound _MemoryWriteProc end position before adding",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/memory-stream-bounds/d1439d0-freeimageio-bound-memorywriteproc-end-position-before-adding.patch",
+      "sha256": "41f296e42d64609452ac561d9b99d4b2fe0f1642a9e8e8450ed322df41b84a0c",
+      "bytes": 4089,
+      "files": [
+        "Source/FreeImage/FreeImageIO.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testMemWritePosition.cpp"
+      ]
+    },
+    {
+      "commit": "23f4c9ac9ee4dc877dce3dc382c6611770ea021d",
+      "parent": "9942499f477154a81ffe1358de47f0d54cb35b4b",
+      "subject": "Fix loading of oversized ICOs and TIFFs with mismatched JPEG sampling factors",
+      "author": "haobinnan <haobinnan@gmail.com>",
+      "path": "upstream-patches/pending/ico-tiff-jpeg/23f4c9a-fix-loading-of-oversized-icos-and-tiffs-with-mismatched-jpeg-sampling-factors.patch",
+      "sha256": "e0b9e27aa3f4cc7aac6662acf6133eff854bf3e354851e18955a5d394a9d18b0",
+      "bytes": 1703,
+      "files": [
+        "Source/FreeImage/PluginICO.cpp",
+        "Source/LibTIFF4/tif_jpeg.c"
+      ]
+    },
+    {
+      "commit": "4c7b7cbbb14282d10721038f48b0c2c261eb5586",
+      "parent": "23f4c9ac9ee4dc877dce3dc382c6611770ea021d",
+      "subject": "Handle TIFF JPEG sampling mismatches safely",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/ico-tiff-jpeg/4c7b7cb-handle-tiff-jpeg-sampling-mismatches-safely.patch",
+      "sha256": "1d177ad70a7652399e48da24d1c0738d0741fc7c1e1c185999c1a04ba3e9a597",
+      "bytes": 10570,
+      "files": [
+        "Source/FreeImage/PluginICO.cpp",
+        "Source/LibTIFF4/tif_jpeg.c",
+        "TestAPI/testVendorCodecs.cpp"
+      ]
+    },
+    {
+      "commit": "949cb9e6e50b93d764daca3db4745df607feca75",
+      "parent": "c210b8b4f290bbad9f66cb548fd2ca95532b26c0",
+      "subject": "Reject invalid JP2 and J2K stream length probes before decoding",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/j2k-stream-probes/949cb9e-reject-invalid-jp2-and-j2k-stream-length-probes-before-decoding.patch",
+      "sha256": "e7cb1aaa545247be73de030c6673ff3ad43baae343af28ac2a3f6935af9e4bb4",
+      "bytes": 11188,
+      "files": [
+        ".github/workflows/codec-samples.yml",
+        "Source/FreeImage/J2KHelper.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testJ2KCallbacks.cpp"
+      ]
+    },
+    {
+      "commit": "8445931ae8d69d76940848f445f1a1ddbe239e27",
+      "parent": "a3eb9649e2a63e9e3e90737c23abbc9e0a98cda7",
+      "subject": "Fix RAS crash on NULL palette",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/ras-palette/8445931-fix-ras-crash-on-null-palette.patch",
+      "sha256": "f6df1b4fc53c69841e422fb1ef2d2e714512994c0cdbfdbff26fd1d0f57d9685",
+      "bytes": 480,
+      "files": [
+        "Source/FreeImage/PluginRAS.cpp"
+      ]
+    },
+    {
+      "commit": "abf026e20f2dec3b82ad30f22849c8d38997d58f",
+      "parent": "af7e1445f901c5478f9faf81d07877038196052b",
+      "subject": "Fix plugin registration index instability when optional libs are disabled (#38)",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/plugin-format-ids/abf026e-fix-plugin-registration-index-instability-when-optional-libs-are-disabled-38.patch",
+      "sha256": "1e9959b4eec51e5a59030e5aeeff4cee83a544d17c69a03937ade32b9cddcb95",
+      "bytes": 11253,
+      "files": [
+        "CMakeLists.txt",
+        "Source/FreeImage/Plugin.cpp",
+        "Source/FreeImage/PluginEXR.cpp",
+        "Source/FreeImage/PluginJXR.cpp",
+        "Source/FreeImage/PluginRAW.cpp",
+        "Source/FreeImage/PluginWebP.cpp",
+        "Source/Plugin.h"
+      ]
+    },
+    {
+      "commit": "735872d76a640841838533adfd3b1db229b17c84",
+      "parent": "c0e14f4dee18b74f83855fe3cd40a65888998b8e",
+      "subject": "Make FreeImage_TagToString() thread-safe",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/metadata-thread-safety/735872d-make-freeimage-tagtostring-thread-safe.patch",
+      "sha256": "924d46aeb47db970bd9529e09b8c585f011d190735d3dbd8ec1484c80cbc73ec",
+      "bytes": 897,
+      "files": [
+        "Source/Metadata/TagConversion.cpp"
+      ]
+    },
+    {
+      "commit": "8395ceabe749247c27d9be373cd2359f7ec54f20",
+      "parent": "b1bdbb6adddd46082e875cb98e483692d0eb8682",
+      "subject": "Fix O(n^2) GIF_PLAYBACK decoding by caching sequential playback state",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/gif-playback-cache/8395cea-fix-o-n-2-gif-playback-decoding-by-caching-sequential-playback-state.patch",
+      "sha256": "284ba3329c429e33cfdc30385a0ff70e57385594de3d52ceecd28a2fb4ce8e38",
+      "bytes": 16118,
+      "files": [
+        "Source/FreeImage/MultiPage.cpp",
+        "Source/FreeImage/PluginGIF.cpp"
+      ]
+    },
+    {
+      "commit": "df001b933cd5ee3b1edb5fa1e4c16b8ff7c5226d",
+      "parent": "8395ceabe749247c27d9be373cd2359f7ec54f20",
+      "subject": "Gate the GIF playback cache behind FREEIMAGE_GIF_PLAYBACK_CACHE, trim comments",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/gif-playback-cache/df001b9-gate-the-gif-playback-cache-behind-freeimage-gif-playback-cache-trim-comments.patch",
+      "sha256": "5a7309b3a5e2be59ac055611417babca6a4123a396a3aa8c5b81b5ca9e5e9c5f",
+      "bytes": 8862,
+      "files": [
+        "Source/FreeImage/PluginGIF.cpp"
+      ]
+    },
+    {
+      "commit": "16750c6a7c2f4ff6f50e125cc8c38d341451967d",
+      "parent": "d1302b686cc472cb7049827546b114eff01f9265",
+      "subject": "Add support for CR3 and X3F image formats.",
+      "author": "haobinnan <haobinnan@gmail.com>",
+      "path": "upstream-patches/pending/raw-cr3-x3f/16750c6-add-support-for-cr3-and-x3f-image-formats.patch",
+      "sha256": "34ee404a17ca9bcc3999ce92ce6693049a00f1f9b555915980428050b02c07a8",
+      "bytes": 1457,
+      "files": [
+        "CMakeLists.txt",
+        "Source/FreeImage/PluginRAW.cpp"
+      ]
+    },
+    {
+      "commit": "6694722a97c14255cafa4d97ff5657e2d76ba837",
+      "parent": "16750c6a7c2f4ff6f50e125cc8c38d341451967d",
+      "subject": "Fix incorrect CR3 format detection",
+      "author": "haobinnan <haobinnan@gmail.com>",
+      "path": "upstream-patches/pending/raw-cr3-x3f/6694722-fix-incorrect-cr3-format-detection.patch",
+      "sha256": "68e99d24d77c275e79ad50c274697683944a6c2ab05248d4d534109351d80844",
+      "bytes": 621,
+      "files": [
+        "Source/FreeImage/PluginRAW.cpp"
+      ]
+    },
+    {
+      "commit": "a0bc57c638f243ec068ccd90c9d79b5a03ab7df9",
+      "parent": "563ddd61a57af675a5fb39f6868ff2a64a32b36a",
+      "subject": "Fix INT64 macro/typedef collision breaking PluginRAW.cpp on GCC/Linux",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/raw-int64-types/a0bc57c-fix-int64-macro-typedef-collision-breaking-pluginraw-cpp-on-gcc-linux.patch",
+      "sha256": "588061dd610d63cb8273c7708fff311843d6355e52e019eeac7c8d9acb28629d",
+      "bytes": 1071,
+      "files": [
+        "Source/FreeImage/PluginRAW.cpp"
+      ]
+    },
+    {
+      "commit": "2058ef89f0455e23f993a8e5548d6fa8d9df0e15",
+      "parent": "e803a5868bf276a29d85858f7dd1b5f18e626952",
+      "subject": "Unicode wchar fixes for Multilanguages",
+      "author": "Dan Rosser <danoli@gmail.com>",
+      "path": "upstream-patches/pending/windows-unicode/2058ef8-unicode-wchar-fixes-for-multilanguages.patch",
+      "sha256": "61b885583a58a833b167decfdecc74cd14478b771b09bea0759836f46538d404",
+      "bytes": 2611,
+      "files": [
+        "Source/FreeImage/Plugin.cpp"
+      ]
+    },
+    {
+      "commit": "a03ea3dd260e4549187b8e4c27f92414da1cbfb4",
+      "parent": "b86fa1dcf1ab6eb4cdfb1c08a342c85b546c0b20",
+      "subject": "Load wchar path",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/windows-unicode/a03ea3d-load-wchar-path.patch",
+      "sha256": "73fa6ecb84082e543c8771e1152680a87d5e7b5ef05ce59151f3fc03c9faa196",
+      "bytes": 650,
+      "files": [
+        "Source/FreeImage/Plugin.cpp"
+      ]
+    },
+    {
+      "commit": "bcec225ee09c74d9388ba4999e7df951315696ee",
+      "parent": "cc2bfc1b67d3a10e2c203c56932b09ffb52a4477",
+      "subject": "Add Windows Unicode paths for multipage images",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/windows-unicode/bcec225-add-windows-unicode-paths-for-multipage-images.patch",
+      "sha256": "124ca9b826b9678184600bb69808843f9952cc20f48a537ecf3f5fa8b0f2698d",
+      "bytes": 77440,
+      "files": [
+        "CHANGELOG.md",
+        "Makefile.srcs",
+        "README.md",
+        "Source/CacheFile.h",
+        "Source/FreeImage.h",
+        "Source/FreeImage/CacheFile.cpp",
+        "Source/FreeImage/MultiPage.cpp",
+        "Source/MultiBitmapPath.h",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testUnicodeMultiPage.cpp"
+      ]
+    },
+    {
+      "commit": "0bd0771b0f284ec5a62fda725fd7d6257f4a00d9",
+      "parent": "36a3b7388eea7d93d78b7f6339b057a36fc79e44",
+      "subject": "Preserve destination files when saving fails",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/safe-save/0bd0771-preserve-destination-files-when-saving-fails.patch",
+      "sha256": "23455698686c09610056885347a6bc7f487497e2820ed4fdbc4f0cd8e1a2197a",
+      "bytes": 10959,
+      "files": [
+        "CHANGELOG.md",
+        "README.md",
+        "Source/FreeImage/Plugin.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testHeaderOnly.cpp",
+        "TestAPI/testSaveErrors.cpp"
+      ]
+    },
+    {
+      "commit": "d505799c1205409623bed9021b9f68088006da7e",
+      "parent": "0bd0771b0f284ec5a62fda725fd7d6257f4a00d9",
+      "subject": "Keep temporary save names short and reject special destinations",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/safe-save/d505799-keep-temporary-save-names-short-and-reject-special-destinations.patch",
+      "sha256": "97d37f4ff78dd4b69f9261fa9d04a25b7d6e9c63d1c492a32c6312ff46de4c75",
+      "bytes": 2772,
+      "files": [
+        "Source/FreeImage/Plugin.cpp",
+        "TestAPI/testSaveErrors.cpp"
+      ]
+    },
+    {
+      "commit": "1b476e184fd8b788f97186db6c19a93c95c4d02d",
+      "parent": "d505799c1205409623bed9021b9f68088006da7e",
+      "subject": "Support double grayscale conversion to RGBF",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/double-to-rgbf/1b476e1-support-double-grayscale-conversion-to-rgbf.patch",
+      "sha256": "58616979330e555b88dacdf0b5d5eb2c0dc03aa1d570d0d42eedbd9a8f45a7bc",
+      "bytes": 4541,
+      "files": [
+        "CHANGELOG.md",
+        "Source/FreeImage/ConversionRGBF.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testDoubleRGBF.cpp"
+      ]
+    },
+    {
+      "commit": "c0753bb45f432b76ed6d42401974006b6ba6d612",
+      "parent": "9a22df43d65a74e1f1a6294c95792c1190fbe826",
+      "subject": "Add 64-bit TIFF input interface",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/tiff-64bit-input/c0753bb-add-64-bit-tiff-input-interface.patch",
+      "sha256": "adff5acb2ee8f09d10e1199870363c5aaec2b81d5b075a4ed26eea4773f93e2e",
+      "bytes": 22583,
+      "files": [
+        "CMakeLists.txt",
+        "Source/FreeImage.h",
+        "Source/FreeImage/FreeImageIO.cpp",
+        "Source/FreeImage/Plugin.cpp",
+        "Source/FreeImage/PluginTIFF.cpp",
+        "Source/FreeImageIO.h",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testLargeFileTIFF.cpp"
+      ]
+    },
+    {
+      "commit": "6868bc4c7726f0e28482c02b307461eadf7da8da",
+      "parent": "c0753bb45f432b76ed6d42401974006b6ba6d612",
+      "subject": "Preserve plugin ABI and harden 64-bit TIFF input",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/tiff-64bit-input/6868bc4-preserve-plugin-abi-and-harden-64-bit-tiff-input.patch",
+      "sha256": "a944ff4f4b8ea91c7e3748e63bd95ca537b5b141a4944729f6c8ca2762c1d3c3",
+      "bytes": 32805,
+      "files": [
+        ".github/workflows/cmake.yml",
+        "README.md",
+        "Source/FreeImage.h",
+        "Source/FreeImage/FreeImageIO.cpp",
+        "Source/FreeImage/Plugin.cpp",
+        "Source/FreeImage/PluginTIFF.cpp",
+        "Source/Plugin.h",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testLargeFileTIFF.cpp"
+      ]
+    },
+    {
+      "commit": "d6f1f935f210f54cec3f31dc85d49dafebbe1bd6",
+      "parent": "113295a6ca8735ac05fb56bd99c543b46763af73",
+      "subject": "Add metadata stripping for image load and save (#239)",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/metadata-strip/d6f1f93-add-metadata-stripping-for-image-load-and-save-239.patch",
+      "sha256": "7941936b392f5425bc9c84f9f82bc27b763e881a868de2cd0814911f93cbd78d",
+      "bytes": 108744,
+      "files": [
+        "CHANGELOG.md",
+        "CMakeLists.txt",
+        "Makefile.srcs",
+        "README.md",
+        "Source/FreeImage.h",
+        "Source/FreeImage/BitmapAccess.cpp",
+        "Source/FreeImage/MultiPage.cpp",
+        "Source/FreeImage/Plugin.cpp",
+        "Source/FreeImage/PluginHEIF.cpp",
+        "Source/FreeImage/PluginJPEG.cpp",
+        "Source/FreeImage/PluginJPEGXL.cpp",
+        "Source/FreeImage/PluginJXR.cpp",
+        "Source/FreeImage/PluginPNG.cpp",
+        "Source/FreeImage/PluginTIFF.cpp",
+        "Source/FreeImage/PluginWebP.cpp",
+        "Source/Metadata/Exif.cpp",
+        "Source/Metadata/IPTC.cpp",
+        "Source/Metadata/MetadataStrip.h",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testMetadataStrip.cpp"
+      ]
+    },
+    {
+      "commit": "30643220480d98d6c570e2a94ac2de5feb836671",
+      "parent": "d6f1f935f210f54cec3f31dc85d49dafebbe1bd6",
+      "subject": "Allow metadata stripping to be compiled out",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/metadata-strip/3064322-allow-metadata-stripping-to-be-compiled-out.patch",
+      "sha256": "bfc30b3ded0c38f1017857c2a39a5054197227fc1cd09cf9db20c1bb3ffbb68e",
+      "bytes": 9715,
+      "files": [
+        "CMakeLists.txt",
+        "README.md",
+        "Source/FreeImage/BitmapAccess.cpp",
+        "Source/FreeImage/MultiPage.cpp",
+        "Source/FreeImage/Plugin.cpp",
+        "Source/Metadata/MetadataStrip.h",
+        "TestAPI/CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "4f391e61dbb30f4ac82e8756e882059c7f8f5161",
+      "parent": "a376d9b9bc22c6ba572d1c0b9d6b2cee56934962",
+      "subject": "Expose linked dependency versions and provenance",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/dependency-info/4f391e6-expose-linked-dependency-versions-and-provenance.patch",
+      "sha256": "0fc38716874d60c180d28acc1f8dedd48aa363f4df201cc258d41e2191a5d8d9",
+      "bytes": 79733,
+      "files": [
+        "CHANGELOG.md",
+        "CMakeLists.txt",
+        "Makefile.srcs",
+        "Source/FreeImage.h",
+        "Source/FreeImage/DependencyInfo.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testDependencies.cpp",
+        "doc/dependency-info.md"
+      ]
+    },
+    {
+      "commit": "c9bc3f2155b49018e77e1a687d76a5fff3228fdf",
+      "parent": "22373433307c9ebd0307f3d71075cf439fc7e9da",
+      "subject": "Add channel count query API",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/channel-count/c9bc3f2-add-channel-count-query-api.patch",
+      "sha256": "15226321cc7bcfc574c4817d82825ddd926b4fe5badc29b8f63632baa222be7e",
+      "bytes": 1690,
+      "files": [
+        "Source/FreeImage.h",
+        "Source/FreeImage/BitmapAccess.cpp"
+      ]
+    },
+    {
+      "commit": "9da988e59907a291d1f84068ce3a7af9132de645",
+      "parent": "4f391e61dbb30f4ac82e8756e882059c7f8f5161",
+      "subject": "Add min-max analysis, extended histograms and simple tone mapping",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/image-analysis/9da988e-add-min-max-analysis-extended-histograms-and-simple-tone-mapping.patch",
+      "sha256": "da2e57de9f69c3393f0a65398302ceb4e5bc1c0c0041538042349e785ec0e4d6",
+      "bytes": 87327,
+      "files": [
+        "CHANGELOG.md",
+        "CMakeLists.txt",
+        "Makefile.srcs",
+        "Source/FreeImage.h",
+        "Source/FreeImage/ToneMapping.cpp",
+        "Source/FreeImageToolkit/Analysis.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testAnalysis.cpp",
+        "doc/image-analysis.md"
+      ]
+    },
+    {
+      "commit": "cce5cad9a81bf865b86ba495c7329f24acf27e71",
+      "parent": "546cf69fb061bf1cdcfcdd5c61f5853cbfe5f6cc",
+      "subject": "Add optional HEIF and AVIF decoding with system libheif",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/heif-avif/cce5cad-add-optional-heif-and-avif-decoding-with-system-libheif.patch",
+      "sha256": "4b6b66c81332caaa22df5c6e4b27cc908f464a1645d9fb3c6fa6a2633cd49bfd",
+      "bytes": 99648,
+      "files": [
+        ".github/workflows/heif.yml",
+        "CHANGELOG.md",
+        "CMakeLists.txt",
+        "Makefile.srcs",
+        "README.md",
+        "Source/FreeImage.h",
+        "Source/FreeImage/Plugin.cpp",
+        "Source/FreeImage/PluginHEIF.cpp",
+        "Source/Plugin.h",
+        "THIRD_PARTY_VERSIONS.md",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/heif/README.md",
+        "TestAPI/heif/generate.cpp",
+        "TestAPI/heif/rgb.avif",
+        "TestAPI/heif/rgb.heic",
+        "TestAPI/heif/rgba.avif",
+        "TestAPI/heif/rgba.heic",
+        "TestAPI/testHeif.cpp",
+        "TestAPI/testPlugins.cpp",
+        "cmake/FreeImageConfig.cmake.in"
+      ]
+    },
+    {
+      "commit": "360c5f530af2a8b4e3ae07ffe8f5052e66ea624b",
+      "parent": "1b476e184fd8b788f97186db6c19a93c95c4d02d",
+      "subject": "Add HEIF and AVIF encoding, EXIF and thumbnail import",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/heif-avif/360c5f5-add-heif-and-avif-encoding-exif-and-thumbnail-import.patch",
+      "sha256": "ae2994b363872884f917bfd908380ff020ea6042d232e03bf56c6f4a379cb9da",
+      "bytes": 26481,
+      "files": [
+        "CHANGELOG.md",
+        "README.md",
+        "Source/FreeImage.h",
+        "Source/FreeImage/PluginHEIF.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/heif/generate.cpp",
+        "TestAPI/heif/metadata.heic",
+        "TestAPI/heif/x265-lsan.supp",
+        "TestAPI/testHeif.cpp"
+      ]
+    },
+    {
+      "commit": "8d2f56f22ec9e4ef8abcc4c814a4e90f2a4679f9",
+      "parent": "42a8566f679f82a09cbb4f103117fce54e33a18e",
+      "subject": "Preserve HEIF primary images when optional thumbnails fail",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/heif-avif/8d2f56f-preserve-heif-primary-images-when-optional-thumbnails-fail.patch",
+      "sha256": "514051ac2f55d1db072db54cd0afad4b2bc03611907f34d9850bf63653449e54",
+      "bytes": 8999,
+      "files": [
+        "Source/FreeImage/PluginHEIF.cpp",
+        "TestAPI/heif/README.md",
+        "TestAPI/heif/bad-thumbnail.heic",
+        "TestAPI/heif/thumbnail-size-mismatch.heic",
+        "TestAPI/testHeif.cpp"
+      ]
+    },
+    {
+      "commit": "dd0e629a6065d07a9c06a4d7ede7a30fdda09ae5",
+      "parent": "54e2e21f53cb6c316363a0d1e5063e4261434966",
+      "subject": "Allow HEIF/AVIF saving to be compiled out",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/heif-avif/dd0e629-allow-heif-avif-saving-to-be-compiled-out.patch",
+      "sha256": "06c222cd110792e764131a1dc66cf5d109ba8232050e8c23dd34c91ec0be18ed",
+      "bytes": 12880,
+      "files": [
+        ".github/workflows/bundled-codecs.yml",
+        "CHANGELOG.md",
+        "CMakeLists.txt",
+        "README.md",
+        "Source/FreeImage/PluginHEIF.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testHeif.cpp",
+        "cmake/FreeImageBundledCodecs.cmake"
+      ]
+    },
+    {
+      "commit": "a376d9b9bc22c6ba572d1c0b9d6b2cee56934962",
+      "parent": "360c5f530af2a8b4e3ae07ffe8f5052e66ea624b",
+      "subject": "Add optional JPEG XL still-image decoding and encoding",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/jpeg-xl/a376d9b-add-optional-jpeg-xl-still-image-decoding-and-encoding.patch",
+      "sha256": "7fa300e9faf9eb9aae8a18c40b89370445f61e4e9f7e16669d353a7a59e0dcf3",
+      "bytes": 92836,
+      "files": [
+        ".github/workflows/jpeg-xl.yml",
+        "CHANGELOG.md",
+        "CMakeLists.txt",
+        "Makefile.srcs",
+        "README.md",
+        "Source/FreeImage.h",
+        "Source/FreeImage/Plugin.cpp",
+        "Source/FreeImage/PluginJPEGXL.cpp",
+        "Source/Plugin.h",
+        "THIRD_PARTY_VERSIONS.md",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testJpegXL.cpp",
+        "TestAPI/testPlugins.cpp",
+        "cmake/FreeImageConfig.cmake.in"
+      ]
+    },
+    {
+      "commit": "7d6ee93680b5f563b12594aa0eece9e2922087b1",
+      "parent": "dd0e629a6065d07a9c06a4d7ede7a30fdda09ae5",
+      "subject": "Allow JPEG XL saving to be compiled out",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/jpeg-xl/7d6ee93-allow-jpeg-xl-saving-to-be-compiled-out.patch",
+      "sha256": "9f4f326257178b989cfc934792848858c2563a81c1a0964a0d033df671a893f8",
+      "bytes": 12489,
+      "files": [
+        ".github/workflows/bundled-codecs.yml",
+        "CHANGELOG.md",
+        "CMakeLists.txt",
+        "README.md",
+        "Source/FreeImage/PluginJPEGXL.cpp",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testJpegXL.cpp"
+      ]
+    },
+    {
+      "commit": "cdaa93200598b19eb5167293747c6cd37fcd2435",
+      "parent": "5af27d055ad31fbf99631a55a5de19b3820a4790",
+      "subject": "Update compatibility checks for MSVC integer types in FreeImage.h",
+      "author": "Oliver Old <mail@oold.dev>",
+      "path": "upstream-patches/pending/public-msvc-types/cdaa932-update-compatibility-checks-for-msvc-integer-types-in-freeimage-h.patch",
+      "sha256": "d7f26c7db0620c1a40ad91ab70ead394158aee532e677f556bedbf14498552a6",
+      "bytes": 652,
+      "files": [
+        "Source/FreeImage.h"
+      ]
+    },
+    {
+      "commit": "fad7934b3de35fdabda3906e55331cd8e1ae82a1",
+      "parent": "f7d3cc9825e3f4530a76e3281e1b27f99a02ba71",
+      "subject": "Compile JPEG-XR on Windows and fix the MSVC SAL break",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/jxrlib-build/fad7934-compile-jpeg-xr-on-windows-and-fix-the-msvc-sal-break.patch",
+      "sha256": "284648bdb7f901c809b3f8f9c44b1b327078efb5a5aa1fa5d34fef54eaa1b823",
+      "bytes": 1700,
+      "files": [
+        "CMakeLists.txt",
+        "Source/LibJXR/jxrgluelib/JXRMeta.h"
+      ]
+    },
+    {
+      "commit": "e8003f9fd3c3c8fa8fd4d3a9eafdb5cffd896732",
+      "parent": "76211a66deccdadc926826dce8d23f6737a44b16",
+      "subject": "Link the rest of jxrlib and stop shadowing MinGW guiddef.h",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/jxrlib-build/e8003f9-link-the-rest-of-jxrlib-and-stop-shadowing-mingw-guiddef-h.patch",
+      "sha256": "bb7a6a42bbe4d210dc5f2cbeb01efeea4a588f1283404ec109a11e50f548701f",
+      "bytes": 4423,
+      "files": [
+        "CMakeLists.txt",
+        "Source/LibJXR/common/include/guiddef.h"
+      ]
+    },
+    {
+      "commit": "cde9a9493fb45f3c8ed9b4e905690e20947c6722",
+      "parent": "e8003f9fd3c3c8fa8fd4d3a9eafdb5cffd896732",
+      "subject": "Use MinGW's _byteswap_ulong instead of a conflicting local one",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/jxrlib-build/cde9a94-use-mingw-s-byteswap-ulong-instead-of-a-conflicting-local-one.patch",
+      "sha256": "6150353e2aa5716d946a81aaa2aae861b18660cc77053ded3e554fbbd7830f62",
+      "bytes": 1045,
+      "files": [
+        "Source/LibJXR/image/sys/strcodec.c"
+      ]
+    },
+    {
+      "commit": "30ed59fc3665eb15758d642e1ae7fd1356d4224e",
+      "parent": "85b7994ec03f99a2e8999fa6d77dc72986e4c07e",
+      "subject": "Add JP2/JXR loading and display diagnostics with sample checks",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/jxrlib-build/30ed59f-add-jp2-jxr-loading-and-display-diagnostics-with-sample-checks.patch",
+      "sha256": "92906de946fa7c029fa0709deca9fcaebb7646ad1e45beac90a6df0fd773f046",
+      "bytes": 27674,
+      "files": [
+        ".github/workflows/codec-samples.yml",
+        "CMakeLists.txt",
+        "Examples/codec-diagnostics/CMakeLists.txt",
+        "Examples/codec-diagnostics/Preview.h",
+        "Examples/codec-diagnostics/README.md",
+        "Examples/codec-diagnostics/main.cpp",
+        "README.md",
+        "Source/LibJXR/image/decode/segdec.c",
+        "Source/LibJXR/jxrgluelib/JXRGlueJxr.c",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testCodecDisplay.cpp",
+        "scripts/tests/run-codec-samples.py"
+      ]
+    },
+    {
+      "commit": "ba2d5be063cd6b398f8298cc00f4bedd7fc5a837",
+      "parent": "44f71d82b9d552fcf0a80dfc9d566053fd249eeb",
+      "subject": "Expose FreeImage.h and FREEIMAGE_LIB to add_subdirectory consumers",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/cmake-consumers/ba2d5be-expose-freeimage-h-and-freeimage-lib-to-add-subdirectory-consumers.patch",
+      "sha256": "3b018d020142d4231f2dae8d07007ee4ed249feb0a676765d4c78b34539e3d0c",
+      "bytes": 1643,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "8741e50e97b03a598cd425fa8c99ed397350bb00",
+      "parent": "ba2d5be063cd6b398f8298cc00f4bedd7fc5a837",
+      "subject": "Split the CMake install into Runtime and Development components",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/cmake-consumers/8741e50-split-the-cmake-install-into-runtime-and-development-components.patch",
+      "sha256": "62deb95fdbeef5321a3f234527a7f76a415e779e77760df85d92d3fd8e32b61e",
+      "bytes": 1442,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "8e67a64e618b3e56826b3d8a690b83d1f2d037f7",
+      "parent": "8741e50e97b03a598cd425fa8c99ed397350bb00",
+      "subject": "Define FREEIMAGE_EXPORTS when building the Windows DLL",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/cmake-consumers/8e67a64-define-freeimage-exports-when-building-the-windows-dll.patch",
+      "sha256": "27f7878279ee9a44d68dc8222b5682b901ca711babea3e318e41b2d2ffaa40c3",
+      "bytes": 710,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "b4531e4c823b9a9148a1c7104bd37778b8665cb5",
+      "parent": "5af27d055ad31fbf99631a55a5de19b3820a4790",
+      "subject": "Set version properties for FreeImage target",
+      "author": "Oliver Old <mail@oold.dev>",
+      "path": "upstream-patches/pending/cmake-consumers/b4531e4-set-version-properties-for-freeimage-target.patch",
+      "sha256": "f0c10d7b498ecc7d40687dc8a037e677857dfb7f7a1123c9f52d60932cddd3c3",
+      "bytes": 392,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "10c850e176316527a2c8c533a907e76db7d3762e",
+      "parent": "95a189964969bf69b8e1c39577883b8b8ca6db6c",
+      "subject": "Unbundle Patch",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/system-library-integration/10c850e-unbundle-patch.patch",
+      "sha256": "a6035604d8e61c3e431b5e2d5ec27406b646a568e7308f38ec3ddb8904cc2263",
+      "bytes": 38113,
+      "files": [
+        "CMakeLists.txt",
+        "Source/FreeImage/J2KHelper.cpp",
+        "Source/FreeImage/PluginEXR.cpp",
+        "Source/FreeImage/PluginG3.cpp",
+        "Source/FreeImage/PluginJ2K.cpp",
+        "Source/FreeImage/PluginJP2.cpp",
+        "Source/FreeImage/PluginJPEG.cpp",
+        "Source/FreeImage/PluginJXR.cpp",
+        "Source/FreeImage/PluginPNG.cpp",
+        "Source/FreeImage/PluginRAW.cpp",
+        "Source/FreeImage/PluginTIFF.cpp",
+        "Source/FreeImage/PluginWebP.cpp",
+        "Source/FreeImage/ZLibInterface.cpp",
+        "Source/FreeImageToolkit/JPEGTransform.cpp",
+        "Source/Metadata/XTIFF.cpp"
+      ]
+    },
+    {
+      "commit": "128b7157c304c5a4600cb6f2db1d319e4e4b96d1",
+      "parent": "10c850e176316527a2c8c533a907e76db7d3762e",
+      "subject": "Keep BUILD_LIBPNG=OFF/BUILD_ZLIB=OFF + PNG_LIBRARY/ZLIB_LIBRARY working",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/system-library-integration/128b715-keep-build-libpng-off-build-zlib-off-png-library-zlib-library-working.patch",
+      "sha256": "b239276dd8e4bf372d408ffc2af4515cf25c4d944cfad8112039e10582f1e85e",
+      "bytes": 2428,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "e33c25c9a3a70e58ee6f3f23219e05454c028ba3",
+      "parent": "353fcb93b2a654c8b29a3c50dfb71dc8353c23ca",
+      "subject": "Fix CMake configure crash when PNG_LIBRARY is set without ZLIB_LIBRARY",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/system-library-integration/e33c25c-fix-cmake-configure-crash-when-png-library-is-set-without-zlib-library.patch",
+      "sha256": "ed74131c3c5926bdc5154d920147c7fd600102bd1f70f991b8998d6f89503c0b",
+      "bytes": 6721,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "627ab4e0d866724f69e7fcfd533b5bd34269f290",
+      "parent": "f4cf8558d9b4795758f1c3c6df777096f9afae92",
+      "subject": "Use shared OpenJPEG imports in system library packages",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/system-library-integration/627ab4e-use-shared-openjpeg-imports-in-system-library-packages.patch",
+      "sha256": "b4bbf7a89806b2d06a6acb69af5beec0617d9fc3730f72be39dd636ce203830a",
+      "bytes": 3103,
+      "files": [
+        "CMakeLists.txt",
+        "packaging/arch/PKGBUILD",
+        "packaging/arch/linux-install.patch",
+        "packaging/arch/update-patch.py"
+      ]
+    },
+    {
+      "commit": "5a6ab5d6c72af3a1f555b907aeab0c23b840cedf",
+      "parent": "8747592e101b323ae02285a0c0736a69ca529672",
+      "subject": "Avoid bundled Imath headers in system OpenEXR builds",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/system-library-integration/5a6ab5d-avoid-bundled-imath-headers-in-system-openexr-builds.patch",
+      "sha256": "9fc4a088d9fde969229c24c4e9b35118d5d814f42e2e847243a798d108f5fce1",
+      "bytes": 4712,
+      "files": [
+        "CMakeLists.txt",
+        "packaging/arch/PKGBUILD",
+        "packaging/arch/linux-install.patch"
+      ]
+    },
+    {
+      "commit": "4c44acdf1e39505898ac9688cb89517b163a7fca",
+      "parent": "9942499f477154a81ffe1358de47f0d54cb35b4b",
+      "subject": "Add selectable MSVC runtime library",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/msvc-runtime/4c44acd-add-selectable-msvc-runtime-library.patch",
+      "sha256": "7ed1e86e425c8724b1ada2bfab7363a9327a5cbb9db1236cf629d410701eecde",
+      "bytes": 6155,
+      "files": [
+        ".github/workflows/bundled-codecs.yml",
+        "CMakeLists.txt",
+        "README.md",
+        "cmake/FreeImageBundledCodecs.cmake"
+      ]
+    },
+    {
+      "commit": "ad711509b600a0a43cccf7d6a134ac3b39698a28",
+      "parent": "c37c3ba3b50c1135be60b21b52efd9e70d0f7f47",
+      "subject": "Build LibRaw by default",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/libraw-build-defaults/ad71150-build-libraw-by-default.patch",
+      "sha256": "18402fdda28324bf2665f1a9743aaa975829794ef22a68cadb2b563db37b73ef",
+      "bytes": 3968,
+      "files": [
+        "CMakeLists.txt",
+        "README.md"
+      ]
+    },
+    {
+      "commit": "855fe4e1a42820002cce23ec0647bb09dd9e5ecc",
+      "parent": "ad711509b600a0a43cccf7d6a134ac3b39698a28",
+      "subject": "Compile bundled LibRaw without dllimport",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/libraw-build-defaults/855fe4e-compile-bundled-libraw-without-dllimport.patch",
+      "sha256": "d09e1e9bbbdfd3512381e846deb25f5a3445975718e90b1d0a112b361a275cc6",
+      "bytes": 620,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "903e9c772ef02ea7c741a9c7dab086c15f99b661",
+      "parent": "2aaa8b85527559661e7a5046dbd1203636eb35c1",
+      "subject": "Emit unaligned vector moves for MinGW GCC (#211)",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/mingw-vector-spills/903e9c7-emit-unaligned-vector-moves-for-mingw-gcc-211.patch",
+      "sha256": "8e18f057b5e3e58beae55f28b25f6695f1c61381b4fbad12ff95c9bdc8b53c5a",
+      "bytes": 1725,
+      "files": [
+        "CMakeLists.txt"
+      ]
+    },
+    {
+      "commit": "a13c58574f31358fa8eb27183f2ece05a4c759bf",
+      "parent": "6f24892f9dd4e0584b37ff136ec443373f315ffe",
+      "subject": "Sync bundled LibRaw 0.22.2 -> 0.22.3",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/libraw-0.22.3/a13c585-sync-bundled-libraw-0-22-2-0-22-3.patch",
+      "sha256": "0db30e026d7b6514f46cbf28202f1e2f5b1b40dfe12968d0a3327d8cad09ef6e",
+      "bytes": 28791,
+      "files": [
+        "CHANGELOG.md",
+        "README.md",
+        "Source/LibRawLite/internal/losslessjpeg.h",
+        "Source/LibRawLite/libraw/libraw_version.h",
+        "Source/LibRawLite/src/decoders/crx.cpp",
+        "Source/LibRawLite/src/decoders/dng.cpp",
+        "Source/LibRawLite/src/decoders/pana8.cpp",
+        "Source/LibRawLite/src/demosaic/misc_demosaic.cpp",
+        "Source/LibRawLite/src/demosaic/xtrans_demosaic.cpp",
+        "Source/LibRawLite/src/libraw_datastream.cpp",
+        "Source/LibRawLite/src/metadata/ciff.cpp",
+        "Source/LibRawLite/src/metadata/hasselblad_model.cpp",
+        "Source/LibRawLite/src/metadata/kodak.cpp",
+        "Source/LibRawLite/src/metadata/normalize_model.cpp",
+        "Source/LibRawLite/src/postprocessing/postprocessing_aux.cpp",
+        "Source/LibRawLite/src/utils/open.cpp",
+        "Source/LibRawLite/src/utils/read_utils.cpp",
+        "Source/LibRawLite/src/write/file_write.cpp",
+        "Source/LibRawLite/src/x3f/x3f_parse_process.cpp",
+        "Source/LibRawLite/src/x3f/x3f_utils_patched.cpp",
+        "THIRD_PARTY_VERSIONS.md",
+        "debian/changelog"
+      ]
+    },
+    {
+      "commit": "90bbecac2ed5213ad688c170dcd55b5c130f6d8e",
+      "parent": "7096f98c984d09950e96f4b5bd03478b80f20174",
+      "subject": "Update bundled OpenEXR to 3.5.3",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/openexr-3.5.3/90bbeca-update-bundled-openexr-to-3-5-3.patch",
+      "sha256": "d132ce774f6f99e2f19b0d010a5c5b828ce115ad03ea7ff7f2924a4b40ac5d71",
+      "bytes": 89487,
+      "files": [
+        "CHANGELOG.md",
+        "README.md",
+        "Source/OpenEXR/IlmImf/ImfContext.cpp",
+        "Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.cpp",
+        "Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.cpp",
+        "Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.cpp",
+        "Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.cpp",
+        "Source/OpenEXR/IlmImf/ImfFastHuf.cpp",
+        "Source/OpenEXR/IlmImf/ImfInputFile.cpp",
+        "Source/OpenEXR/IlmImf/ImfScanLineInputFile.cpp",
+        "Source/OpenEXR/IlmImf/ImfTiledInputFile.cpp",
+        "Source/OpenEXR/IlmImf/ImfXdr.h",
+        "Source/OpenEXR/IlmThread/IlmThreadSemaphore.h",
+        "Source/OpenEXR/OpenEXRConfig.h",
+        "Source/OpenEXR/OpenEXRCore/chunk.c",
+        "Source/OpenEXR/OpenEXRCore/compression.c",
+        "Source/OpenEXR/OpenEXRCore/internal_b44.c",
+        "Source/OpenEXR/OpenEXRCore/internal_coding.h",
+        "Source/OpenEXR/OpenEXRCore/internal_dwa_compressor.h",
+        "Source/OpenEXR/OpenEXRCore/internal_dwa_decoder.h",
+        "Source/OpenEXR/OpenEXRCore/internal_dwa_encoder.h",
+        "Source/OpenEXR/OpenEXRCore/internal_dwa_table_init.c",
+        "Source/OpenEXR/OpenEXRCore/internal_ht.cpp",
+        "Source/OpenEXR/OpenEXRCore/internal_ht_common.cpp",
+        "Source/OpenEXR/OpenEXRCore/internal_ht_quality.h",
+        "Source/OpenEXR/OpenEXRCore/internal_structs.c",
+        "Source/OpenEXR/OpenEXRCore/internal_structs.h",
+        "Source/OpenEXR/OpenEXRCore/internal_util.h",
+        "Source/OpenEXR/OpenEXRCore/internal_win32_file_impl.h",
+        "Source/OpenEXR/OpenEXRCore/internal_xdr.h",
+        "Source/OpenEXR/OpenEXRCore/internal_zstd.c",
+        "Source/OpenEXR/OpenEXRCore/internal_zstd_delta.c",
+        "Source/OpenEXR/OpenEXRCore/openexr_attr.h",
+        "Source/OpenEXR/OpenEXRCore/openexr_chunkio.h",
+        "Source/OpenEXR/OpenEXRCore/openexr_coding.h",
+        "Source/OpenEXR/OpenEXRCore/openexr_version.h",
+        "Source/OpenEXR/OpenEXRCore/parse_header.c",
+        "Source/OpenEXR/OpenEXRCore/part_attr.c",
+        "Source/OpenEXR/OpenEXRCore/unpack.c",
+        "Source/OpenEXR/OpenEXRCore/validation.c",
+        "THIRD_PARTY_VERSIONS.md",
+        "scripts/vendor/NOTES.md"
+      ]
+    },
+    {
+      "commit": "8dd7c489763a06ca3d65410213eae7b2f2f6b3e5",
+      "parent": "3d556aa275df35763dcb155b8969fb3e08c9817e",
+      "subject": "Update bundled OpenJPH to 0.33.0",
+      "author": "Dan Rosser <danoli3@gmail.com>",
+      "path": "upstream-patches/pending/openjph-0.33.0/8dd7c48-update-bundled-openjph-to-0-33-0.patch",
+      "sha256": "eee3f8879235d3a9e1541fff3014fbb9d626273bd248fa18f8c39a208bfd8902",
+      "bytes": 114676,
+      "files": [
+        ".github/scripts/check_upstream_versions.sh",
+        ".github/workflows/cmake.yml",
+        "CHANGELOG.md",
+        "README.md",
+        "Source/OpenEXR/OpenJPH/codestream/ojph_codeblock.cpp",
+        "Source/OpenEXR/OpenJPH/codestream/ojph_codestream_sse.cpp",
+        "Source/OpenEXR/OpenJPH/codestream/ojph_params.cpp",
+        "Source/OpenEXR/OpenJPH/codestream/ojph_params_local.h",
+        "Source/OpenEXR/OpenJPH/codestream/ojph_resolution.cpp",
+        "Source/OpenEXR/OpenJPH/openjph/ojph_params.h",
+        "Source/OpenEXR/OpenJPH/openjph/ojph_version.h",
+        "Source/OpenEXR/OpenJPH/transform/ojph_colour.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_colour_avx2.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_colour_sse2.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_transform.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_transform_avx2.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_transform_avx512.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_transform_sse2.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_transform_vsx.cpp",
+        "Source/OpenEXR/OpenJPH/transform/ojph_transform_wasm.cpp",
+        "THIRD_PARTY_VERSIONS.md",
+        "TestAPI/CMakeLists.txt",
+        "TestAPI/testOpenJphNlt.cpp",
+        "scripts/vendor/NOTES.md"
+      ]
+    }
+  ]
+}

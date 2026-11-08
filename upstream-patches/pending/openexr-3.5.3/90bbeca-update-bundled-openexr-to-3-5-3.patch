@@ -1,0 +1,2116 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index feada4e..ea34a08 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -8,6 +8,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
+ - Add `FREEIMAGE_JXL_EXPORT` (default ON) for read-only JPEG XL, and `FREEIMAGE_CODEC_EXPORT` (default ON) to turn off HEIF/AVIF and JPEG XL saving together. With both codecs bundled, a read-only shared library is about a third smaller.
+ - Add `FREEIMAGE_STRIP` for load/save and `FreeImage_StripMetadata()` for existing bitmaps, discarding auxiliary metadata while preserving animation controls and save-source metadata. (#239)
+ - Correct TIFF IPTC profile lengths for libtiff fields exposed as byte counts, preventing an out-of-bounds metadata read.
++- Update bundled OpenEXR to 3.5.3, Little CMS to 2.20 and libaom to 3.15.3. OpenEXR 3.5.3 fixes several malformed-file bugs: an integer overflow in scanline size accumulation, a null read in the DWA decoder, unchecked ZSTD deep sample counts and a tile area overflow in deep tiled output. Little CMS fixes a possible crash on malformed profiles; libaom fixes an encoder integer overflow (oss-fuzz:572842743).
+ 
+ ## 3.19.29 — Unreleased
+ 
+diff --git a/README.md b/README.md
+index 0b618b1..500331a 100644
+--- a/README.md
++++ b/README.md
+@@ -31,7 +31,7 @@ The bundled libtiff is fully synced to 4.7.2, including its integer-overflow har
+ | JPEG | [libjpeg (IJG)](http://ijg.org/) | 10 (25 Jan 2026) | on | `BUILD_LIBJPEG` |
+ | TIFF | [libtiff](http://www.libtiff.org/) | 4.7.2 | on | `BUILD_LIBTIFF` |
+ | JPEG 2000 (J2K/JP2) | [OpenJPEG](https://github.com/uclouvain/openjpeg) | 2.5.4 | on | `BUILD_LIBOPENJPEG` |
+-| OpenEXR (HDR) | [OpenEXR](https://openexr.com/) | 3.5.2 | on for C++17+ | `BUILD_OPENEXR` |
++| OpenEXR (HDR) | [OpenEXR](https://openexr.com/) | 3.5.3 | on for C++17+ | `BUILD_OPENEXR` |
+ | WebP | [libwebp](https://developers.google.com/speed/webp) | 1.6.0 | on | `BUILD_WEBP` |
+ | Camera RAW (including CR3 and X3F) | [LibRaw](https://www.libraw.org/) | 0.22.3 | on | `BUILD_LIBRAWLITE` |
+ | JPEG XR (JXR/WDP/HDP) | [jxrlib](https://github.com/4creators/jxrlib) | unversioned snapshot | on for Windows; optional elsewhere | `BUILD_JXR` |
+diff --git a/Source/OpenEXR/IlmImf/ImfContext.cpp b/Source/OpenEXR/IlmImf/ImfContext.cpp
+index 4813449..aa35640 100644
+--- a/Source/OpenEXR/IlmImf/ImfContext.cpp
++++ b/Source/OpenEXR/IlmImf/ImfContext.cpp
+@@ -499,7 +499,12 @@ Context::header (int partidx) const
+                 break;
+ 
+             case EXR_ATTR_CHLIST: {
+-                ChannelList& chans = hdr.channels ();
++                // Only the attribute named "channels" is validated by the
++                // core library and describes the pixel data; any other
++                // chlist attribute is kept as an ordinary attribute.
++                const bool   isChannels = !strcmp (cur->name, "channels");
++                ChannelList  other;
++                ChannelList& chans = isChannels ? hdr.channels () : other;
+ 
+                 for (int c = 0; c < cur->chlist->num_channels; ++c)
+                 {
+@@ -513,6 +518,9 @@ Context::header (int partidx) const
+                             curc.y_sampling,
+                             curc.p_linear != 0));
+                 }
++
++                if (!isChannels)
++                    hdr.insert (cur->name, ChannelListAttribute (other));
+                 break;
+             }
+ 
+diff --git a/Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.cpp b/Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.cpp
+index 21f3d7e..3a1948a 100644
+--- a/Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.cpp
++++ b/Source/OpenEXR/IlmImf/ImfDeepScanLineInputFile.cpp
+@@ -185,6 +185,8 @@ DeepScanLineInputFile::DeepScanLineInputFile (InputPartData* part)
+     : _ctxt (part->context),
+       _data (std::make_shared<Data> (&_ctxt, part->partNumber, part->numThreads))
+ {
++    _data->header        = part->header;
++    _data->header_filled = true;
+     _data->initialize ();
+ }
+ 
+diff --git a/Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.cpp b/Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.cpp
+index 61b27ec..09cad52 100644
+--- a/Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.cpp
++++ b/Source/OpenEXR/IlmImf/ImfDeepScanLineOutputFile.cpp
+@@ -928,6 +928,16 @@ DeepScanLineOutputFile::initialize (const Header& header)
+ 
+     _data->header.setType (DEEPSCANLINE);
+ 
++    //
++    // header.sanityCheck() runs before the type is stamped above, so the
++    // deep-data compression restriction is never applied there. Reject any
++    // compression that is not valid for deep data explicitly.
++    //
++    if (!exr_compression_is_valid_for_deep (
++            static_cast<exr_compression_t> (_data->header.compression ())))
++        throw IEX_NAMESPACE::ArgExc (
++            "Compression type in header not valid for deep data");
++
+     const Box2i& dataWindow = header.dataWindow ();
+ 
+     _data->currentScanLine = (header.lineOrder () == INCREASING_Y)
+diff --git a/Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.cpp b/Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.cpp
+index 26c3f7b..28f272f 100644
+--- a/Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.cpp
++++ b/Source/OpenEXR/IlmImf/ImfDeepTiledInputFile.cpp
+@@ -214,6 +214,8 @@ DeepTiledInputFile::DeepTiledInputFile (InputPartData* part)
+     : _ctxt (part->context),
+       _data (std::make_shared<Data> (&_ctxt, part->partNumber, part->numThreads))
+ {
++    _data->header        = part->header;
++    _data->header_filled = true;
+     _data->initialize ();
+ }
+ 
+diff --git a/Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.cpp b/Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.cpp
+index 266c13b..3044e35 100644
+--- a/Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.cpp
++++ b/Source/OpenEXR/IlmImf/ImfDeepTiledOutputFile.cpp
+@@ -1192,6 +1192,17 @@ DeepTiledOutputFile::initialize (const Header& header)
+ {
+     _data->header = header;
+     _data->header.setType (DEEPTILE);
++
++    //
++    // header.sanityCheck() runs before the type is stamped above, so the
++    // deep-data compression restriction is never applied there. Reject any
++    // compression that is not valid for deep data explicitly.
++    //
++    if (!exr_compression_is_valid_for_deep (
++            static_cast<exr_compression_t> (_data->header.compression ())))
++        throw IEX_NAMESPACE::ArgExc (
++            "Compression type in header not valid for deep data");
++
+     _data->lineOrder = _data->header.lineOrder ();
+ 
+     //
+@@ -1210,22 +1221,25 @@ DeepTiledOutputFile::initialize (const Header& header)
+     _data->minY             = dataWindow.min.y;
+     _data->maxY             = dataWindow.max.y;
+ 
+-    _data->maxSampleCountTableSize =
+-        _data->tileDesc.ySize * _data->tileDesc.xSize * sizeof (int);
++    // widen before multiplying: the 32-bit product of the tile
++    // dimensions can wrap to 0 and bypass the limit below
++    const uint64_t tileArea = static_cast<uint64_t> (_data->tileDesc.ySize) *
++                              static_cast<uint64_t> (_data->tileDesc.xSize);
+ 
+     //
+     // impose limit of 2^32 bytes of storage for maxSampleCountTableSize
+     // (disallow files with very large tile areas that would otherwise cause excessive memory allocation)
+     //
+ 
+-    if (_data->maxSampleCountTableSize >
+-        std::numeric_limits<unsigned int>::max ())
++    if (tileArea > std::numeric_limits<unsigned int>::max () / sizeof (int))
+     {
+         THROW (
+             IEX_NAMESPACE::ArgExc,
+             "Deep tile size exceeds maximum permitted area");
+     }
+ 
++    _data->maxSampleCountTableSize = tileArea * sizeof (int);
++
+     //
+     // Precompute level and tile information to speed up utility functions
+     //
+diff --git a/Source/OpenEXR/IlmImf/ImfFastHuf.cpp b/Source/OpenEXR/IlmImf/ImfFastHuf.cpp
+index d4da17f..97cf51f 100644
+--- a/Source/OpenEXR/IlmImf/ImfFastHuf.cpp
++++ b/Source/OpenEXR/IlmImf/ImfFastHuf.cpp
+@@ -298,6 +298,19 @@ FastHufDecoder::~FastHufDecoder ()
+ // check if needed, and fix the preprocessor magic here.
+ //
+ 
++//
++// The source pointer is not guaranteed to be 8-byte aligned, so load
++// through memcpy rather than dereferencing a uint64_t pointer.
++//
++
++static inline uint64_t
++readUnaligned64 (const unsigned char* c)
++{
++    uint64_t v;
++    memcpy (&v, c, sizeof (v));
++    return v;
++}
++
+ #define READ64(c)                                                              \
+     ((uint64_t) (c)[0] << 56) | ((uint64_t) (c)[1] << 48) |                    \
+         ((uint64_t) (c)[2] << 40) | ((uint64_t) (c)[3] << 32) |                \
+@@ -308,14 +321,14 @@ FastHufDecoder::~FastHufDecoder ()
+ #    ifdef __INTEL_COMPILER // ICC built-in swap for LE hosts
+ #        if defined(__i386__) || defined(__x86_64__)
+ #            undef READ64
+-#            define READ64(c) _bswap64 (*(const uint64_t*) (c))
++#            define READ64(c) _bswap64 (readUnaligned64 (c))
+ #        endif
+ 
+ #    else
+ #        ifdef __has_builtin
+ #            if __has_builtin(__builtin_bswap64)
+ #                undef READ64
+-#                define READ64(c) __builtin_bswap64 (*(const uint64_t*) (c))
++#                define READ64(c) __builtin_bswap64 (readUnaligned64 (c))
+ #            endif
+ #        endif
+ #    endif
+diff --git a/Source/OpenEXR/IlmImf/ImfInputFile.cpp b/Source/OpenEXR/IlmImf/ImfInputFile.cpp
+index 8d602cb..6572c56 100644
+--- a/Source/OpenEXR/IlmImf/ImfInputFile.cpp
++++ b/Source/OpenEXR/IlmImf/ImfInputFile.cpp
+@@ -239,6 +239,27 @@ void
+ InputFile::rawPixelData (
+     int firstScanLine, const char*& pixelData, int& pixelDataSize)
+ {
++    if (!_data->_sFile)
++    {
++        if (_data->_storage == EXR_STORAGE_TILED ||
++            _data->_storage == EXR_STORAGE_DEEP_TILED)
++        {
++            THROW (
++                IEX_NAMESPACE::ArgExc,
++                "Error reading pixel data from image "
++                "file \""
++                    << fileName ()
++                    << "\". Tried to read a raw scanline from a tiled image.");
++        }
++
++        THROW (
++            IEX_NAMESPACE::ArgExc,
++            "Error reading pixel data from image "
++            "file \""
++                << fileName ()
++                << "\". Tried to read a raw scanline from a deep image.");
++    }
++
+     _data->_sFile->rawPixelData (firstScanLine, pixelData, pixelDataSize);
+ }
+ 
+@@ -246,6 +267,27 @@ void
+ InputFile::rawPixelDataToBuffer (
+     int scanLine, char* pixelData, int& pixelDataSize) const
+ {
++    if (!_data->_sFile)
++    {
++        if (_data->_storage == EXR_STORAGE_TILED ||
++            _data->_storage == EXR_STORAGE_DEEP_TILED)
++        {
++            THROW (
++                IEX_NAMESPACE::ArgExc,
++                "Error reading pixel data from image "
++                "file \""
++                    << fileName ()
++                    << "\". Tried to read a raw scanline from a tiled image.");
++        }
++
++        THROW (
++            IEX_NAMESPACE::ArgExc,
++            "Error reading pixel data from image "
++            "file \""
++                << fileName ()
++                << "\". Tried to read a raw scanline from a deep image.");
++    }
++
+     _data->_sFile->rawPixelDataToBuffer (scanLine, pixelData, pixelDataSize);
+ }
+ 
+@@ -285,6 +327,15 @@ InputFile::rawTileData (
+ TiledInputFile&
+ InputFile::asTiledInput (void) const
+ {
++    if (!_data->_tFile)
++    {
++        THROW (
++            IEX_NAMESPACE::ArgExc,
++            "Cannot perform a quick pixel copy from image "
++            "file \""
++                << fileName () << "\". The input file is not tiled.");
++    }
++
+     return *(_data->_tFile);
+ }
+ 
+diff --git a/Source/OpenEXR/IlmImf/ImfScanLineInputFile.cpp b/Source/OpenEXR/IlmImf/ImfScanLineInputFile.cpp
+index 10d8180..9579aa4 100644
+--- a/Source/OpenEXR/IlmImf/ImfScanLineInputFile.cpp
++++ b/Source/OpenEXR/IlmImf/ImfScanLineInputFile.cpp
+@@ -175,6 +175,8 @@ ScanLineInputFile::ScanLineInputFile (InputPartData* part)
+     : _ctxt (part->context),
+       _data (std::make_shared<Data> (&_ctxt, part->partNumber, part->numThreads))
+ {
++    _data->header        = part->header;
++    _data->header_filled = true;
+     _data->initialize ();
+ }
+ 
+diff --git a/Source/OpenEXR/IlmImf/ImfTiledInputFile.cpp b/Source/OpenEXR/IlmImf/ImfTiledInputFile.cpp
+index f21563e..ded066b 100644
+--- a/Source/OpenEXR/IlmImf/ImfTiledInputFile.cpp
++++ b/Source/OpenEXR/IlmImf/ImfTiledInputFile.cpp
+@@ -206,6 +206,8 @@ TiledInputFile::TiledInputFile (InputPartData* part)
+     : _ctxt (part->context),
+       _data (std::make_shared<Data> (&_ctxt, part->partNumber, part->numThreads))
+ {
++    _data->header        = part->header;
++    _data->header_filled = true;
+     _data->initialize ();
+ }
+ 
+diff --git a/Source/OpenEXR/IlmImf/ImfXdr.h b/Source/OpenEXR/IlmImf/ImfXdr.h
+index 6245ece..6025589 100644
+--- a/Source/OpenEXR/IlmImf/ImfXdr.h
++++ b/Source/OpenEXR/IlmImf/ImfXdr.h
+@@ -497,18 +497,25 @@ template <class S, class T>
+ void
+ read (T& in, int64_t& v)
+ {
+-    signed char b[8];
++    unsigned char b[8];
+ 
+-    readSignedChars<S> (in, b, 8);
++    readUnsignedChars<S> (in, b, 8);
+ 
+-    v = (static_cast<int64_t> (b[0]) & 0x00000000000000ff) |
+-        ((static_cast<int64_t> (b[1]) << 8) & 0x000000000000ff00) |
+-        ((static_cast<int64_t> (b[2]) << 16) & 0x0000000000ff0000) |
+-        ((static_cast<int64_t> (b[3]) << 24) & 0x00000000ff000000) |
+-        ((static_cast<int64_t> (b[4]) << 32) & 0x000000ff00000000) |
+-        ((static_cast<int64_t> (b[5]) << 40) & 0x0000ff0000000000) |
+-        ((static_cast<int64_t> (b[6]) << 48) & 0x00ff000000000000) |
+-        (static_cast<int64_t> (b[7]) << 56);
++    //
++    // Assemble the bits unsigned: shifting a sign-extended negative
++    // byte left is undefined behavior.
++    //
++
++    uint64_t u = (static_cast<uint64_t> (b[0])) |
++                 (static_cast<uint64_t> (b[1]) << 8) |
++                 (static_cast<uint64_t> (b[2]) << 16) |
++                 (static_cast<uint64_t> (b[3]) << 24) |
++                 (static_cast<uint64_t> (b[4]) << 32) |
++                 (static_cast<uint64_t> (b[5]) << 40) |
++                 (static_cast<uint64_t> (b[6]) << 48) |
++                 (static_cast<uint64_t> (b[7]) << 56);
++
++    v = static_cast<int64_t> (u);
+ }
+ 
+ template <class S, class T>
+diff --git a/Source/OpenEXR/IlmThread/IlmThreadSemaphore.h b/Source/OpenEXR/IlmThread/IlmThreadSemaphore.h
+index 1863861..9ca14a0 100644
+--- a/Source/OpenEXR/IlmThread/IlmThreadSemaphore.h
++++ b/Source/OpenEXR/IlmThread/IlmThreadSemaphore.h
+@@ -31,7 +31,7 @@
+ #        define ILMTHREAD_SEMAPHORE_POSIX 1
+ #    elif defined(__APPLE__)
+ #        include <AvailabilityMacros.h>
+-#        if MAC_OS_X_VERSION_MIN_REQUIRED > 1050 && !defined(__ppc__)
++#        if MAC_OS_X_VERSION_MIN_REQUIRED >= 1060
+ #            include <dispatch/dispatch.h>
+ #            define ILMTHREAD_SEMAPHORE_OSX 1
+ #        else
+diff --git a/Source/OpenEXR/OpenEXRConfig.h b/Source/OpenEXR/OpenEXRConfig.h
+index ebc8e56..49721c2 100644
+--- a/Source/OpenEXR/OpenEXRConfig.h
++++ b/Source/OpenEXR/OpenEXRConfig.h
+@@ -19,7 +19,7 @@
+ #ifndef INCLUDED_OPENEXR_VERSION_H
+ #define OPENEXR_VERSION_MAJOR 3
+ #define OPENEXR_VERSION_MINOR 5
+-#define OPENEXR_VERSION_PATCH 2
++#define OPENEXR_VERSION_PATCH 3
+ #endif
+ 
+ //
+@@ -56,14 +56,14 @@
+ // Version string for runtime access
+ //
+ 
+-#define OPENEXR_VERSION_STRING "3.5.2"
+-#define OPENEXR_PACKAGE_STRING "OpenEXR 3.5.2"
++#define OPENEXR_VERSION_STRING "3.5.3"
++#define OPENEXR_PACKAGE_STRING "OpenEXR 3.5.3"
+ 
+ #define OPENEXR_VERSION_RELEASE_TYPE ""
+ // Deprecated, for back compatibility:
+ #define OPENEXR_VERSION_EXTRA ""
+ 
+-#define OPENEXR_LIB_VERSION_STRING "34.3.5.2"
++#define OPENEXR_LIB_VERSION_STRING "34.3.5.3"
+ 
+ // clang-format on
+ 
+diff --git a/Source/OpenEXR/OpenEXRCore/chunk.c b/Source/OpenEXR/OpenEXRCore/chunk.c
+index 02f3f81..7c6f6dd 100644
+--- a/Source/OpenEXR/OpenEXRCore/chunk.c
++++ b/Source/OpenEXR/OpenEXRCore/chunk.c
+@@ -1376,7 +1376,7 @@ exr_read_tile_chunk_info (
+          * may be smaller than normal tile size, just check that it is
+          * at least a multiple of int32_t
+          */
+-        if (ddata[0] < 0 ||
++        if (ddata[0] < 0 || ddata[0] > (int64_t) INT_MAX ||
+             (part->comp_type == EXR_COMPRESSION_NONE &&
+              0 != (ddata[0] % sizeof(int32_t))) ||
+             (ddata[0] == 0 && (ddata[1] != 0 || ddata[2] != 0)))
+@@ -1651,12 +1651,11 @@ exr_read_deep_chunk (
+ 
+     if (rv != EXR_ERR_SUCCESS) return rv;
+ 
+-    /* the on-disk sample count table is little-endian; convert to native so
+-     * callers receive host-order counts (matching unpacked pixel data) */
+-    if (sample_data && cinfo->sample_count_table_size > 0)
+-        priv_to_native32 (
+-            sample_data,
+-            (int) (cinfo->sample_count_table_size / sizeof (uint32_t)));
++    /* Both buffers are returned exactly as stored in the file, like
++     * exr_read_chunk: the sample count table may be compressed, and when
++     * it isn't, its counts are little-endian. The decode pipeline
++     * (unpack_sample_table) does the conversion to native order, and the
++     * raw chunk readers in the C++ API copy these bytes verbatim. */
+ 
+     if (packed_data && cinfo->packed_size > 0)
+     {
+diff --git a/Source/OpenEXR/OpenEXRCore/compression.c b/Source/OpenEXR/OpenEXRCore/compression.c
+index ed8ee47..ad50fbe 100644
+--- a/Source/OpenEXR/OpenEXRCore/compression.c
++++ b/Source/OpenEXR/OpenEXRCore/compression.c
+@@ -18,6 +18,28 @@
+ #include "OpenEXRConfigInternal.h"
+ 
+ #if OPENEXR_USE_INTERNAL_DEFLATE
++/*
++ * On NetBSD, system headers already pulled in above transitively via
++ * <stdint.h> (e.g. <sys/bswap.h>) declare real, non-static bswap16/32/64
++ * functions. The vendored libdeflate sources declare their own static
++ * inline functions of the same names, which conflicts ("static declaration
++ * follows non-static declaration"). Rename libdeflate's symbols for the
++ * scope of these includes so they can't collide with the system's.
++ * (NetBSD's <sys/bswap.h> also defines bswap16/32/64 as function-like
++ * macros, so undefine those first to avoid a macro-redefinition warning.)
++ */
++#    ifdef bswap16
++#        undef bswap16
++#    endif
++#    ifdef bswap32
++#        undef bswap32
++#    endif
++#    ifdef bswap64
++#        undef bswap64
++#    endif
++#    define bswap16 openexr_deflate_bswap16
++#    define bswap32 openexr_deflate_bswap32
++#    define bswap64 openexr_deflate_bswap64
+ #    include "../../../external/deflate/lib/lib_common.h"
+ #    include "../../../external/deflate/lib/arm/cpu_features.c"
+ #    include "../../../external/deflate/lib/x86/cpu_features.c"
+@@ -29,6 +51,9 @@
+ #    include "../../../external/deflate/lib/adler32.c"
+ #    include "../../../external/deflate/lib/zlib_compress.c"
+ #    include "../../../external/deflate/lib/zlib_decompress.c"
++#    undef bswap16
++#    undef bswap32
++#    undef bswap64
+ #else
+ #    include <libdeflate.h>
+ #endif
+@@ -652,6 +677,7 @@ decompress_data (
+     {
+         if (unpackbufptr != packbufptr)
+             memcpy (unpackbufptr, packbufptr, unpacksz);
++        decode->bytes_decompressed = unpacksz;
+         return EXR_ERR_SUCCESS;
+     }
+ 
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_b44.c b/Source/OpenEXR/OpenEXRCore/internal_b44.c
+index f30762c..a3bebf0 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_b44.c
++++ b/Source/OpenEXR/OpenEXRCore/internal_b44.c
+@@ -7,6 +7,7 @@
+ #include "internal_decompress.h"
+ 
+ #include "internal_coding.h"
++#include "internal_util.h"
+ #include "internal_xdr.h"
+ 
+ #include <string.h>
+@@ -676,8 +677,14 @@ compute_scratch_buffer_size (
+         if (nx % 4) nx += 4 - nx % 4;
+         if (ny % 4) ny += 4 - ny % 4;
+ 
+-        comp += (uint64_t) (ny) * (uint64_t) (nx) *
+-                (uint64_t) (curc->bytes_per_element);
++        /* guard against a wrapped accumulation producing an
++         * implausibly small scratch requirement relative to what the
++         * decompressor will actually touch (see GHSA-frx8-5p4h-j8m7) */
++        if (checked_mul_accum_u64 (
++                &comp,
++                (uint64_t) ny * (uint64_t) nx,
++                (uint64_t) curc->bytes_per_element))
++            return UINT64_MAX;
+     }
+     if (comp > ret) ret = comp;
+     return ret;
+@@ -695,7 +702,8 @@ internal_exr_undo_b44 (
+ {
+     exr_result_t rv;
+     uint64_t     scratch_sz = compute_scratch_buffer_size (decode, uncompressed_size);
+-    if (scratch_sz != (size_t) scratch_sz) return EXR_ERR_OUT_OF_MEMORY;
++    if (scratch_sz == UINT64_MAX || scratch_sz != (size_t) scratch_sz)
++        return EXR_ERR_OUT_OF_MEMORY;
+     rv = internal_decode_alloc_buffer (
+         decode,
+         EXR_TRANSCODE_BUFFER_SCRATCH1,
+@@ -724,7 +732,8 @@ internal_exr_undo_b44a (
+ {
+     exr_result_t rv;
+     uint64_t     scratch_sz = compute_scratch_buffer_size (decode, uncompressed_size);
+-    if (scratch_sz != (size_t) scratch_sz) return EXR_ERR_OUT_OF_MEMORY;
++    if (scratch_sz == UINT64_MAX || scratch_sz != (size_t) scratch_sz)
++        return EXR_ERR_OUT_OF_MEMORY;
+     rv = internal_decode_alloc_buffer (
+         decode,
+         EXR_TRANSCODE_BUFFER_SCRATCH1,
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_coding.h b/Source/OpenEXR/OpenEXRCore/internal_coding.h
+index 9f1f2ba..6c6e325 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_coding.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_coding.h
+@@ -30,7 +30,13 @@
+ #    include <x86intrin.h>
+ #endif
+ 
++#ifdef __cplusplus
++#include <cmath>
++using std::isnan;
++using std::isinf;
++#else
+ #include <math.h>
++#endif
+ 
+ #ifdef __cplusplus
+ extern "C" {
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_dwa_compressor.h b/Source/OpenEXR/OpenEXRCore/internal_dwa_compressor.h
+index fc1b422..466e92a 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_dwa_compressor.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_dwa_compressor.h
+@@ -545,6 +545,10 @@ DwaCompressor_compress (DwaCompressor* me)
+                     outBufferSize -
+                     (size_t) ((uintptr_t) outDataPtr - (uintptr_t) sizes);
+ 
++                /* The packed AC buffer is XDR (little-endian), but the
++                 * Huffman coder works on native 16-bit values, as in PIZ. */
++                priv_to_native16 (
++                    me->_packedAcBuffer, (int) *totalAcUncompressedCount);
+                 rv = internal_huf_compress (
+                     acCompressedSize,
+                     outDataPtr,
+@@ -553,6 +557,8 @@ DwaCompressor_compress (DwaCompressor* me)
+                     *totalAcUncompressedCount,
+                     me->_encode->scratch_buffer_1,
+                     me->_encode->scratch_alloc_size_1);
++                priv_from_native16 (
++                    me->_packedAcBuffer, (int) *totalAcUncompressedCount);
+                 if (rv != EXR_ERR_SUCCESS)
+                 {
+                     if (rv == EXR_ERR_ARGUMENT_OUT_OF_RANGE)
+@@ -916,6 +922,8 @@ DwaCompressor_uncompress (
+ 
+     if (unknownCompressedSize > 0)
+     {
++        size_t unknownActualOut;
++
+         if (unknownUncompressedSize > me->_planarUncBufferSize[UNKNOWN])
+         {
+             return EXR_ERR_CORRUPT_CHUNK;
+@@ -927,7 +935,18 @@ DwaCompressor_uncompress (
+                                    unknownCompressedSize,
+                                    me->_planarUncBuffer[UNKNOWN],
+                                    unknownUncompressedSize,
+-                                   NULL))
++                                   &unknownActualOut))
++        {
++            return EXR_ERR_CORRUPT_CHUNK;
++        }
++
++        /* A short zlib stream (fewer bytes produced than requested) is
++         * reported as success (see translate_deflate_result), leaving
++         * the tail of _planarUncBuffer[UNKNOWN] filled with stale heap
++         * contents that are then copied into the decoded image. Reject
++         * it explicitly instead of trusting the full buffer was written
++         * (see GHSA-rjg8-982x-jhc2). */
++        if (unknownActualOut != unknownUncompressedSize)
+         {
+             return EXR_ERR_CORRUPT_CHUNK;
+         }
+@@ -962,6 +981,10 @@ DwaCompressor_uncompress (
+                     me->_decode->scratch_buffer_1,
+                     me->_decode->scratch_alloc_size_1);
+                 if (rv != EXR_ERR_SUCCESS) { return rv; }
++                /* Huffman yields native values; the AC stream is XDR
++                   (little-endian) */
++                priv_from_native16 (
++                    me->_packedAcBuffer, (int) totalAcUncompressedCount);
+                 break;
+ 
+             case DEFLATE: {
+@@ -1095,6 +1118,13 @@ DwaCompressor_uncompress (
+         }
+     }
+ 
++    for (int c = 0; c < me->_numChannels; ++c)
++    {
++        ChannelData* cd = &(me->_channelData[c]);
++        if (cd->_dctData._size != (size_t) cd->chan->height)
++            return EXR_ERR_CORRUPT_CHUNK;
++    }
++
+     //
+     // Setup to decode each block of 3 channels that need to
+     // be handled together
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_dwa_decoder.h b/Source/OpenEXR/OpenEXRCore/internal_dwa_decoder.h
+index 7e703cf..0ce5807 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_dwa_decoder.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_dwa_decoder.h
+@@ -136,7 +136,9 @@ LossyDctDecoder_unRleAc (
+     while (dctComp < 64)
+     {
+         if (acComp >= packedAcEnd) { return EXR_ERR_CORRUPT_CHUNK; }
+-        val = *acComp;
++        /* the AC stream is XDR; test for run symbols on the native value
++         * and copy coefficients through unchanged (still XDR) */
++        val = one_to_native16 (*acComp);
+         if ((val & 0xff00) == 0xff00)
+         {
+             uint8_t count = val & 0xff;
+@@ -151,7 +153,7 @@ LossyDctDecoder_unRleAc (
+             // Not a run, just copy over the value
+             //
+             lnz                   = dctComp;
+-            halfZigBlock[dctComp] = val;
++            halfZigBlock[dctComp] = *acComp;
+ 
+             ++dctComp;
+         }
+@@ -292,8 +294,8 @@ LossyDctDecoder_execute (
+     int                  numComp = d->_channel_decode_data_count;
+     DctCoderChannelData* chanData[3];
+     int                  lastNonZero = 0;
+-    int                  numBlocksX  = (d->_width + 7) / 8;
+-    int                  numBlocksY  = (d->_height + 7) / 8;
++    int                  numBlocksX  = (int) (((int64_t) d->_width + 7) / 8);
++    int                  numBlocksY  = (int) (((int64_t) d->_height + 7) / 8);
+     int                  leftoverX   = d->_width - (numBlocksX - 1) * 8;
+     int                  leftoverY   = d->_height - (numBlocksY - 1) * 8;
+ 
+@@ -320,9 +322,15 @@ LossyDctDecoder_execute (
+     // Allocate a temp aligned buffer to hold a rows worth of full
+     // 8x8 half-float blocks
+     //
+-    rowBlockHandle = alloc_fn (
+-        (size_t) numComp * (size_t) numBlocksX * 64 * sizeof (uint16_t) +
+-        _SSE_ALIGNMENT);
++    // (computed in 64 bits: with a 32-bit size_t the product can wrap
++    // and under-allocate for very wide chunks)
++    //
++    uint64_t rowBlockBytes = (uint64_t) numComp * (uint64_t) numBlocksX * 64 *
++                                 sizeof (uint16_t) +
++                             _SSE_ALIGNMENT;
++    if (rowBlockBytes > SIZE_MAX) return EXR_ERR_OUT_OF_MEMORY;
++
++    rowBlockHandle = alloc_fn ((size_t) rowBlockBytes);
+     if (!rowBlockHandle) return EXR_ERR_OUT_OF_MEMORY;
+ 
+     rowBlock[0] = (uint16_t*) simd_align_pointer (rowBlockHandle);
+@@ -513,13 +521,13 @@ LossyDctDecoder_execute (
+                 if (!blockIsConstant)
+                 {
+                     (*convertFloatToHalf64) (
+-                        &rowBlock[comp][blockx * 64], chanData[comp]->_dctData);
++                        &rowBlock[comp][(uint64_t) blockx * 64], chanData[comp]->_dctData);
+                 }
+                 else
+                 {
+ #ifdef IMF_HAVE_SSE2
+ 
+-                    __m128i* dst = (__m128i*) &rowBlock[comp][blockx * 64];
++                    __m128i* dst = (__m128i*) &rowBlock[comp][(uint64_t) blockx * 64];
+ 
+                     dst[0] = _mm_set1_epi16 (
+                         (short) float_to_half (chanData[comp]->_dctData[0]));
+@@ -534,7 +542,7 @@ LossyDctDecoder_execute (
+ 
+ #else /* IMF_HAVE_SSE2 */
+ 
+-                    uint16_t* dst = &rowBlock[comp][blockx * 64];
++                    uint16_t* dst = &rowBlock[comp][(uint64_t) blockx * 64];
+ 
+                     dst[0] = float_to_half (chanData[comp]->_dctData[0]);
+ 
+@@ -571,6 +579,9 @@ LossyDctDecoder_execute (
+             //
+ 
+ #ifdef IMF_HAVE_SSE2
++            //
++            // (SSE2 implies a little-endian host, so NATIVE == XDR here and
++            // the results need no byte swapping.)
+             //
+             // Handle all the full X blocks, in a fast path with sse2 and
+             //
+@@ -661,17 +672,17 @@ LossyDctDecoder_execute (
+                     for (int blockx = 0; blockx < numFullBlocksX; ++blockx)
+                     {
+                         uint16_t* restrict src =
+-                            &rowBlock[comp][blockx * 64 + ((y & 0x7) * 8)];
++                            &rowBlock[comp][(uint64_t) blockx * 64 + ((y & 0x7) * 8)];
+ 
+-                        dst[0] = d->_toLinear[src[0]];
+-                        dst[1] = d->_toLinear[src[1]];
+-                        dst[2] = d->_toLinear[src[2]];
+-                        dst[3] = d->_toLinear[src[3]];
++                        dst[0] = one_from_native16 (d->_toLinear[src[0]]);
++                        dst[1] = one_from_native16 (d->_toLinear[src[1]]);
++                        dst[2] = one_from_native16 (d->_toLinear[src[2]]);
++                        dst[3] = one_from_native16 (d->_toLinear[src[3]]);
+ 
+-                        dst[4] = d->_toLinear[src[4]];
+-                        dst[5] = d->_toLinear[src[5]];
+-                        dst[6] = d->_toLinear[src[6]];
+-                        dst[7] = d->_toLinear[src[7]];
++                        dst[4] = one_from_native16 (d->_toLinear[src[4]]);
++                        dst[5] = one_from_native16 (d->_toLinear[src[5]]);
++                        dst[6] = one_from_native16 (d->_toLinear[src[6]]);
++                        dst[7] = one_from_native16 (d->_toLinear[src[7]]);
+ 
+                         dst += 8;
+                     }
+@@ -687,8 +698,9 @@ LossyDctDecoder_execute (
+                     for (int blockx = 0; blockx < numFullBlocksX; ++blockx)
+                     {
+                         uint16_t* src =
+-                            &rowBlock[comp][blockx * 64 + ((y & 0x7) * 8)];
++                            &rowBlock[comp][(uint64_t) blockx * 64 + ((y & 0x7) * 8)];
+                         memcpy (dst, src, 8*sizeof(uint16_t));
++                        priv_from_native16 (dst, 8);
+                         dst += 8;
+                     }
+                 }
+@@ -706,7 +718,7 @@ LossyDctDecoder_execute (
+                 for (int y = 8 * blocky; y < 8 * blocky + maxY; ++y)
+                 {
+                     uint16_t* src = (uint16_t*) &rowBlock[comp]
+-                                                         [numFullBlocksX * 64 +
++                                                         [(uint64_t) numFullBlocksX * 64 +
+                                                           ((y & 0x7) * 8)];
+ 
+                     uint16_t* dst = (uint16_t*) chanData[comp]->_rows[y];
+@@ -717,12 +729,13 @@ LossyDctDecoder_execute (
+                     {
+                         for (int x = 0; x < maxX; ++x)
+                         {
+-                            *dst++ = d->_toLinear[*src++];
++                            *dst++ = one_from_native16 (d->_toLinear[*src++]);
+                         }
+                     }
+                     else
+                     {
+                         memcpy (dst, src, maxX * sizeof(uint16_t));
++                        priv_from_native16 (dst, maxX);
+                     }
+                 }
+             }
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_dwa_encoder.h b/Source/OpenEXR/OpenEXRCore/internal_dwa_encoder.h
+index f87c508..f9030ce 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_dwa_encoder.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_dwa_encoder.h
+@@ -1007,7 +1007,9 @@ LossyDctEncoder_execute (
+ 
+         for (int y = 0; y < e->_height; ++y)
+         {
+-            const float* srcXdr = (const float*) chanData[chan]->_rows[y];
++            /* rows may not be 4-byte aligned, so load without a
++             * float pointer dereference */
++            const uint8_t* srcXdr = chanData[chan]->_rows[y];
+ 
+             for (int x = 0; x < e->_width; ++x)
+             {
+@@ -1015,7 +1017,9 @@ LossyDctEncoder_execute (
+                 // Clamp to half ranges, instead of just casting. This
+                 // avoids introducing Infs which end up getting zeroed later
+                 //
+-                float src = one_to_native_float (srcXdr[x]);
++                uint32_t bits = unaligned_load32 (srcXdr + x * sizeof (float));
++                float    src;
++                memcpy (&src, &bits, sizeof (src));
+                 if (src > 65504.f)
+                     src = 65504.f;
+                 else if (src < -65504.f)
+@@ -1054,12 +1058,8 @@ LossyDctEncoder_execute (
+                 // fit at the edges, mirror.
+                 //
+                 // Also, convert from linear to nonlinear representation.
+-                // Our source is assumed to be XDR, and we need to convert
+-                // to NATIVE prior to converting to float.
+-                //
+-                // If we're converting linear -> nonlinear, assume that the
+-                // XDR -> NATIVE conversion is built into the lookup. Otherwise,
+-                // we'll need to explicitly do it.
++                // Our source is XDR, so convert it to NATIVE first; the
++                // lookup table maps NATIVE halves to NATIVE halves.
+                 //
+ 
+                 for (int y = 0; y < 8; ++y)
+@@ -1081,8 +1081,8 @@ LossyDctEncoder_execute (
+ 
+                         h = ((const uint16_t*) (chanData[chan]->_rows)[vy])[vx];
+ 
++                        h = one_to_native16 (h);
+                         if (e->_toNonlinear) { h = e->_toNonlinear[h]; }
+-                        else { h = one_to_native16 (h); }
+ 
+                         chanData[chan]->_dctData[y * 8 + x] = half_to_float (h);
+                     } // x
+@@ -1157,6 +1157,9 @@ LossyDctEncoder_execute (
+ // given by the low byte. For example, 0xff03 would be a run
+ // of 3 0's, starting at the current location.
+ //
++// The AC values, run symbols included, are stored as XDR (little-endian)
++// 16-bit words, like the zigzagged coefficients in block.
++//
+ // block is our block of 64 coefficients
+ // acPtr a pointer to back the RLE'd values into.
+ //
+@@ -1223,7 +1226,7 @@ LossyDctEncoder_rleAc (LossyDctEncoder* e, uint16_t* block, uint16_t** acPtr)
+             // Signal EOB
+             //
+ 
+-            *curAC++ = 0xff00;
++            *curAC++ = one_from_native16 (0xff00);
+             e->_numAcComp++;
+         }
+         else
+@@ -1232,7 +1235,7 @@ LossyDctEncoder_rleAc (LossyDctEncoder* e, uint16_t* block, uint16_t** acPtr)
+             // Signal normal run
+             //
+ 
+-            *curAC++ = (uint16_t) 0xff00 | runLen;
++            *curAC++ = one_from_native16 ((uint16_t) (0xff00 | runLen));
+             e->_numAcComp++;
+         }
+ 
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_dwa_table_init.c b/Source/OpenEXR/OpenEXRCore/internal_dwa_table_init.c
+index 913d40b..aa87aad 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_dwa_table_init.c
++++ b/Source/OpenEXR/OpenEXRCore/internal_dwa_table_init.c
+@@ -32,11 +32,10 @@ static once_flag dwa_tables_once = ONCE_FLAG_INIT;
+ //    ln(linear)/ln(e^2.2) + 1    \ otherwise
+ //
+ //
+-// toNonlinear[] needs to take in XDR format half float values,
+-// and output NATIVE format float.
+-//
+-// toLinear[] does the opposite - takes in NATIVE half and
+-// outputs XDR half values.
++// Both tables map NATIVE half values to NATIVE half values. Callers
++// convert to and from XDR (little-endian) around the lookup: the encoder
++// converts its XDR input to NATIVE before toNonlinear[], and the decoder
++// converts the result of toLinear[] back to XDR.
+ //
+ 
+ static inline uint16_t
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_ht.cpp b/Source/OpenEXR/OpenEXRCore/internal_ht.cpp
+index 05e49d9..57281aa 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_ht.cpp
++++ b/Source/OpenEXR/OpenEXRCore/internal_ht.cpp
+@@ -5,6 +5,7 @@
+ 
+ #include <cmath>
+ #include <cstdio>
++#include <cstring>
+ #include <limits>
+ #include <string>
+ #include <fstream>
+@@ -24,6 +25,8 @@
+ #include "internal_ht_quality.h"
+ #include "internal_legacy_structs.h"
+ 
++#include "internal_xdr.h"
++
+ namespace
+ {
+ /* NLT type 4 point tables for lossy RGB channels. Most float imagery lies
+@@ -70,13 +73,14 @@ chunk_max_linear_float (
+ 
+                     if (line_c == file_c)
+                     {
+-                        const float* p =
+-                            reinterpret_cast<const float*> (line_pixels);
+                         for (int32_t x = 0;
+                              x < encode->channels[file_c].width;
+                              x++)
+                         {
+-                            float v = p[x];
++                            uint32_t bits = unaligned_load32 (
++                                line_pixels + (int64_t) x * sizeof (float));
++                            float v;
++                            memcpy (&v, &bits, sizeof (v));
+                             if (std::isfinite (v))
+                             {
+                                 double av = std::fabs ((double) v);
+@@ -111,12 +115,14 @@ chunk_max_linear_float (
+             const int32_t cw = encode->channels[file_c].width;
+             for (int y = 0; y < chunk_height; y++)
+             {
+-                const float* p = reinterpret_cast<const float*> (
+-                    packed + (int64_t) y * bpl +
+-                    cs_channel_info[c].raster_line_offset);
++                const uint8_t* p = packed + (int64_t) y * bpl +
++                                   cs_channel_info[c].raster_line_offset;
+                 for (int32_t x = 0; x < cw; x++)
+                 {
+-                    float v = p[x];
++                    uint32_t bits =
++                        unaligned_load32 (p + (int64_t) x * sizeof (float));
++                    float v;
++                    memcpy (&v, &bits, sizeof (v));
+                     if (std::isfinite (v))
+                     {
+                         double av = std::fabs ((double) v);
+@@ -346,27 +352,32 @@ decode_line (
+     exr_pixel_type_t  type,
+     bool              legacy_tf)
+ {
++    /* The output is in file order (little-endian), and channels of
++     * different sample sizes are packed back to back, so dst may not be
++     * aligned to the sample size. */
++    uint8_t* out = static_cast<uint8_t*> (dst);
+     if (type == EXR_PIXEL_HALF)
+     {
+-        int16_t* out = static_cast<int16_t*> (dst);
+         if (legacy_tf)
+-            for (int32_t p = 0; p < width; p++)
+-                *out++ = (int16_t) legacy_int16_to_half (src[p]).bits ();
++            for (int32_t p = 0; p < width; p++, out += sizeof (int16_t))
++                unaligned_store16 (out, legacy_int16_to_half (src[p]).bits ());
+         else
+-            for (int32_t p = 0; p < width; p++)
+-                *out++ = src[p];
++            for (int32_t p = 0; p < width; p++, out += sizeof (int16_t))
++                unaligned_store16 (out, (uint16_t) src[p]);
+     }
+     else if (legacy_tf)
+     {
+-        float* out = static_cast<float*> (dst);
+-        for (int32_t p = 0; p < width; p++)
+-            *out++ = legacy_int32_to_float (src[p]);
++        for (int32_t p = 0; p < width; p++, out += sizeof (float))
++        {
++            float    v = legacy_int32_to_float (src[p]);
++            uint32_t bits;
++            memcpy (&bits, &v, sizeof (bits));
++            unaligned_store32 (out, bits);
++        }
+     }
+     else
+     {
+-        uint32_t* out = static_cast<uint32_t*> (dst);
+-        for (int32_t p = 0; p < width; p++)
+-            *out++ = (uint32_t) src[p];
++        unaligned_store32_array (out, (const uint32_t*) src, width);
+     }
+ }
+ 
+@@ -465,7 +476,7 @@ ht_undo_impl (
+                 computedoffset += (int64_t) decode->channels[i].width *
+                     (int64_t) decode->channels[i].bytes_per_element;
+ 
+-            if (computedoffset > std::numeric_limits<std::size_t>::max())
++            if (computedoffset > std::numeric_limits<std::size_t>::max ())
+                 return EXR_ERR_CORRUPT_CHUNK;
+ 
+             cs_to_file_ch[cs_i].raster_line_offset = computedoffset;
+@@ -538,18 +549,26 @@ ht_undo_impl (
+             return EXR_ERR_CORRUPT_CHUNK;
+     }
+ 
+-    int64_t bpl     = 0;
+-    bool is_planar  = false;
++    int64_t  bpl               = 0;
++    uint64_t decompressed_size = 0;
++    bool     is_planar         = false;
+     for (int16_t c = 0; c < decode->channel_count; c++)
+     {
+-        bpl += (int64_t) decode->channels[c].bytes_per_element *
+-               (int64_t) decode->channels[c].width;
++        if (decode->channels[c].width < 0 || decode->channels[c].height < 0 ||
++            decode->channels[c].bytes_per_element < 0)
++            return EXR_ERR_CORRUPT_CHUNK;
++        int64_t ch_bpl = (int64_t) decode->channels[c].bytes_per_element *
++                         (int64_t) decode->channels[c].width;
++        bpl += ch_bpl;
++        decompressed_size +=
++            (uint64_t) ch_bpl * (uint64_t) decode->channels[c].height;
+         if (decode->channels[c].x_samples > 1 ||
+             decode->channels[c].y_samples > 1)
+         { is_planar = true; }
+     }
+     if (bpl > INT32_MAX || bpl * decode->chunk.height > (int64_t) PTRDIFF_MAX)
+         return EXR_ERR_CORRUPT_CHUNK;
++    if (decompressed_size != uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
+     if (padded && is_planar) return EXR_ERR_CORRUPT_CHUNK;
+     cs.set_planar (is_planar);
+ 
+@@ -646,6 +665,8 @@ ht_undo_impl (
+ 
+     infile.close ();
+ 
++    decode->bytes_decompressed = uncompressed_size;
++
+     return rv;
+ }
+ 
+@@ -873,7 +894,7 @@ ht_apply_impl (exr_encode_pipeline_t* encode)
+             encode->channels[file_c].data_type == EXR_PIXEL_HALF ? 16 : 32,
+             encode->channels[file_c].data_type != EXR_PIXEL_UINT);
+ 
+-        bpl += encode->channels[file_c].bytes_per_element *
++        bpl += (int64_t) encode->channels[file_c].bytes_per_element *
+                encode->channels[file_c].width;
+     }
+     if (bpl > INT32_MAX || bpl * encode->chunk.height > (int64_t) PTRDIFF_MAX)
+@@ -944,30 +965,32 @@ ht_apply_impl (exr_encode_pipeline_t* encode)
+                             if (encode->channels[file_c].data_type ==
+                                 EXR_PIXEL_HALF)
+                             {
+-                                int16_t* channel_pixels = (int16_t*) (line_pixels);
+                                 for (int32_t p = 0;
+                                      p < encode->channels[file_c].width;
+                                     p++)
+                                 {
+-                                    cur_line->i32[p] = *channel_pixels++;
++                                    cur_line->i32[p] = (int16_t) unaligned_load16 (
++                                        line_pixels + (int64_t) p * 2);
+                                 }
+                             }
+                             else
+                             {
+-                                int32_t* channel_pixels = (int32_t*) (line_pixels);
+-                                for (int32_t p = 0;
+-                                     p < encode->channels[file_c].width;
+-                                    p++)
+-                                {
+-                                    cur_line->i32[p] = *channel_pixels++;
+-                                }
++                                /* samples may be unaligned */
++                                memcpy (
++                                    cur_line->i32,
++                                    line_pixels,
++                                    (size_t) encode->channels[file_c].width *
++                                        sizeof (int32_t));
++                                priv_to_native32 (
++                                    cur_line->i32,
++                                    encode->channels[file_c].width);
+                             }
+ 
+                             assert (next_comp == c);
+                             cur_line = cs.exchange (cur_line, next_comp);
+                         }
+ 
+-                        line_pixels += encode->channels[line_c].bytes_per_element *
++                        line_pixels += (int64_t) encode->channels[line_c].bytes_per_element *
+                                     encode->channels[line_c].width;
+                     }
+                 }
+@@ -994,25 +1017,24 @@ ht_apply_impl (exr_encode_pipeline_t* encode)
+                     int file_c = cs_channel_info[c].file_index;
+                     const int32_t cw     = encode->channels[file_c].width;
+ 
++                    const uint8_t* channel_pixels =
++                        src_line + cs_channel_info[c].raster_line_offset;
+                     if (encode->channels[file_c].data_type == EXR_PIXEL_HALF)
+                     {
+-                        int16_t* channel_pixels =
+-                            (int16_t*) (src_line +
+-                                        cs_channel_info[c].raster_line_offset);
+                         for (int32_t p = 0; p < cw; p++)
+                         {
+-                            cur_line->i32[p] = *channel_pixels++;
++                            cur_line->i32[p] = (int16_t) unaligned_load16 (
++                                channel_pixels + (int64_t) p * 2);
+                         }
+                     }
+                     else
+                     {
+-                        int32_t* channel_pixels =
+-                            (int32_t*) (src_line +
+-                                        cs_channel_info[c].raster_line_offset);
+-                        for (int32_t p = 0; p < cw; p++)
+-                        {
+-                            cur_line->i32[p] = *channel_pixels++;
+-                        }
++                        /* samples may be unaligned */
++                        memcpy (
++                            cur_line->i32,
++                            channel_pixels,
++                            (size_t) cw * sizeof (int32_t));
++                        priv_to_native32 (cur_line->i32, cw);
+                     }
+                     for (int32_t p = cw; p < image_width; p++)
+                         cur_line->i32[p] = cur_line->i32[cw - 1];
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_ht_common.cpp b/Source/OpenEXR/OpenEXRCore/internal_ht_common.cpp
+index 2e10be8..bf6e5da 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_ht_common.cpp
++++ b/Source/OpenEXR/OpenEXRCore/internal_ht_common.cpp
+@@ -142,7 +142,7 @@ make_channel_map (
+         cs_to_file_ch[2].file_index = b_index;
+ 
+         int avail_cs_i = 3;
+-        int offset = 0;
++        size_t offset = 0;
+         for (int file_i = 0; file_i < channel_count; file_i++)
+         {
+             int cs_i;
+@@ -158,17 +158,17 @@ make_channel_map (
+ 
+             cs_to_file_ch[cs_i].file_index = file_i;
+             cs_to_file_ch[cs_i].raster_line_offset = offset;
+-            offset += channels[file_i].width * channels[file_i].bytes_per_element;
++            offset += (size_t) channels[file_i].width * (size_t) channels[file_i].bytes_per_element;
+         }
+     }
+     else
+     {
+-        int offset = 0;
++        size_t offset = 0;
+         for (size_t file_i = 0; file_i < static_cast<size_t>(channel_count); file_i++)
+         {
+             cs_to_file_ch[file_i].file_index = file_i;
+             cs_to_file_ch[file_i].raster_line_offset = offset;
+-            offset += channels[file_i].width * channels[file_i].bytes_per_element;
++            offset += (size_t) channels[file_i].width * (size_t) channels[file_i].bytes_per_element;
+         }
+     }
+ 
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_ht_quality.h b/Source/OpenEXR/OpenEXRCore/internal_ht_quality.h
+index 968ae56..5c1b0ba 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_ht_quality.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_ht_quality.h
+@@ -6,7 +6,12 @@
+ #ifndef OPENEXR_PRIVATE_HT_QUALITY_H
+ #define OPENEXR_PRIVATE_HT_QUALITY_H
+ 
++#ifdef __cplusplus
++#include <cmath>
++using std::isfinite;
++#else
+ #include <math.h>
++#endif
+ 
+ /** Lower bound of the valid range for the LJ2K lossy quality level. */
+ #define MIN_LOSSY_HTJ2K_QUALITY 1.f
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_structs.c b/Source/OpenEXR/OpenEXRCore/internal_structs.c
+index e39ffd0..4bed654 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_structs.c
++++ b/Source/OpenEXR/OpenEXRCore/internal_structs.c
+@@ -9,6 +9,7 @@
+ #include "internal_constants.h"
+ #include "internal_memory.h"
+ 
++#include <limits.h>
+ #include <stdarg.h>
+ #include <stdio.h>
+ #include <string.h>
+@@ -178,8 +179,9 @@ internal_exr_destroy_parts (exr_context_t ctxt)
+ 
+     if (ctxt->parts != &(ctxt->init_part)) ctxt->free_fn (ctxt->parts);
+     ctxt->init_part = NULL;
+-    ctxt->parts     = NULL;
+-    ctxt->num_parts = 0;
++    ctxt->parts         = NULL;
++    ctxt->part_capacity = 0;
++    ctxt->num_parts     = 0;
+ }
+ 
+ /**************************************/
+@@ -191,6 +193,7 @@ internal_exr_add_part (
+     int              ncount = f->num_parts + 1;
+     exr_priv_part_t  part;
+     exr_priv_part_t* nptrs = NULL;
++    int              newcapacity = 0;
+ 
+     if (new_index) *new_index = f->num_parts;
+ 
+@@ -201,18 +204,32 @@ internal_exr_add_part (
+         /* also need a pointer to pointer... */
+         f->init_part = part;
+         nptrs        = &(f->init_part);
++        newcapacity  = 1;
+     }
+     else
+     {
+         part = f->alloc_fn (sizeof (struct _priv_exr_part_t));
+         if (!part) return f->standard_error (f, EXR_ERR_OUT_OF_MEMORY);
+ 
+-        nptrs = f->alloc_fn (sizeof (exr_priv_part_t) * (size_t) ncount);
+-        if (!nptrs)
++        if (ncount > f->part_capacity)
+         {
+-            f->free_fn (part);
+-            return f->standard_error (f, EXR_ERR_OUT_OF_MEMORY);
++            /* grow geometrically so adding N parts is O(N), not O(N^2) */
++            int newcap = f->part_capacity < 4
++                             ? 4
++                             : (f->part_capacity <= INT_MAX / 2
++                                    ? f->part_capacity * 2
++                                    : ncount);
++
++            nptrs = f->alloc_fn (sizeof (exr_priv_part_t) * (size_t) newcap);
++            if (!nptrs)
++            {
++                f->free_fn (part);
++                return f->standard_error (f, EXR_ERR_OUT_OF_MEMORY);
++            }
++            newcapacity = newcap;
+         }
++        else
++            nptrs = f->parts;
+     }
+     memset (part, 0, sizeof (struct _priv_exr_part_t));
+ 
+@@ -231,15 +248,19 @@ internal_exr_add_part (
+     part->zstd_compression_level = f->default_zstd_level;
+ 
+     /* put it into the part table */
+-    for (int p = 0; p < f->num_parts; ++p)
++    if (nptrs != f->parts)
+     {
+-        nptrs[p] = f->parts[p];
++        for (int p = 0; p < f->num_parts; ++p)
++        {
++            nptrs[p] = f->parts[p];
++        }
++
++        if (f->parts && f->parts != &(f->init_part)) { f->free_fn (f->parts); }
++        f->parts         = nptrs;
++        f->part_capacity = newcapacity;
+     }
+     nptrs[f->num_parts] = part;
+-
+-    if (f->parts && f->parts != &(f->init_part)) { f->free_fn (f->parts); }
+-    f->parts     = nptrs;
+-    f->num_parts = ncount;
++    f->num_parts        = ncount;
+     if (outpart) *outpart = part;
+ 
+     return EXR_ERR_SUCCESS;
+@@ -274,7 +295,8 @@ internal_exr_revert_add_part (
+         if (ctxt->parts && ctxt->parts != &(ctxt->init_part))
+             ctxt->free_fn (ctxt->parts);
+ 
+-        ctxt->parts = NULL;
++        ctxt->parts         = NULL;
++        ctxt->part_capacity = 0;
+     }
+     ctxt->num_parts = ncount;
+ }
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_structs.h b/Source/OpenEXR/OpenEXRCore/internal_structs.h
+index a170aaa..f777de1 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_structs.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_structs.h
+@@ -233,6 +233,8 @@ struct _priv_exr_context_t
+     /* cheap array of one */
+     exr_priv_part_t  init_part;
+     exr_priv_part_t* parts;
++    /* allocated capacity of the parts array, grown geometrically */
++    int part_capacity;
+ 
+     exr_attribute_list_t custom_handlers;
+ 
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_util.h b/Source/OpenEXR/OpenEXRCore/internal_util.h
+index f25b3c8..6e2f87b 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_util.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_util.h
+@@ -38,7 +38,8 @@ compute_sampled_height (int height, int y_sampling, int start_y)
+         }
+ 
+         tmph = height - off;
+-        if (tmph == 0) return 0;
++        /* tmph is negative when the chunk holds none of the sampled rows */
++        if (tmph <= 0) return 0;
+         --tmph;
+         nlines = tmph / y_sampling + 1;
+     }
+@@ -61,4 +62,26 @@ compute_sampled_width (int width, int x_sampling, int start_x)
+     return (width == 1) ? 1 : (width / x_sampling);
+ }
+ 
++/* Multiplies @p a by @p b and adds the result into @p accum, all as
++ * uint64_t. Returns 1 and leaves @p accum unmodified if either the
++ * multiplication or the subsequent accumulation would overflow a
++ * 64-bit unsigned integer, otherwise returns 0. Used to guard
++ * unpacked / scratch buffer size computations (width * height *
++ * bytes-per-pixel * channel-count) against wraparound on crafted
++ * files with extreme dimensions or channel counts. */
++static inline int
++checked_mul_accum_u64 (uint64_t* accum, uint64_t a, uint64_t b)
++{
++    uint64_t prod, sum;
++
++    if (a != 0 && b > (UINT64_MAX / a)) return 1;
++    prod = a * b;
++
++    sum = *accum + prod;
++    if (sum < *accum) return 1;
++
++    *accum = sum;
++    return 0;
++}
++
+ #endif /* OPENEXR_PRIVATE_UTIL_H */
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_win32_file_impl.h b/Source/OpenEXR/OpenEXRCore/internal_win32_file_impl.h
+index 39bdc37..7bc3a67 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_win32_file_impl.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_win32_file_impl.h
+@@ -301,8 +301,14 @@ default_init_read_file (exr_context_t file)
+     wcFn = widen_filename (file, file->filename.str);
+     if (wcFn)
+     {
+-        // CreateFileW supports older Windows versions and provides all
+-        // functionality used here, regardless of the build target macro.
++        //
++        // CreateFile2() is unavailable on Windows 7, and _WIN32_WINNT
++        // reflects the SDK used to compile, not the minimum OS the
++        // resulting binary actually targets/runs on, so it cannot be
++        // used to safely select CreateFile2() over CreateFileW() here.
++        // None of CreateFile2()'s extended functionality is used below,
++        // so just use CreateFileW() unconditionally.
++        //
+         fd = CreateFileW (
+             wcFn,
+             GENERIC_READ,
+@@ -345,8 +351,8 @@ default_init_write_file (exr_context_t file)
+     wcFn = widen_filename (file, outfn);
+     if (wcFn)
+     {
+-        // CreateFileW supports older Windows versions and provides all
+-        // functionality used here, regardless of the build target macro.
++        // see default_init_read_file() above for why CreateFileW() is
++        // used unconditionally instead of CreateFile2()
+         fd = CreateFileW (
+             wcFn,
+             GENERIC_WRITE | DELETE,
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_xdr.h b/Source/OpenEXR/OpenEXRCore/internal_xdr.h
+index 2c394b2..ac0f8bc 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_xdr.h
++++ b/Source/OpenEXR/OpenEXRCore/internal_xdr.h
+@@ -19,6 +19,12 @@
+ #elif defined(_WIN32) || defined(_WIN64)
+ 
+ #    include <stdlib.h>
++/* Prevent windows.h from defining the min/max macros, which would
++ * otherwise expand any call to std::numeric_limits<T>::max ()/min (). */
++#    ifdef NOMINMAX
++#        undef NOMINMAX
++#    endif
++#    define NOMINMAX
+ #    include <windows.h>
+ #    define EXR_HOST_IS_NOT_LITTLE_ENDIAN (BYTE_ORDER != LITTLE_ENDIAN)
+ #    if EXR_HOST_IS_NOT_LITTLE_ENDIAN
+@@ -280,4 +286,21 @@ unaligned_load32 (const void* src)
+     return one_to_native32 (tmp);
+ }
+ 
++/**************************************/
++
++/* Copies an array of native-order 32-bit values into a possibly-unaligned,
++ * little-endian (file order) destination buffer. A no-op byte-swap on
++ * little-endian hosts, so this degrades to a single memcpy there. */
++static inline void
++unaligned_store32_array (void* dst, const uint32_t* src, int n)
++{
++#if EXR_HOST_IS_NOT_LITTLE_ENDIAN
++    uint8_t* out = (uint8_t*) dst;
++    for (int i = 0; i < n; ++i, out += sizeof (uint32_t))
++        unaligned_store32 (out, src[i]);
++#else
++    memcpy (dst, src, (size_t) n * sizeof (uint32_t));
++#endif
++}
++
+ #endif /* OPENEXR_PRIVATE_XDR_H */
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_zstd.c b/Source/OpenEXR/OpenEXRCore/internal_zstd.c
+index 344633a..21a0759 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_zstd.c
++++ b/Source/OpenEXR/OpenEXRCore/internal_zstd.c
+@@ -8,6 +8,7 @@
+ #include "internal_decompress.h"
+ #include "internal_coding.h"
+ #include "internal_structs.h"
++#include "internal_xdr.h"
+ #include <limits.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -21,6 +22,10 @@
+ #    include <pthread.h>
+ #endif
+ 
++#ifdef __APPLE__
++#include <AvailabilityMacros.h>
++#endif
++
+ #if defined(_MSC_VER)
+ #    define EXR_ZSTD_THREAD_LOCAL __declspec (thread)
+ #else
+@@ -230,6 +235,15 @@ ensure_tls_resources (size_t required_size)
+         void* aligned_buf = NULL;
+         if (posix_memalign (&aligned_buf, 64, aligned_size) != 0) return false;
+         tls->shuffle_buf = (uint8_t*) aligned_buf;
++#elif defined(__APPLE__) && (MAC_OS_X_VERSION_MIN_REQUIRED < 101500)
++        // aligned_alloc is only declared by the macOS 10.15+ SDK and only
++        // exists at runtime from 10.15 on; posix_memalign exists from 10.6 on
++        // and its memory is also released by free ().
++        {
++            void* p = NULL;
++            if (posix_memalign (&p, 64, aligned_size) != 0) p = NULL;
++            tls->shuffle_buf = (uint8_t*) p;
++        }
+ #else
+         tls->shuffle_buf = (uint8_t*) aligned_alloc (64, aligned_size);
+ #endif
+@@ -708,7 +722,7 @@ exr_zstd_write_exr_frame_prefix (
+     size_t    zstd_payload_size,
+     uint64_t* out_total)
+ {
+-    memcpy (out, &MAGIC_NUMBER, sizeof (MAGIC_NUMBER));
++    write_u64_le (out, MAGIC_NUMBER);
+     write_u32_le (out + 8, hdr_format);
+     write_u32_le (out + 12, hdr_flags);
+     write_u64_le (out + 16, (uint64_t) zstd_payload_size);
+@@ -773,33 +787,61 @@ zstd_write_exr_v1 (
+ }
+ 
+ bool
+-get_row_sample_count_decode (
+-    const exr_decode_pipeline_t* decode, uint64_t* row_sample_counts)
++get_row_sample_count_encode (
++    const exr_encode_pipeline_t* encode, uint64_t* row_sample_counts)
+ {
+-    if (decode->sample_count_valid == 1 && decode->chunk.width > 0)
++    if (encode->sample_count_alloc_size > 0)
+     {
+-        for (int h = 0; h < decode->chunk.height; ++h)
+-            row_sample_counts[h] =
+-                (uint64_t) decode
+-                    ->sample_count_table[(h + 1) * decode->chunk.width - 1];
++        /* While compressing, the sample count table is in file order
++         * (little-endian): exr_encoding_run converts it in place before
++         * calling compress_fn, and the C++ API builds it with Xdr. */
++        for (int h = 0; h < encode->chunk.height; ++h)
++            row_sample_counts[h] = (uint64_t) read_u32_le (
++                (const uint8_t*) &encode->sample_count_table
++                    [(h + 1) * encode->chunk.width - 1]);
+         return true;
+     }
+     return false;
+ }
+ 
+-bool
+-get_row_sample_count_encode (
+-    const exr_encode_pipeline_t* encode, uint64_t* row_sample_counts)
++/** Validates the raw (file-order, cumulative) sample count table the same way
++ *  unpack_sample_table() does, and returns each row's total in \a row_totals.
++ *  unpack_sample_table() only runs after decompression, but the inverse sort
++ *  sizes its offsets from these counts, so they must be checked first. */
++static exr_result_t
++exr_zstd_validate_raw_sample_counts (
++    const exr_decode_pipeline_t* decode, uint64_t* row_totals)
+ {
+-    if (encode->sample_count_alloc_size > 0)
++    const int64_t  w   = decode->chunk.width;
++    const int64_t  h   = decode->chunk.height;
++    const int32_t* tbl = decode->sample_count_table;
++    uint64_t       tot = 0;
++
++    /* An uncompressed table is used in place: sample_count_table points at
++     * packed_sample_count_table and sample_count_alloc_size is 0. */
++    const uint64_t tbl_size =
++        ((const void*) tbl == decode->packed_sample_count_table)
++            ? decode->chunk.sample_count_table_size
++            : (uint64_t) decode->sample_count_alloc_size;
++
++    if (!tbl || w <= 0 || h <= 0) return EXR_ERR_INVALID_SAMPLE_DATA;
++    if ((uint64_t) w * (uint64_t) h * sizeof (int32_t) > tbl_size)
++        return EXR_ERR_INVALID_SAMPLE_DATA;
++
++    for (int64_t y = 0; y < h; ++y)
+     {
+-        for (int h = 0; h < encode->chunk.height; ++h)
+-            row_sample_counts[h] =
+-                (uint64_t) encode
+-                    ->sample_count_table[(h + 1) * encode->chunk.width - 1];
+-        return true;
++        int32_t prev = 0;
++        for (int64_t x = 0; x < w; ++x)
++        {
++            int32_t n = (int32_t) one_to_native32 ((uint32_t) tbl[y * w + x]);
++            if (n < prev) return EXR_ERR_INVALID_SAMPLE_DATA;
++            prev = n;
++        }
++        row_totals[y] = (uint64_t) prev;
++        tot += (uint64_t) prev;
++        if (tot >= (uint64_t) INT32_MAX) return EXR_ERR_INVALID_SAMPLE_DATA;
+     }
+-    return false;
++    return EXR_ERR_SUCCESS;
+ }
+ 
+ /** Per (chunk line, channel): number of samples packed for that channel on that
+@@ -1299,7 +1341,12 @@ exr_undo_zstd_v1 (
+         (uint64_t*) decode->scratch_buffer_2;
+     uint64_t* const sorting_lookup = channel_sample_count_grid + meta_count;
+ 
+-    (void) get_row_sample_count_decode (decode, sorting_lookup);
++    if (grid_scenario == EXR_ZSTD_GRID_DEEP_PIXELS)
++    {
++        exr_result_t cnt_rv =
++            exr_zstd_validate_raw_sample_counts (decode, sorting_lookup);
++        if (cnt_rv != EXR_ERR_SUCCESS) return cnt_rv;
++    }
+ 
+     exr_zstd_fill_channel_sample_count_grid (
+         grid_scenario,
+@@ -1331,6 +1378,27 @@ exr_undo_zstd_v1 (
+      * destination allocation. */
+     if (split > uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
+ 
++    /* split only covers the 2-byte (half) channels, so for a part with no
++     * half channels (split == 0) the check above does not bound the
++     * 4-byte (float) channels at all. Compute the full grid total (the
++     * actual number of bytes the inverse sort below will write into
++     * uncompressed_data, sized to uncompressed_size) and reject any
++     * chunk where it does not exactly account for the whole buffer,
++     * before sort2_4ByteChannels_tiled() runs. */
++    {
++        uint64_t grid_total = 0;
++        for (int gh = 0; gh < chunk_line_count; ++gh)
++            for (int gi = 0; gi < channel_count; ++gi)
++            {
++                grid_total +=
++                    channel_sample_count_grid[(size_t) gh * channel_count + gi] *
++                    (uint64_t) pack_channels[gi].bytes_per_element;
++                if (grid_total > uncompressed_size)
++                    return EXR_ERR_CORRUPT_CHUNK;
++            }
++        if (grid_total != uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
++    }
++
+     uint64_t  inner_lens[2];
+     uint64_t  inner_els[2];
+     int const n_inner =
+@@ -1386,6 +1454,8 @@ exr_undo_zstd_v1 (
+         (char*) uncompressed_data,
+         sorting_lookup);
+ 
++    decode->bytes_decompressed = uncompressed_size;
++
+     return EXR_ERR_SUCCESS;
+ }
+ 
+@@ -1397,7 +1467,11 @@ internal_exr_undo_zstd (
+     void*                  uncompressed_data,
+     uint64_t               uncompressed_size)
+ {
+-    if (comp_buf_size == 0) return EXR_ERR_SUCCESS;
++    if (comp_buf_size == 0)
++    {
++        decode->bytes_decompressed = 0;
++        return EXR_ERR_SUCCESS;
++    }
+ 
+     const uint8_t* hdr = (const uint8_t*) compressed_data;
+ 
+@@ -1409,6 +1483,7 @@ internal_exr_undo_zstd (
+     {
+         if (comp_buf_size != uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
+         memcpy (uncompressed_data, compressed_data, (size_t) comp_buf_size);
++        decode->bytes_decompressed = uncompressed_size;
+         return EXR_ERR_SUCCESS;
+     }
+ 
+@@ -1425,4 +1500,4 @@ internal_exr_undo_zstd (
+         comp_buf_size,
+         uncompressed_data,
+         uncompressed_size);
+-}
+\ No newline at end of file
++}
+diff --git a/Source/OpenEXR/OpenEXRCore/internal_zstd_delta.c b/Source/OpenEXR/OpenEXRCore/internal_zstd_delta.c
+index 191d5f4..ffd7ea0 100644
+--- a/Source/OpenEXR/OpenEXRCore/internal_zstd_delta.c
++++ b/Source/OpenEXR/OpenEXRCore/internal_zstd_delta.c
+@@ -1,6 +1,14 @@
+ #include <stdint.h>
+ #include <string.h>
+ 
++#include "internal_xdr.h"
++
++/* The packed data is in file order (little-endian), so the delta is taken
++ * on little-endian values: unaligned_load / unaligned_store convert
++ * explicitly, so big-endian hosts produce and accept the same bytes as
++ * little-endian hosts. On little-endian hosts they are plain loads and
++ * stores. */
++
+ /* ========================================================================= */
+ /* SCALAR IMPLEMENTATIONS                                                    */
+ /* ========================================================================= */
+@@ -11,11 +19,9 @@ delta_encode_row_u16_scalar (uint8_t* p, uint64_t n)
+     if (n <= 1) return;
+     for (uint64_t k = n - 1; k > 0; --k)
+     {
+-        uint16_t a, b;
+-        memcpy (&a, p + k * 2, 2);
+-        memcpy (&b, p + (k - 1) * 2, 2);
+-        uint16_t d = (uint16_t) ((unsigned) a - (unsigned) b);
+-        memcpy (p + k * 2, &d, 2);
++        uint16_t a = unaligned_load16 (p + k * 2);
++        uint16_t b = unaligned_load16 (p + (k - 1) * 2);
++        unaligned_store16 (p + k * 2, (uint16_t) ((unsigned) a - (unsigned) b));
+     }
+ }
+ 
+@@ -24,11 +30,9 @@ delta_decode_row_u16_scalar (uint8_t* p, uint64_t n)
+ {
+     for (uint64_t k = 1; k < n; ++k)
+     {
+-        uint16_t a, b;
+-        memcpy (&a, p + k * 2, 2);
+-        memcpy (&b, p + (k - 1) * 2, 2);
+-        uint16_t s = (uint16_t) ((unsigned) a + (unsigned) b);
+-        memcpy (p + k * 2, &s, 2);
++        uint16_t a = unaligned_load16 (p + k * 2);
++        uint16_t b = unaligned_load16 (p + (k - 1) * 2);
++        unaligned_store16 (p + k * 2, (uint16_t) ((unsigned) a + (unsigned) b));
+     }
+ }
+ 
+@@ -38,11 +42,9 @@ delta_encode_row_u32_scalar (uint8_t* p, uint64_t n)
+     if (n <= 1) return;
+     for (uint64_t k = n - 1; k > 0; --k)
+     {
+-        uint32_t a, b;
+-        memcpy (&a, p + k * 4, 4);
+-        memcpy (&b, p + (k - 1) * 4, 4);
+-        uint32_t d = a - b;
+-        memcpy (p + k * 4, &d, 4);
++        uint32_t a = unaligned_load32 (p + k * 4);
++        uint32_t b = unaligned_load32 (p + (k - 1) * 4);
++        unaligned_store32 (p + k * 4, a - b);
+     }
+ }
+ 
+@@ -51,11 +53,9 @@ delta_decode_row_u32_scalar (uint8_t* p, uint64_t n)
+ {
+     for (uint64_t k = 1; k < n; ++k)
+     {
+-        uint32_t a, b;
+-        memcpy (&a, p + k * 4, 4);
+-        memcpy (&b, p + (k - 1) * 4, 4);
+-        uint32_t s = a + b;
+-        memcpy (p + k * 4, &s, 4);
++        uint32_t a = unaligned_load32 (p + k * 4);
++        uint32_t b = unaligned_load32 (p + (k - 1) * 4);
++        unaligned_store32 (p + k * 4, a + b);
+     }
+ }
+ 
+diff --git a/Source/OpenEXR/OpenEXRCore/openexr_attr.h b/Source/OpenEXR/OpenEXRCore/openexr_attr.h
+index c11f2a0..dcce7f0 100644
+--- a/Source/OpenEXR/OpenEXRCore/openexr_attr.h
++++ b/Source/OpenEXR/OpenEXRCore/openexr_attr.h
+@@ -451,6 +451,14 @@ typedef enum
+  * standard names may use a static string to avoid allocating space
+  * for those as necessary with the pointers pointing to static strings
+  * (not to be freed). Finally, small values are optimized for.
++ *
++ * The value members below form a union of pointers of different types
++ * that can be used to type pun to an appropriate type for builtins. Do
++ * note that while this looks like a big thing, it is only the size of a
++ * single pointer. These are all pointers into some other data block
++ * storing the value you want, with the exception of the pod types which
++ * are just put in place (i.e. small value optimization). The attribute
++ * type \c type should directly correlate to one of these entries.
+  */
+ typedef struct
+ {
+@@ -468,16 +476,8 @@ typedef struct
+     /** Enum of the attribute type. */
+     exr_attribute_type_t type;
+ 
+-    /** Union of pointers of different types that can be used to type
+-     * pun to an appropriate type for builtins. Do note that while
+-     * this looks like a big thing, it is only the size of a single
+-     * pointer.  These are all pointers into some other data block
+-     * storing the value you want, with the exception of the pod types
+-     * which are just put in place (i.e. small value optimization).
+-     *
+-     * The attribute type \c type should directly correlate to one
+-     * of these entries.
+-     */
++    /** \private Anonymous unions have no name doxygen can emit; the value
++     * members are documented in the struct description above. */
+     union
+     {
+         // NB: not pointers for POD types
+diff --git a/Source/OpenEXR/OpenEXRCore/openexr_chunkio.h b/Source/OpenEXR/OpenEXRCore/openexr_chunkio.h
+index def8392..bc344a7 100644
+--- a/Source/OpenEXR/OpenEXRCore/openexr_chunkio.h
++++ b/Source/OpenEXR/OpenEXRCore/openexr_chunkio.h
+@@ -106,6 +106,12 @@ exr_result_t exr_read_chunk (
+  * but this is a routine to get the sample count table and the packed
+  * data in one go, or if you want to pre-read the sample count data,
+  * you can get just that buffer.
++ *
++ * Both buffers are returned as stored in the file. If the part is
++ * compressed, the sample count table is compressed too. If it is not,
++ * the table holds cumulative per-scanline counts as little-endian
++ * 32-bit integers, which callers must convert on big-endian hosts. Use
++ * the decode pipeline to get native-order counts.
+  */
+ EXR_EXPORT
+ exr_result_t exr_read_deep_chunk (
+diff --git a/Source/OpenEXR/OpenEXRCore/openexr_coding.h b/Source/OpenEXR/OpenEXRCore/openexr_coding.h
+index 10c9e9a..8f0b253 100644
+--- a/Source/OpenEXR/OpenEXRCore/openexr_coding.h
++++ b/Source/OpenEXR/OpenEXRCore/openexr_coding.h
+@@ -121,15 +121,20 @@ typedef struct
+      */
+     int32_t user_line_stride;
+ 
+-    /** This data member has different requirements reading vs
+-     * writing. When reading, if this is left as `NULL`, the channel
+-     * will be skipped during read and not filled in.  During a write
+-     * operation, this pointer is considered const and not
+-     * modified. To make this more clear, a union is used here.
+-     */
++    /** \private Anonymous unions have no name doxygen can emit, so the
++     * members below carry the documentation instead. */
+     union
+     {
+-        uint8_t*       decode_to_ptr;
++        /** Destination buffer when decoding.
++         *
++         * If this is left as `NULL`, the channel will be skipped
++         * during read and not filled in.
++         */
++        uint8_t* decode_to_ptr;
++        /** Source buffer when encoding.
++         *
++         * This pointer is considered const and is not modified.
++         */
+         const uint8_t* encode_from_ptr;
+     };
+ } exr_coding_channel_info_t;
+diff --git a/Source/OpenEXR/OpenEXRCore/openexr_version.h b/Source/OpenEXR/OpenEXRCore/openexr_version.h
+index 70bd465..ee6d24a 100644
+--- a/Source/OpenEXR/OpenEXRCore/openexr_version.h
++++ b/Source/OpenEXR/OpenEXRCore/openexr_version.h
+@@ -15,7 +15,7 @@
+ #    define OPENEXR_VERSION_MINOR 5
+ #    endif
+ #    ifndef OPENEXR_VERSION_PATCH
+-#    define OPENEXR_VERSION_PATCH 2
++#    define OPENEXR_VERSION_PATCH 3
+ #    endif
+ 
+ #endif
+diff --git a/Source/OpenEXR/OpenEXRCore/parse_header.c b/Source/OpenEXR/OpenEXRCore/parse_header.c
+index 2226fba..eb3b979 100644
+--- a/Source/OpenEXR/OpenEXRCore/parse_header.c
++++ b/Source/OpenEXR/OpenEXRCore/parse_header.c
+@@ -2531,14 +2531,14 @@ internal_exr_compute_chunk_offset_size (exr_priv_part_t curpart)
+         for (int c = 0; c < channels->num_channels; ++c)
+         {
+             /* tiles do not allow x/y sub sampling */
+-            uint64_t cunpsz = 0;
+-            if (channels->entries[c].pixel_type == EXR_PIXEL_HALF)
+-                cunpsz = 2;
+-            else
+-                cunpsz = 4;
+-            cunpsz *= (uint64_t) tiledesc->x_size;
+-            cunpsz *= (uint64_t) tiledesc->y_size;
+-            unpackedsize += cunpsz;
++            uint64_t cunpsz = (channels->entries[c].pixel_type == EXR_PIXEL_HALF)
++                                  ? 2
++                                  : 4;
++            if (checked_mul_accum_u64 (
++                    &unpackedsize,
++                    cunpsz,
++                    (uint64_t) tiledesc->x_size * (uint64_t) tiledesc->y_size))
++                return -1;
+         }
+         curpart->unpacked_size_per_chunk = unpackedsize;
+         curpart->chan_has_line_sampling  = ((int16_t) hasLineSample);
+@@ -2557,16 +2557,17 @@ internal_exr_compute_chunk_offset_size (exr_priv_part_t curpart)
+         {
+             int xsamp  = channels->entries[c].x_sampling;
+             int ysamp  = channels->entries[c].y_sampling;
+-            uint64_t cunpsz = 0;
+-            if (channels->entries[c].pixel_type == EXR_PIXEL_HALF)
+-                cunpsz = 2;
+-            else
+-                cunpsz = 4;
+-            cunpsz *= (uint64_t) compute_sampled_width (w, xsamp, dw.min.x);
+-            cunpsz *= (uint64_t) compute_sampled_height (linePerChunk, ysamp, dw.min.y);
++            uint64_t cunpsz = (channels->entries[c].pixel_type == EXR_PIXEL_HALF)
++                                  ? 2
++                                  : 4;
++            uint64_t sampw =
++                (uint64_t) compute_sampled_width ((int) w, xsamp, dw.min.x);
++            uint64_t samph = (uint64_t) compute_sampled_height (
++                linePerChunk, ysamp, dw.min.y);
+             if (ysamp > 1)
+                 hasLineSample = 1;
+-            unpackedsize += cunpsz;
++            if (checked_mul_accum_u64 (&unpackedsize, cunpsz, sampw * samph))
++                return -1;
+         }
+ 
+         curpart->unpacked_size_per_chunk = unpackedsize;
+diff --git a/Source/OpenEXR/OpenEXRCore/part_attr.c b/Source/OpenEXR/OpenEXRCore/part_attr.c
+index 18ecd32..a8a092f 100644
+--- a/Source/OpenEXR/OpenEXRCore/part_attr.c
++++ b/Source/OpenEXR/OpenEXRCore/part_attr.c
+@@ -497,8 +497,29 @@ copy_attr (
+         default: rv = ctxt->standard_error (ctxt, EXR_ERR_INVALID_ATTR); break;
+     }
+ 
+-    if (rv != EXR_ERR_SUCCESS)
++    if (rv != EXR_ERR_SUCCESS && attr)
++    {
++        // the required attributes are cached in the part; don't leave any of
++        // them pointing at the attribute that is about to be freed
++        exr_attribute_t** cached[] = {
++            &part->channels,
++            &part->compression,
++            &part->dataWindow,
++            &part->displayWindow,
++            &part->lineOrder,
++            &part->pixelAspectRatio,
++            &part->screenWindowCenter,
++            &part->screenWindowWidth,
++            &part->tiles,
++            &part->name,
++            &part->type,
++            &part->version,
++            &part->chunkCount};
++        for (size_t i = 0; i < sizeof (cached) / sizeof (cached[0]); ++i)
++            if (*cached[i] == attr) *cached[i] = NULL;
++
+         exr_attr_list_remove (ctxt, &(part->attributes), attr);
++    }
+ 
+     return rv;
+ }
+@@ -552,7 +573,7 @@ exr_copy_unset_attributes (
+         else { rv = EXR_ERR_SUCCESS; }
+     }
+ 
+-    if (update_tiles)
++    if (update_tiles && rv == EXR_ERR_SUCCESS)
+         rv = internal_exr_compute_tile_information (ctxt, part, 1);
+ 
+     if (source != ctxt) internal_exr_unlock (source);
+diff --git a/Source/OpenEXR/OpenEXRCore/unpack.c b/Source/OpenEXR/OpenEXRCore/unpack.c
+index fc92c1a..025ac2d 100644
+--- a/Source/OpenEXR/OpenEXRCore/unpack.c
++++ b/Source/OpenEXR/OpenEXRCore/unpack.c
+@@ -96,11 +96,6 @@ half_to_float8 (float* out, const uint16_t* src)
+     half_to_float4 (out, src);
+     half_to_float4 (out + 4, src + 4);
+ }
+-#else
+-/* when we explicitly compile against f16, force it in, do not need a chooser */
+-static inline void
+-choose_half_to_float_impl (void)
+-{}
+ #endif
+ 
+ #ifdef ENABLE_F16C_TEST
+@@ -148,7 +143,10 @@ half_to_float_buffer_impl (float* out, const uint16_t* in, int w)
+ static void (*half_to_float_buffer) (float*, const uint16_t*, int) =
+     &half_to_float_buffer_impl;
+ 
+-static inline void
++/* Execute this once at startup; has_native_half() is deterministic and only
++ * reads CPU feature bits, so the value is a per-process constant. 
++ */
++__attribute__ ((constructor)) static void
+ choose_half_to_float_impl (void)
+ {
+     if (has_native_half ()) half_to_float_buffer = &half_to_float_buffer_f16c;
+@@ -204,10 +202,6 @@ half_to_float_buffer (float* out, const uint16_t* in, int w)
+ #    endif
+ }
+ 
+-static void
+-choose_half_to_float_impl (void)
+-{}
+-
+ #endif
+ 
+ /**************************************/
+@@ -1082,11 +1076,24 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+     return EXR_ERR_SUCCESS;
+ }
+ 
++/* user buffers are native-endian and may be arbitrarily aligned */
++static inline void
++store_native16 (void* dst, uint16_t v)
++{
++    memcpy (dst, &v, sizeof (v));
++}
++
++static inline void
++store_native32 (void* dst, uint32_t v)
++{
++    memcpy (dst, &v, sizeof (v));
++}
++
+ #define UNPACK_HALF_TO_HALF_SAMPLES(samps)                                     \
+                     const uint16_t* src = (const uint16_t*) srcbuffer;         \
+                     for (int s = 0; s < samps; ++s)                            \
+                     {                                                          \
+-                        *((uint16_t*) cdata) = unaligned_load16 (src);         \
++                        store_native16 (cdata, unaligned_load16 (src));        \
+                         ++src;                                                 \
+                         cdata += ubpc;                                         \
+                     }
+@@ -1097,7 +1104,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     {                                                          \
+                         uint16_t cval = unaligned_load16 (src);                \
+                         ++src;                                                 \
+-                        *((float*) cdata) = half_to_float (cval);              \
++                        store_native32 (cdata, half_to_float_int (cval));      \
+                         cdata += ubpc;                                         \
+                     }
+ 
+@@ -1107,7 +1114,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     {                                                          \
+                         uint16_t cval = unaligned_load16 (src);                \
+                         ++src;                                                 \
+-                        *((uint32_t*) cdata) = half_to_uint (cval);            \
++                        store_native32 (cdata, half_to_uint (cval));           \
+                         cdata += ubpc;                                         \
+                     }
+ 
+@@ -1117,7 +1124,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     {                                                          \
+                         uint32_t fint = unaligned_load32 (src);                \
+                         ++src;                                                 \
+-                        *((uint16_t*) cdata) = float_to_half_int (fint);       \
++                        store_native16 (cdata, float_to_half_int (fint));      \
+                         cdata += ubpc;                                         \
+                     }
+ 
+@@ -1125,7 +1132,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     const uint32_t* src = (const uint32_t*) srcbuffer;         \
+                     for (int s = 0; s < samps; ++s)                            \
+                     {                                                          \
+-                        *((uint32_t*) cdata) = unaligned_load32 (src);         \
++                        store_native32 (cdata, unaligned_load32 (src));        \
+                         ++src;                                                 \
+                         cdata += ubpc;                                         \
+                     }
+@@ -1136,7 +1143,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     {                                                          \
+                         uint32_t fint = unaligned_load32 (src);                \
+                         ++src;                                                 \
+-                        *((uint32_t*) cdata) = float_to_uint_int (fint);       \
++                        store_native32 (cdata, float_to_uint_int (fint));      \
+                         cdata += ubpc;                                         \
+                     }
+ 
+@@ -1146,7 +1153,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     {                                                          \
+                         uint32_t fint = unaligned_load32 (src);                \
+                         ++src;                                                 \
+-                        *((uint16_t*) cdata) = uint_to_half (fint);            \
++                        store_native16 (cdata, uint_to_half (fint));           \
+                         cdata += ubpc;                                         \
+                     }
+ 
+@@ -1156,7 +1163,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     {                                                          \
+                         uint32_t fint = unaligned_load32 (src);                \
+                         ++src;                                                 \
+-                        *((float*) cdata) = uint_to_float (fint);              \
++                        store_native32 (cdata, uint_to_float_int (fint));      \
+                         cdata += ubpc;                                         \
+                     }
+ 
+@@ -1164,7 +1171,7 @@ unpack_32bit (exr_decode_pipeline_t* decode)
+                     const uint32_t* src = (const uint32_t*) srcbuffer;         \
+                     for (int s = 0; s < samps; ++s)                            \
+                     {                                                          \
+-                        *((uint32_t*) cdata) = unaligned_load32 (src);         \
++                        store_native32 (cdata, unaligned_load32 (src));        \
+                         ++src;                                                 \
+                         cdata += ubpc;                                         \
+                     }
+@@ -1703,17 +1710,6 @@ internal_exr_match_decode (
+     int                    simpinterleaverev,
+     int                    simplineoff)
+ {
+-#ifdef EXR_HAS_STD_ATOMICS
+-    static atomic_int init_cpu_check = 1;
+-#else
+-    static int init_cpu_check = 1;
+-#endif
+-    if (init_cpu_check)
+-    {
+-        choose_half_to_float_impl ();
+-        init_cpu_check = 0;
+-    }
+-
+     if (isdeep)
+     {
+         if ((decode->decode_flags & EXR_DECODE_NON_IMAGE_DATA_AS_POINTERS))
+diff --git a/Source/OpenEXR/OpenEXRCore/validation.c b/Source/OpenEXR/OpenEXRCore/validation.c
+index 02ea9f7..5fcaeaa 100644
+--- a/Source/OpenEXR/OpenEXRCore/validation.c
++++ b/Source/OpenEXR/OpenEXRCore/validation.c
+@@ -12,6 +12,7 @@
+ 
+ #include <limits.h>
+ #include <math.h>
++#include <stdint.h>
+ #include <stdio.h>
+ #include <string.h>
+ 
+@@ -415,6 +416,22 @@ validate_channels (
+         return f->report_error (
+             f, EXR_ERR_FILE_BAD_HEADER, "At least one channel required");
+ 
++    /* Internal coding pipeline structures (exr_coding_channel_info_t
++     * descriptor counts, exr_decode/encode_pipeline_t::channel_count)
++     * store the channel count in an int16_t. A channel list larger than
++     * this silently truncates downstream (e.g. 73,728 channels wraps to
++     * 8,192), decoupling the actual channel count from the one used to
++     * size scratch/unpacked buffers and leading to undersized
++     * allocations relative to the data actually unpacked. Reject such
++     * files outright. */
++    if (channels->num_channels > INT16_MAX)
++        return f->print_error (
++            f,
++            EXR_ERR_FILE_BAD_HEADER,
++            "Channel count (%d) exceeds maximum supported value (%d)",
++            channels->num_channels,
++            (int) INT16_MAX);
++
+     dw = curpart->data_window;
+     w  = (int64_t) dw.max.x - (int64_t) dw.min.x + 1;
+     h  = (int64_t) dw.max.y - (int64_t) dw.min.y + 1;
+diff --git a/THIRD_PARTY_VERSIONS.md b/THIRD_PARTY_VERSIONS.md
+index 3103673..dea6bd3 100644
+--- a/THIRD_PARTY_VERSIONS.md
++++ b/THIRD_PARTY_VERSIONS.md
+@@ -12,7 +12,7 @@ these libraries has a newer stable upstream release.
+ 
+ | Library | Path | Vendored | Latest upstream | Status | Version source |
+ |---|---|---|---|---|---|
+-| OpenEXR | `Source/OpenEXR` | 3.5.2 | 3.5.2 (2026-10-02) | up to date; includes upstream ARM64EC guards | `OpenEXRConfig.h` |
++| OpenEXR | `Source/OpenEXR` | 3.5.3 | 3.5.3 (2026-10-31) | up to date; includes upstream ARM64EC guards | `OpenEXRConfig.h` |
+ | Imath | `Source/Imath` | 3.2.3 | 3.2.3 (2026-08-20) | up to date | `ImathConfig.h` |
+ | LibDeflate | `Source/LibDeflate` | 1.26 | 1.26 (2026-08-22) | up to date; requires C11 | `libdeflate.h` |
+ | LibJPEG (IJG) | `Source/LibJPEG` | 10.0 (25-Jan-2026) | 10.0 (25-Jan-2026) | up to date | `jversion.h` |
+@@ -31,8 +31,9 @@ optional codec archives were verified against the SHA-256 digests in
+ were also reviewed. Little CMS 2.19.1 retains `LCMS_VERSION` 2190 in its public
+ header; the bundled archive is the upstream 2.19.1 release artifact.
+ 
+-Since 3.19.28, libaom moved from 3.15.1 to 3.15.2. Other bundled versions
+-are unchanged.
++Since 3.19.29, OpenEXR moved from 3.5.2 to 3.5.3, Little CMS from 2.19.1 to
++2.20 (`LCMS_VERSION` 2200), and libaom from 3.15.2 to 3.15.3. Other bundled
++versions are unchanged.
+ OpenEXR, LibDeflate and LibTIFF4 were previously re-synced for #137; OpenEXR
+ 3.5.2 and libpng 1.6.59 followed in #148.
+ 
+@@ -44,7 +45,7 @@ latest-upstream column above retains the previous release review; the
+ version/hash audit does not assert that every bundled dependency is the
+ latest available upstream release.
+ 
+-OpenEXR 3.5.2 also brings these upstream-vendored auxiliary codecs:
++OpenEXR 3.5.3 also brings these upstream-vendored auxiliary codecs:
+ 
+ | Library | Path | Vendored | Version source |
+ |---|---|---|---|
+diff --git a/scripts/vendor/NOTES.md b/scripts/vendor/NOTES.md
+index 0f9bbe3..d865f00 100644
+--- a/scripts/vendor/NOTES.md
++++ b/scripts/vendor/NOTES.md
+@@ -6,7 +6,7 @@ Current vendored releases (issue #137, updated for issue #148):
+ |---|---|---|---|
+ | libdeflate | `v1.26` | `92e6a0db9fa848d742f9eb286c92afc60f2c3dda` | `common_defs.h`, `libdeflate.h`, `lib/` |
+ | libtiff | `v4.7.2` | `d01a94be176f5f6a87f7ee1c0b32e65416aa2b4d` | `libtiff/`, plus `port/libport.h` |
+-| OpenEXR | `v3.5.2` | `69b2604fc76e370615438bdc8d2cd95b9349c12e` | `src/lib/{Iex,IlmThread,OpenEXR,OpenEXRCore}` |
++| OpenEXR | `v3.5.3` | `3950290530c4fd4776667d0dc4d65a9d003eb936` | `src/lib/{Iex,IlmThread,OpenEXR,OpenEXRCore}` |
+ 
+ OpenEXR's `OpenEXR` library directory maps to `Source/OpenEXR/IlmImf`.
+ Its installed-style `Imath/` include prefixes are removed because this fork
+@@ -77,11 +77,15 @@ compatibility fallback for files written by 3.5.0/3.5.1 without the tables.
+ Regenerate those older lossy LJ2K files for best results, per upstream notes.
+ The Zstandard and OpenJPH snapshots are unchanged; retain all local patches above.
+ 
+-OpenEXRCore's Windows file backend uses CreateFileW unconditionally, following
+-the proposed [OpenEXR #2712](https://github.com/AcademySoftwareFoundation/openexr/pull/2712)
+-fix for #2701. Preserve this local patch until upstream includes it; selecting
+-CreateFile2 for newer build targets introduces an unnecessary Windows 8 API
+-dependency in binaries intended to retain Windows 7 compatibility.
++OpenEXRCore's Windows file backend uses CreateFileW unconditionally. This was
++a local patch until upstream merged [OpenEXR #2712](https://github.com/AcademySoftwareFoundation/openexr/pull/2712)
++in 3.5.3, which now ships the same code, so it no longer needs preserving.
++
++OpenEXR 3.5.3 adds its own posix_memalign fallback in OpenEXRCore ZSTD for
++macOS deployment targets below 10.15. It sits beside the Android fallback
++above; keep both. The 3.5.3 update was applied as the upstream
++v3.5.2..v3.5.3 diff of the four library directories, with no new or removed
++source files. The Zstandard and OpenJPH snapshots are again unchanged.
+ 
+ OpenJPH's SSE memory-clear kernel uses _mm_setzero_ps/_mm_storeu_ps, rather
+ than SSE2 integer intrinsics. Preserve this local fix for GCC i686 builds:

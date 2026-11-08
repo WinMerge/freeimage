@@ -1,0 +1,254 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index b009d80..fe06994 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -4,6 +4,8 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
+ 
+ ## Unreleased
+ 
++- Stage file saves and preserve destinations on encoder/write/close failure.
++
+ - Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
+   FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
+   codec regression tests. Enable with `-DBUILD_LIBHEIF=ON`. (#154)
+diff --git a/README.md b/README.md
+index a70bcf4..cefae07 100644
+--- a/README.md
++++ b/README.md
+@@ -153,3 +153,12 @@ Actual codec availability depends on the installed libheif backends. Regeneratin
+ The decoder is adapted from [FreeImageRe's PluginHEIF.cpp](https://github.com/agruzdev/FreeImageRe/blob/b51d3945bfe785ad382a0969f1376aee344af8c6/Source/Plugins/PluginHEIF.cpp)
+ under its FIPL/GPLv2 licensing. System libheif is licensed under LGPL-3.0-or-later;
+ its codec backends have their own licenses.
++
++### Saving files safely
++
++FreeImage_Save and FreeImage_SaveU stage encoder output beside the destination.
++Encoding, stream and close errors return FALSE and leave an existing file intact.
++Replacement occurs only after successful close. This is an atomic replacement,
++not a power-loss durability guarantee. POSIX new files start with private 0600
++permissions; existing regular-file permissions are preserved. POSIX special files
++and symlink destinations are rejected; hard links are replaced, not updated in place.
+diff --git a/Source/FreeImage/Plugin.cpp b/Source/FreeImage/Plugin.cpp
+index 2a5848b..f9aef3d 100644
+--- a/Source/FreeImage/Plugin.cpp
++++ b/Source/FreeImage/Plugin.cpp
+@@ -42,6 +42,14 @@
+ #include "Plugin.h"
+ 
+ #include "../Metadata/FreeImageTag.h"
++#include <string>
++#include <vector>
++#ifdef _WIN32
++#include <fcntl.h>
++#else
++#include <unistd.h>
++#include <sys/stat.h>
++#endif
+ 
+ // =====================================================================
+ 
+@@ -470,44 +478,97 @@ FreeImage_SaveToHandle(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, FreeImageIO *io, fi
+ }
+ 
+ 
++// Inspired by FreeImageRe's staged SaveImpl (FIPL/GPLv2), adapted without
++// its C++20 filesystem dependency. Never publish an incomplete encoder output.
++namespace {
++#ifdef _WIN32
++struct NarrowSavePath {
++    typedef char Char;
++    static HANDLE Create(const char *p) { return CreateFileA(p, GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL); }
++    static BOOL Replace(const char *from, const char *to) { return MoveFileExA(from, to, MOVEFILE_REPLACE_EXISTING); }
++    static void Remove(const char *p) { DeleteFileA(p); }
++};
++struct WideSavePath {
++    typedef wchar_t Char;
++    static HANDLE Create(const wchar_t *p) { return CreateFileW(p, GENERIC_WRITE | GENERIC_READ, 0, NULL, CREATE_NEW, FILE_ATTRIBUTE_NORMAL, NULL); }
++    static BOOL Replace(const wchar_t *from, const wchar_t *to) { return MoveFileExW(from, to, MOVEFILE_REPLACE_EXISTING); }
++    static void Remove(const wchar_t *p) { DeleteFileW(p); }
++};
++template<class Path> BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const typename Path::Char *filename, int flags) {
++    if(!filename || !FreeImage_HasPixels(dib) || !FreeImage_FIFSupportsWriting(fif)) return FALSE;
++    typedef typename Path::Char Char;
++    std::basic_string<Char> temporary(filename);
++    FILE *file = NULL;
++    static volatile LONG sequence = 0;
++    for(unsigned attempt = 0; attempt < 64; ++attempt) {
++        char suffix[96];
++        sprintf(suffix, ".fitmp.%lu.%lu", (unsigned long)GetCurrentProcessId(), (unsigned long)InterlockedIncrement(&sequence));
++        temporary.assign(filename);
++        for(const char *c = suffix; *c; ++c) temporary += static_cast<Char>(*c);
++        HANDLE h = Path::Create(temporary.c_str());
++        if(h == INVALID_HANDLE_VALUE) {
++            if(GetLastError() == ERROR_FILE_EXISTS || GetLastError() == ERROR_ALREADY_EXISTS) continue;
++            return FALSE;
++        }
++        const int fd = _open_osfhandle(reinterpret_cast<intptr_t>(h), _O_BINARY | _O_RDWR);
++        if(fd == -1) { CloseHandle(h); Path::Remove(temporary.c_str()); return FALSE; }
++        file = _fdopen(fd, "w+b");
++        if(!file) { _close(fd); Path::Remove(temporary.c_str()); return FALSE; }
++        break;
++    }
++    if(!file) return FALSE;
++    BOOL success = FALSE;
++    FreeImageIO io; SetDefaultIO(&io);
++    try { success = FreeImage_SaveToHandle(fif, dib, &io, file, flags); } catch(...) { success = FALSE; }
++    if(ferror(file)) success = FALSE;
++    if(fclose(file) != 0) success = FALSE;
++    if(success) success = Path::Replace(temporary.c_str(), filename);
++    if(!success) Path::Remove(temporary.c_str());
++    return success;
++}
++#else
++BOOL SaveFile(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags) {
++    if(!filename || !FreeImage_HasPixels(dib) || !FreeImage_FIFSupportsWriting(fif)) return FALSE;
++    struct stat info;
++    if(lstat(filename, &info) == 0 && !S_ISREG(info.st_mode)) return FALSE;
++    std::string temporary(filename);
++    temporary += ".fitmp.XXXXXX";
++    std::vector<char> name(temporary.begin(), temporary.end());
++    name.push_back(0);
++    const int fd = mkstemp(&name[0]);
++    if(fd < 0) return FALSE;
++    FILE *file = fdopen(fd, "w+b");
++    if(!file) { close(fd); unlink(&name[0]); return FALSE; }
++    // Preserve regular-file permissions when replacing an existing destination.
++    if(stat(filename, &info) == 0 && S_ISREG(info.st_mode)) fchmod(fd, info.st_mode & 0777);
++    FreeImageIO io; SetDefaultIO(&io);
++    BOOL success = FALSE;
++    try { success = FreeImage_SaveToHandle(fif, dib, &io, file, flags); } catch(...) { success = FALSE; }
++    if(ferror(file)) success = FALSE;
++    if(fclose(file) != 0) success = FALSE;
++    if(success && rename(&name[0], filename) != 0) success = FALSE;
++    if(!success) unlink(&name[0]);
++    return success;
++}
++#endif
++}
+ BOOL DLL_CALLCONV
+ FreeImage_Save(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const char *filename, int flags) {
+-	FreeImageIO io;
+-	SetDefaultIO(&io);
+-	
+-	FILE *handle = fopen(filename, "w+b");
+-	
+-	if (handle) {
+-		BOOL success = FreeImage_SaveToHandle(fif, dib, &io, (fi_handle)handle, flags);
+-
+-		fclose(handle);
+-
+-		return success;
+-	} else {
+-		FreeImage_OutputMessageProc((int)fif, "FreeImage_Save: failed to open file %s", filename);
+-	}
+-
+-	return FALSE;
++    try {
++#ifdef _WIN32
++        return SaveFile<NarrowSavePath>(fif, dib, filename, flags);
++#else
++        return SaveFile(fif, dib, filename, flags);
++#endif
++    } catch(...) { return FALSE; }
+ }
+-
+ BOOL DLL_CALLCONV
+ FreeImage_SaveU(FREE_IMAGE_FORMAT fif, FIBITMAP *dib, const wchar_t *filename, int flags) {
+-	FreeImageIO io;
+-	SetDefaultIO(&io);
+-#ifdef _WIN32	
+-	FILE *handle = _wfopen(filename, L"w+b");
+-	
+-	if (handle) {
+-		BOOL success = FreeImage_SaveToHandle(fif, dib, &io, (fi_handle)handle, flags);
+-
+-		fclose(handle);
+-
+-		return success;
+-	} else {
+-		FreeImage_OutputMessageProc((int)fif, "FreeImage_SaveU: failed to open output file");
+-	}
++#ifdef _WIN32
++    try { return SaveFile<WideSavePath>(fif, dib, filename, flags); } catch(...) { return FALSE; }
++#else
++    return FALSE;
+ #endif
+-	return FALSE;
+ }
+ 
+ // =====================================================================
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index fe7ea54..272d0d6 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -80,3 +80,13 @@ if(BUILD_TESTS AND BUILD_LIBHEIF)
+     set_tests_properties(HeifCodecTest PROPERTIES TIMEOUT 120
+         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
+ endif()
++
++if(BUILD_TESTS)
++    add_executable(SaveErrorTest testSaveErrors.cpp)
++    target_link_libraries(SaveErrorTest PRIVATE FreeImage)
++    if(WIN32 AND NOT FREEIMAGE_STATIC)
++        add_custom_command(TARGET SaveErrorTest POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_if_different
++            $<TARGET_FILE:FreeImage> $<TARGET_FILE_DIR:SaveErrorTest>)
++    endif()
++    add_test(NAME SaveErrorTest COMMAND SaveErrorTest)
++endif()
+diff --git a/TestAPI/testHeaderOnly.cpp b/TestAPI/testHeaderOnly.cpp
+index 40bf796..a0ee3ae 100644
+--- a/TestAPI/testHeaderOnly.cpp
++++ b/TestAPI/testHeaderOnly.cpp
+@@ -176,7 +176,7 @@ testExifRawFile(const char *lpszPathName, int load_flags, int save_flags) {
+ 			BYTE *value = (BYTE*)FreeImage_GetTagValue(tag);
+ 
+ 			// save as jpeg : Exif data should be preserved
+-			FreeImage_Save(fif, dib, lpszDstPathName, save_flags); 
++			if(!FreeImage_Save(fif, dib, lpszDstPathName, save_flags)) throw(1); 
+ 
+ 			// load and check Exif raw data
+ 			fif = FreeImage_GetFileType(lpszDstPathName);
+diff --git a/TestAPI/testSaveErrors.cpp b/TestAPI/testSaveErrors.cpp
+new file mode 100644
+index 0000000..d2c4f37
+--- /dev/null
++++ b/TestAPI/testSaveErrors.cpp
+@@ -0,0 +1,38 @@
++#include "FreeImage.h"
++#include <cstdio>
++#include <cstdlib>
++#include <cstring>
++#include <fstream>
++#include <iterator>
++#include <string>
++static void Check(bool v) { if(!v) std::exit(1); }
++static const char * DLL_CALLCONV Format() { return "FAILSAVE"; }
++static BOOL DLL_CALLCONV Fail(FreeImageIO *io, FIBITMAP *, fi_handle h, int, int, void *) {
++    char partial[] = "incomplete"; io->write_proc(partial, 1, sizeof(partial), h); return FALSE;
++}
++static void DLL_CALLCONV Init(Plugin *p, int) { std::memset(p, 0, sizeof(*p)); p->format_proc = Format; p->save_proc = Fail; }
++static std::string Read(const char *path) { std::ifstream f(path, std::ios::binary); return std::string(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>()); }
++int main() {
++    FreeImage_Initialise();
++    const char *path = "save-error-regression.png";
++    FIBITMAP *dib = FreeImage_Allocate(8, 8, 24); Check(dib != NULL);
++    { std::ofstream f(path); f << "original"; }
++    const FREE_IMAGE_FORMAT fail = FreeImage_RegisterLocalPlugin(Init);
++    Check(!FreeImage_Save(fail, dib, path)); Check(Read(path) == "original");
++    Check(!FreeImage_Save(FIF_UNKNOWN, dib, path)); Check(Read(path) == "original");
++    Check(!FreeImage_Save(FIF_PNG, NULL, path)); Check(Read(path) == "original");
++    std::remove(path);
++    Check(!FreeImage_Save(fail, dib, path)); Check(std::fopen(path, "rb") == NULL);
++    Check(FreeImage_Save(FIF_PNG, dib, path));
++    FIBITMAP *loaded = FreeImage_Load(FIF_PNG, path); Check(loaded && FreeImage_GetWidth(loaded) == 8);
++    FreeImage_Unload(loaded); std::remove(path);
++#ifdef _WIN32
++    const wchar_t *wide = L"save-error-\x03b1.png";
++    Check(FreeImage_SaveU(FIF_PNG, dib, wide));
++    Check(!FreeImage_SaveU(fail, dib, wide));
++    loaded = FreeImage_LoadU(FIF_PNG, wide); Check(loaded != NULL);
++    FreeImage_Unload(loaded); _wremove(wide);
++#endif
++    FreeImage_Unload(dib); FreeImage_DeInitialise();
++    std::puts("Failed saves preserve destinations; successful replacement loads correctly");
++}

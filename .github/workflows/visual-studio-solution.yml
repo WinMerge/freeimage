@@ -1,0 +1,107 @@
+name: Portable Visual Studio solution
+on:
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/visual-studio-solution.yml'
+      - '.github/tests/test-vs-solution.py'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'cmake/**'
+      - 'Source/**'
+  pull_request:
+    paths:
+      - '.github/workflows/visual-studio-solution.yml'
+      - '.github/tests/test-vs-solution.py'
+      - 'CMakeLists.txt'
+      - 'CMakePresets.json'
+      - 'cmake/**'
+      - 'Source/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: vs-solution-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  platform-routing:
+    name: Relative paths and platform selection (${{ matrix.generator }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+            generator: Visual Studio 17 2022
+            major: 17
+          - os: windows-latest
+            generator: Visual Studio 18 2026
+            major: 18
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate the matching MSBuild
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $instances = @(& $vswhere -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | ConvertFrom-Json)
+          $instance = $instances | Where-Object { ([version]$_.installationVersion).Major -eq ${{ matrix.major }} } | Select-Object -First 1
+          if (!$instance) { throw 'The requested Visual Studio installation was not found' }
+          "$($instance.installationPath)/MSBuild/Current/Bin/amd64" >> $env:GITHUB_PATH
+      - name: Build static and DLL fixtures, relocate, switch platforms, rebuild and clean
+        run: python .github/tests/test-vs-solution.py --generator "${{ matrix.generator }}" --build
+  freeimage-all:
+    name: Build FreeImage on all four platforms (VS 2026)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CMAKE_BUILD_PARALLEL_LEVEL: 4
+    steps:
+      - uses: actions/checkout@v4
+      - name: Locate VS 2026 build and inspection tools
+        run: |
+          $vswhere = "${env:ProgramFiles(x86)}/Microsoft Visual Studio/Installer/vswhere.exe"
+          $instances = @(& $vswhere -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -format json | ConvertFrom-Json)
+          $instance = $instances | Where-Object { ([version]$_.installationVersion).Major -eq 18 } | Select-Object -First 1
+          if (!$instance) { throw 'Visual Studio 2026 was not found' }
+          "$($instance.installationPath)/MSBuild/Current/Bin/amd64" >> $env:GITHUB_PATH
+          $toolset = Get-ChildItem "$($instance.installationPath)/VC/Tools/MSVC" -Directory | Sort-Object { [version]$_.Name } -Descending | Select-Object -First 1
+          "$($toolset.FullName)/bin/Hostx64/x64" >> $env:GITHUB_PATH
+      - name: Generate the combined solution
+        run: cmake --preset vs2026-all -DCMAKE_CXX_STANDARD=17
+      - name: Build through the All Platforms solution configuration
+        run: cmake --build build-vs2026-all --config Release --target FreeImageAllPlatforms
+      - name: Verify the four library architectures
+        run: |
+          $machines = @{Win32='machine \(x86\)'; x64='machine \(x64\)'; ARM64='machine \(ARM64\)'; ARM64EC='machine \(ARM64EC\)'}
+          foreach ($arch in $machines.Keys) {
+            $library = "build-vs2026-all/visualstudio/artifacts/$arch/Release/FreeImage.lib"
+            if (!(Test-Path $library)) { throw "Missing $arch library" }
+            $headers = & dumpbin.exe /headers $library
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+            $headers | Set-Content "build-vs2026-all/visualstudio/$arch-headers.txt"
+            if (!(($headers -join "`n") -match $machines[$arch])) { throw "Incorrect $arch machine type" }
+          }
+      - name: Run the native x64 and Win32 test suites
+        run: |
+          foreach ($arch in @('x64', 'Win32')) {
+            $cache = Get-ChildItem "build-vs2026-all/visualstudio/cache/$arch/*/CMakeCache.txt" | Select-Object -First 1
+            ctest --test-dir $cache.DirectoryName -C Release --output-on-failure
+            if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-studio-all-platforms
+          path: |
+            build-vs2026-all/visualstudio/*.sln
+            build-vs2026-all/visualstudio/*.vcxproj
+            build-vs2026-all/visualstudio/FreeImageOptions.cmake
+            build-vs2026-all/visualstudio/*-headers.txt

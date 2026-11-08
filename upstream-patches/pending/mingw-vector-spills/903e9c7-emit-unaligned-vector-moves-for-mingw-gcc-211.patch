@@ -1,0 +1,32 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b58ddef..7121c42 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -61,6 +61,27 @@ elseif(NOT FREEIMAGE_MSVC_RUNTIME STREQUAL "Default")
+     message(STATUS "FREEIMAGE_MSVC_RUNTIME is only applied by MSVC-compatible toolchains")
+ endif()
+ 
++# GCC targeting Windows cannot realign the stack past 16 bytes (GCC bug
++# 54412), yet still spills AVX/AVX-512 registers with aligned vmovaps/vmovdqa.
++# Runtime-dispatched AVX2 code (Highway/libjxl, LibWebP, OpenEXR) then crashes
++# whenever a frame lands off a 32-byte boundary - issue #211, which was
++# jxl::N_AVX2::UpsamplingStage's constructor in an unoptimized build. Have the
++# assembler emit unaligned moves instead, as MSYS2 does for all its packages.
++# Set before the bundled codecs, which inherit CMAKE_C_FLAGS/CMAKE_CXX_FLAGS.
++if(MINGW AND CMAKE_C_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
++    include(CheckCSourceCompiles)
++    set(CMAKE_REQUIRED_FLAGS "-Wa,-muse-unaligned-vector-move")
++    check_c_source_compiles("int main(void) { return 0; }" FREEIMAGE_HAVE_UNALIGNED_VECTOR_MOVE)
++    unset(CMAKE_REQUIRED_FLAGS)
++    if(FREEIMAGE_HAVE_UNALIGNED_VECTOR_MOVE)
++        string(APPEND CMAKE_C_FLAGS " -Wa,-muse-unaligned-vector-move")
++        string(APPEND CMAKE_CXX_FLAGS " -Wa,-muse-unaligned-vector-move")
++    else()
++        message(WARNING "This MinGW assembler lacks -muse-unaligned-vector-move "
++            "(binutils 2.38+). AVX2 code paths may crash on misaligned stack frames.")
++    endif()
++endif()
++
+ set(FREEIMAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+ set(FREEIMAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+ set(FREEIMAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})

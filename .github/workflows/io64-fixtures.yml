@@ -1,0 +1,92 @@
+name: Large-file test fixture assets
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/io64-fixtures.yml
+      - scripts/tests/io64-fixtures.py
+      - scripts/tests/test-io64-fixtures.py
+      - doc/io64-fixtures.md
+  push:
+    branches: [master]
+    paths:
+      - .github/workflows/io64-fixtures.yml
+      - scripts/tests/io64-fixtures.py
+      - scripts/tests/test-io64-fixtures.py
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'New fixture asset tag (published tags are never overwritten)'
+        default: test-fixtures-io64-v1
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: io64-fixtures-${{ github.event_name == 'pull_request' && github.ref || 'publish' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  validate:
+    name: Sparse fixture packaging (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify deterministic packaging, sparse extraction and Unicode paths
+        run: python scripts/tests/test-io64-fixtures.py
+
+  publish:
+    name: Publish fixture prerelease once
+    needs: validate
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      FIXTURE_TAG: ${{ inputs.tag || 'test-fixtures-io64-v1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Generate archive and checksum manifest
+        run: python scripts/tests/io64-fixtures.py build --output-dir assets --tag "$FIXTURE_TAG"
+      - name: Publish assets without replacing an existing release
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release list --limit 1000 --json tagName,isDraft > releases.json
+          state=$(python -c 'import json, os; print(next(("draft" if r["isDraft"] else "published" for r in json.load(open("releases.json")) if r["tagName"] == os.environ["FIXTURE_TAG"]), "absent"))')
+          if [ "$state" = draft ]; then
+            echo "::error::An unfinished draft exists for $FIXTURE_TAG. Inspect it before retrying; no assets were changed."
+            exit 1
+          fi
+          if [ "$state" = published ]; then
+            gh release download "$FIXTURE_TAG" --pattern SHA256SUMS --dir existing
+            if ! cmp assets/SHA256SUMS existing/SHA256SUMS; then
+              echo "::error::Published fixtures differ. Choose a new fixture version; published assets are never replaced."
+              exit 1
+            fi
+            echo "Fixture release already exists with identical checksums; nothing to publish."
+            exit 0
+          fi
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$FIXTURE_TAG")" ]; then
+            echo "::error::The tag already exists without a published fixture release. Inspect it before retrying."
+            exit 1
+          fi
+          gh release create "$FIXTURE_TAG" assets/* \
+            --target "$GITHUB_SHA" --draft --prerelease --latest=false \
+            --title "Large-file I/O test fixtures ($FIXTURE_TAG)" \
+            --notes-file assets/README.md
+          gh release edit "$FIXTURE_TAG" --draft=false --prerelease --latest=false
+          cat assets/SHA256SUMS >> "$GITHUB_STEP_SUMMARY"

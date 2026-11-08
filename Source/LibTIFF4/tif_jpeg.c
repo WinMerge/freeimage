@@ -1357,19 +1357,34 @@ static int JPEGComputeStrileWidthHeightBytesPerLine(TIFF *tif, uint16_t s)
         }
     }
 
+    int sampling_mismatch = 0;
     if (td->td_planarconfig == PLANARCONFIG_CONTIG)
     {
         /* Component 0 should have expected sampling factors */
         if (sp->cinfo.d.comp_info[0].h_samp_factor != sp->h_sampling ||
             sp->cinfo.d.comp_info[0].v_samp_factor != sp->v_sampling)
         {
-            TIFFErrorExtR(tif, module,
-                          "Improper JPEG sampling factors %d,%d\n"
-                          "Apparently should be %" PRIu16 ",%" PRIu16 ".",
-                          sp->cinfo.d.comp_info[0].h_samp_factor,
-                          sp->cinfo.d.comp_info[0].v_samp_factor,
-                          sp->h_sampling, sp->v_sampling);
-            return (0);
+            /*
+             * Some files have TIFF subsampling tags that disagree with the
+             * JPEG stream. Such files can only be decoded safely through
+             * libjpeg's full-resolution RGB output path below; raw YCbCr
+             * output uses the TIFF factors to size destination planes.
+             */
+            if (sp->photometric != PHOTOMETRIC_YCBCR ||
+                sp->cinfo.d.num_components != 3)
+            {
+                TIFFErrorExtR(tif, module,
+                              "Improper JPEG sampling factors %d,%d\n"
+                              "Apparently should be %" PRIu16 ",%" PRIu16 ".",
+                              sp->cinfo.d.comp_info[0].h_samp_factor,
+                              sp->cinfo.d.comp_info[0].v_samp_factor,
+                              sp->h_sampling, sp->v_sampling);
+                return (0);
+            }
+            sampling_mismatch = 1;
+            TIFFWarningExtR(tif, module,
+                            "JPEG sampling factors differ from TIFF tags; "
+                            "decoding through RGB output");
         }
         /* Rest should have sampling factors 1,1 */
         for (ci = 1; ci < sp->cinfo.d.num_components; ci++)
@@ -1395,7 +1410,8 @@ static int JPEGComputeStrileWidthHeightBytesPerLine(TIFF *tif, uint16_t s)
     downsampled_output = FALSE;
     if (td->td_planarconfig == PLANARCONFIG_CONTIG &&
         sp->photometric == PHOTOMETRIC_YCBCR &&
-        sp->otherSettings.jpegcolormode == JPEGCOLORMODE_RGB)
+        (sp->otherSettings.jpegcolormode == JPEGCOLORMODE_RGB ||
+         sampling_mismatch))
     {
         /* Convert YCbCr to RGB */
         sp->cinfo.d.jpeg_color_space = JCS_YCbCr;

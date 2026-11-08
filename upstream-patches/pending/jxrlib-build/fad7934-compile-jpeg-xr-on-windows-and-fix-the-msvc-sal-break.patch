@@ -1,0 +1,50 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index e41ce74..4ba3ce5 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -75,7 +75,14 @@ else()
+ endif()
+ option(FREEIMAGE_STATIC "Build FreeImage as a static library" ${FREEIMAGE_STATIC_DEFAULT})
+ 
+-option(BUILD_JXR "Build JPEG-XR support" WIN32)
++# option() does not expand a bare WIN32 argument, so `option(... WIN32)`
++# stayed OFF on Windows and CI never compiled jxrlib.
++if(WIN32)
++    set(BUILD_JXR_DEFAULT ON)
++else()
++    set(BUILD_JXR_DEFAULT OFF)
++endif()
++option(BUILD_JXR "Build JPEG-XR support" ${BUILD_JXR_DEFAULT})
+ option(BUILD_TESTS "Build the test suite" OFF)
+ option(BUILD_ZLIB "Build zlib from source or link" ON)
+ option(BUILD_LIBPNG "Build libpng from source or link" ON)
+diff --git a/Source/LibJXR/jxrgluelib/JXRMeta.h b/Source/LibJXR/jxrgluelib/JXRMeta.h
+index ae7321c..773b9a1 100644
+--- a/Source/LibJXR/jxrgluelib/JXRMeta.h
++++ b/Source/LibJXR/jxrgluelib/JXRMeta.h
+@@ -106,9 +106,22 @@
+ #define WMP_valWMPhotoID WMP_valCompression
+ 
+ 
+-#if defined(WIN32) && !defined(__MINGW32__)
+-#define __in_win    __in
+-#define __out_win   __out
++/* Current Windows SDKs still provide __in_ecount/__out_ecount but no longer
++   define the SAL1 tokens __in and __out. Aliasing __in_win to a missing __in
++   makes `const __in_win U16` a bare identifier, which C++ rejects
++   (C4430/C3646). NO_WINDOWS also skips the bundled wmspecstring.h shim, so
++   MinGW has none of these either. They are analysis-only. */
++#ifndef __in_win
++#define __in_win
++#endif
++#ifndef __out_win
++#define __out_win
++#endif
++#ifndef __in_ecount
++#define __in_ecount(x)
++#endif
++#ifndef __out_ecount
++#define __out_ecount(x)
+ #endif
+ 
+ 

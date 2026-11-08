@@ -1,0 +1,3 @@
+# These are submission artifacts; retain their original compressed bytes.
+!*.patch.gz
+!*-submission.zip

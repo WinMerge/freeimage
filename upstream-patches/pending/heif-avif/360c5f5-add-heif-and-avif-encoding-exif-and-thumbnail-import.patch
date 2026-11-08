@@ -1,0 +1,434 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 005cbbd..803d0bd 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -6,6 +6,7 @@ Release notes for this fork, newest first. The 3.19 line starts from upstream Fr
+ 
+ - Stage file saves and preserve destinations on encoder/write/close failure.
+ - Support FIT_DOUBLE grayscale in ConvertToRGBF, preserving HDR values and handling non-finite/range limits.
++- Add optional HEIF/AVIF writing, raw EXIF import/export, and embedded thumbnail import through system libheif.
+ 
+ - Add optional system-libheif HEIF/AVIF primary-image decoding, adapted from
+   FreeImageRe. Includes RGB/RGBA output, ICC profiles, header-only loading, and
+diff --git a/README.md b/README.md
+index cefae07..f393923 100644
+--- a/README.md
++++ b/README.md
+@@ -145,8 +145,9 @@ The legacy make build registers the format names but does not enable decoding.
+ Use `FIF_HEIF` for HEIF/HEIC and `FIF_AVIF` for AVIF, or detect the format with
+ `FreeImage_GetFileType`. The decoder loads the primary still image as 8-bit RGB
+ or RGBA, preserves embedded ICC profiles, and supports `FIF_LOAD_NOPIXELS`.
+-High-bit-depth sources are converted to 8-bit output. Encoding, animation,
+-EXIF/XMP import, and thumbnail import are not included in this initial plugin.
++High-bit-depth sources are converted to 8-bit output. Writing supports 24-bit RGB and 32-bit RGBA when an encoder backend is installed.
++Raw EXIF is imported/exported; embedded thumbnails are imported.
++Animation and XMP import are not included.
+ Actual codec availability depends on the installed libheif backends. Regenerating the test fixtures additionally requires HEVC and AV1 encoders
+ (x265 and AOM); ordinary tests only require decoders.
+ 
+@@ -154,6 +155,11 @@ The decoder is adapted from [FreeImageRe's PluginHEIF.cpp](https://github.com/ag
+ under its FIPL/GPLv2 licensing. System libheif is licensed under LGPL-3.0-or-later;
+ its codec backends have their own licenses.
+ 
++HEIF/AVIF saving accepts quality 1..100 (default 90) and HEIF_LOSSLESS.
++Lossless mode requests RGB/4:4:4 coding to avoid chroma subsampling loss.
++Encoder availability is reflected by FreeImage_FIFSupportsWriting.
++Exif import validates the HEIF TIFF-header offset before parsing.
++
+ ### Saving files safely
+ 
+ FreeImage_Save and FreeImage_SaveU stage encoder output beside the destination.
+diff --git a/Source/FreeImage.h b/Source/FreeImage.h
+index 8e73fc1..8214493 100644
+--- a/Source/FreeImage.h
++++ b/Source/FreeImage.h
+@@ -698,6 +698,8 @@ typedef void (DLL_CALLCONV *FI_InitProc)(Plugin *plugin, int format_id);
+ 
+ // Load / Save flag constants -----------------------------------------------
+ 
++// HEIF/AVIF saving: quality 1..100 (0 defaults to 90); optional lossless.
++#define HEIF_LOSSLESS 0x100
+ #define FIF_LOAD_NOPIXELS 0x8000	//! loading: load the image header only (not supported by all plugins, default to full loading)
+ 
+ #define BMP_DEFAULT         0
+diff --git a/Source/FreeImage/PluginHEIF.cpp b/Source/FreeImage/PluginHEIF.cpp
+index 661ead6..141b822 100644
+--- a/Source/FreeImage/PluginHEIF.cpp
++++ b/Source/FreeImage/PluginHEIF.cpp
+@@ -33,6 +33,7 @@ static const char * DLL_CALLCONV AvifMime() { return "image/avif"; }
+ 
+ #ifdef FREEIMAGE_LIBHEIF
+ #include <libheif/heif.h>
++#include "../Metadata/FreeImageTag.h"
+ #include <climits>
+ #include <memory>
+ #include <limits>
+@@ -90,29 +91,10 @@ static BOOL DLL_CALLCONV ValidateHEIF(FreeImageIO *io, fi_handle handle) { retur
+ static BOOL DLL_CALLCONV ValidateAVIF(FreeImageIO *io, fi_handle handle) { return Validate(io, handle, true); }
+ static BOOL DLL_CALLCONV SupportsNoPixels() { return TRUE; }
+ static BOOL DLL_CALLCONV SupportsICC() { return TRUE; }
+-template<FREE_IMAGE_FORMAT Format>
+-static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int flags, void *) {
+-    try {
+-        const long start = io->tell_proc(handle);
+-        if(start < 0 || io->seek_proc(handle, 0, SEEK_END) != 0) return NULL;
+-        const long end = io->tell_proc(handle);
+-        if(end < start || io->seek_proc(handle, start, SEEK_SET) != 0) return NULL;
+-        Reader stream = {io, handle, start, end - start};
+-        heif_reader reader = {};
+-        reader.reader_api_version = 1;
+-        reader.get_position = Reader::Position;
+-        reader.read = Reader::Read;
+-        reader.seek = Reader::Seek;
+-        reader.wait_for_file_size = Reader::Wait;
+-        std::unique_ptr<heif_context, void (*)(heif_context *)> context(heif_context_alloc(), heif_context_free);
+-        if(!context) return NULL;
+-        Check(heif_context_read_from_reader(context.get(), &reader, &stream, NULL));
+-        heif_image_handle *raw_handle = NULL;
+-        Check(heif_context_get_primary_image_handle(context.get(), &raw_handle));
+-        std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> image_handle(raw_handle, heif_image_handle_release);
+-        const int width = heif_image_handle_get_width(image_handle.get());
+-        const int height = heif_image_handle_get_height(image_handle.get());
+-        const bool alpha = heif_image_handle_has_alpha_channel(image_handle.get()) != 0;
++static FIBITMAP *DecodeImage(heif_image_handle *handle, int flags, long length) {
++        const int width = heif_image_handle_get_width(handle);
++        const int height = heif_image_handle_get_height(handle);
++        const bool alpha = heif_image_handle_has_alpha_channel(handle) != 0;
+         const int channels = alpha ? 4 : 3;
+         if(width <= 0 || height <= 0 || width > INT_MAX / channels) return NULL;
+         const BOOL header_only = (flags & FIF_LOAD_NOPIXELS) != 0;
+@@ -122,7 +104,7 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int
+         if(!dib) return NULL;
+         if(!header_only) {
+             heif_image *raw_image = NULL;
+-            Check(heif_decode_image(image_handle.get(), &raw_image, heif_colorspace_RGB,
++            Check(heif_decode_image(handle, &raw_image, heif_colorspace_RGB,
+                 alpha ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB, NULL));
+             std::unique_ptr<heif_image, void (*)(const heif_image *)> image(raw_image, heif_image_release);
+             int stride = 0;
+@@ -142,19 +124,154 @@ static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int
+                 }
+             }
+         }
+-        const size_t profile_size = heif_image_handle_get_raw_color_profile_size(image_handle.get());
+-        if(profile_size && profile_size <= static_cast<size_t>(LONG_MAX) && profile_size <= static_cast<size_t>(stream.length)) {
++        const size_t profile_size = heif_image_handle_get_raw_color_profile_size(handle);
++        if(profile_size && profile_size <= static_cast<size_t>(LONG_MAX) && profile_size <= static_cast<size_t>(length)) {
+             std::vector<BYTE> profile(profile_size);
+-            Check(heif_image_handle_get_raw_color_profile(image_handle.get(), profile.data()));
++            Check(heif_image_handle_get_raw_color_profile(handle, profile.data()));
+             FIICCPROFILE *icc = FreeImage_CreateICCProfile(dib.get(), profile.data(), static_cast<long>(profile_size));
+             if(!icc || !icc->data) return NULL;
+         }
+         return dib.release();
++}
++template<FREE_IMAGE_FORMAT Format>
++static FIBITMAP * DLL_CALLCONV Load(FreeImageIO *io, fi_handle handle, int, int flags, void *) {
++    try {
++        const long start = io->tell_proc(handle);
++        if(start < 0 || io->seek_proc(handle, 0, SEEK_END) != 0) return NULL;
++        const long end = io->tell_proc(handle);
++        if(end < start || io->seek_proc(handle, start, SEEK_SET) != 0) return NULL;
++        Reader stream = {io, handle, start, end - start};
++        heif_reader reader = {};
++        reader.reader_api_version = 1;
++        reader.get_position = Reader::Position;
++        reader.read = Reader::Read;
++        reader.seek = Reader::Seek;
++        reader.wait_for_file_size = Reader::Wait;
++        std::unique_ptr<heif_context, void (*)(heif_context *)> context(heif_context_alloc(), heif_context_free);
++        if(!context) return NULL;
++        Check(heif_context_read_from_reader(context.get(), &reader, &stream, NULL));
++        heif_image_handle *raw_handle = NULL;
++        Check(heif_context_get_primary_image_handle(context.get(), &raw_handle));
++        std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> image_handle(raw_handle, heif_image_handle_release);
++        std::unique_ptr<FIBITMAP, void (*)(FIBITMAP *)> dib(DecodeImage(image_handle.get(), flags, stream.length), FreeImage_Unload);
++        if(!dib) return NULL;
++        const int count = heif_image_handle_get_number_of_metadata_blocks(image_handle.get(), "Exif");
++        if(count > 0 && count <= stream.length / 4) {
++            std::vector<heif_item_id> ids(count);
++            const int found = heif_image_handle_get_list_of_metadata_block_IDs(image_handle.get(), "Exif", ids.data(), count);
++            for(int i = 0; i < found; ++i) {
++                const size_t size = heif_image_handle_get_metadata_size(image_handle.get(), ids[i]);
++                if(size <= 4 || size > static_cast<size_t>(stream.length) || size > UINT_MAX - 6) continue;
++                std::vector<BYTE> metadata(size);
++                Check(heif_image_handle_get_metadata(image_handle.get(), ids[i], metadata.data()));
++                const size_t offset = (size_t(metadata[0]) << 24) | (size_t(metadata[1]) << 16) | (size_t(metadata[2]) << 8) | metadata[3];
++                if(offset > size - 4) continue;
++                std::vector<BYTE> exif(6 + size - 4 - offset);
++                std::memcpy(exif.data(), "Exif\0\0", 6);
++                std::memcpy(exif.data() + 6, metadata.data() + 4 + offset, size - 4 - offset);
++                jpeg_read_exif_profile(dib.get(), exif.data(), static_cast<unsigned>(exif.size()));
++                jpeg_read_exif_profile_raw(dib.get(), exif.data(), static_cast<unsigned>(exif.size()));
++            }
++        }
++        if(!(flags & FIF_LOAD_NOPIXELS) && heif_image_handle_get_number_of_thumbnails(image_handle.get()) > 0) {
++            heif_item_id id;
++            if(heif_image_handle_get_list_of_thumbnail_IDs(image_handle.get(), &id, 1) == 1) {
++                heif_image_handle *raw_thumbnail = NULL;
++                Check(heif_image_handle_get_thumbnail(image_handle.get(), id, &raw_thumbnail));
++                std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> thumbnail_handle(raw_thumbnail, heif_image_handle_release);
++                std::unique_ptr<FIBITMAP, void (*)(FIBITMAP *)> thumbnail(DecodeImage(thumbnail_handle.get(), 0, stream.length), FreeImage_Unload);
++                if(thumbnail) FreeImage_SetThumbnail(dib.get(), thumbnail.get());
++            }
++        }
++        return dib.release();
+     } catch(const std::exception &error) {
+         FreeImage_OutputMessageProc(Format, "%s", error.what());
+         return NULL;
+     }
+ }
++static heif_error WriteEncoded(heif_context *, const void *bytes, size_t size, void *opaque) {
++    Reader &stream = *static_cast<Reader *>(opaque);
++    const BYTE *p = static_cast<const BYTE *>(bytes);
++    while(size) {
++        const unsigned part = size > UINT_MAX ? UINT_MAX : static_cast<unsigned>(size);
++        if(stream.io->write_proc(const_cast<BYTE *>(p), 1, part, stream.handle) != part) {
++            heif_error error = {heif_error_Encoding_error, heif_suberror_Unspecified, "Short output write"}; return error;
++        }
++        p += part; size -= part;
++    }
++    heif_error ok = {heif_error_Ok, heif_suberror_Unspecified, "OK"}; return ok;
++}
++template<heif_compression_format Codec> static BOOL DLL_CALLCONV SupportsDepth(int bpp) {
++    return (bpp == 24 || bpp == 32) && heif_have_encoder_for_format(Codec);
++}
++static BOOL DLL_CALLCONV SupportsType(FREE_IMAGE_TYPE type) { return type == FIT_BITMAP; }
++template<heif_compression_format Codec, FREE_IMAGE_FORMAT Format>
++static BOOL DLL_CALLCONV Save(FreeImageIO *io, FIBITMAP *dib, fi_handle output, int, int flags, void *) {
++    try {
++        const unsigned bpp = FreeImage_GetBPP(dib);
++        const unsigned width = FreeImage_GetWidth(dib), height = FreeImage_GetHeight(dib);
++        if(!FreeImage_HasPixels(dib) || FreeImage_GetImageType(dib) != FIT_BITMAP ||
++            (bpp != 24 && bpp != 32) || width > INT_MAX || height > INT_MAX ||
++            (flags & ~(HEIF_LOSSLESS | 0x7f)) || (flags & 0x7f) > 100) return FALSE;
++        std::unique_ptr<heif_context, void (*)(heif_context *)> context(heif_context_alloc(), heif_context_free);
++        if(!context) return FALSE;
++        heif_encoder *raw_encoder = NULL;
++        Check(heif_context_get_encoder_for_format(context.get(), Codec, &raw_encoder));
++        std::unique_ptr<heif_encoder, void (*)(heif_encoder *)> encoder(raw_encoder, heif_encoder_release);
++        Check(heif_encoder_set_lossy_quality(encoder.get(), (flags & 0x7f) ? flags & 0x7f : 90));
++        if(flags & HEIF_LOSSLESS) Check(heif_encoder_set_lossless(encoder.get(), 1));
++        heif_image *raw_image = NULL;
++        Check(heif_image_create(width, height, heif_colorspace_RGB,
++            bpp == 32 ? heif_chroma_interleaved_RGBA : heif_chroma_interleaved_RGB, &raw_image));
++        std::unique_ptr<heif_image, void (*)(const heif_image *)> image(raw_image, heif_image_release);
++        Check(heif_image_add_plane(image.get(), heif_channel_interleaved, width, height, 8));
++        int stride = 0;
++        BYTE *pixels = heif_image_get_plane(image.get(), heif_channel_interleaved, &stride);
++        const unsigned channels = bpp / 8;
++        if(!pixels || width > INT_MAX / channels || stride < static_cast<int>(width * channels) || size_t(height)>std::numeric_limits<size_t>::max()/size_t(stride)) return FALSE;
++        for(unsigned y = 0; y < height; ++y) {
++            const BYTE *src = FreeImage_GetScanLine(dib, height - 1 - y);
++            BYTE *dst = pixels + size_t(y) * stride;
++            for(unsigned x = 0; x < width; ++x, src += channels, dst += channels) {
++                dst[0] = src[FI_RGBA_RED]; dst[1] = src[FI_RGBA_GREEN]; dst[2] = src[FI_RGBA_BLUE];
++                if(channels == 4) dst[3] = src[FI_RGBA_ALPHA];
++            }
++        }
++        FIICCPROFILE *icc = FreeImage_GetICCProfile(dib);
++        if(icc && icc->size && icc->data) Check(heif_image_set_raw_color_profile(image.get(), "prof", icc->data, icc->size));
++        std::unique_ptr<heif_encoding_options, void (*)(heif_encoding_options *)> options(heif_encoding_options_alloc(), heif_encoding_options_free);
++        std::unique_ptr<heif_color_profile_nclx, void (*)(heif_color_profile_nclx *)> colour(heif_nclx_color_profile_alloc(), heif_nclx_color_profile_free);
++        if(!options || !colour) return FALSE;
++        if(flags & HEIF_LOSSLESS) {
++            Check(heif_encoder_set_parameter_string(encoder.get(), "chroma", "444"));
++            colour->color_primaries = heif_color_primaries_ITU_R_BT_709_5;
++            colour->transfer_characteristics = heif_transfer_characteristic_IEC_61966_2_1;
++            colour->matrix_coefficients = heif_matrix_coefficients_RGB_GBR;
++            colour->full_range_flag = 1;
++            Check(heif_image_set_nclx_color_profile(image.get(), colour.get()));
++            options->output_nclx_profile = colour.get();
++            options->save_two_colr_boxes_when_ICC_and_nclx_available = 1;
++        }
++        heif_image_handle *raw_handle = NULL;
++        Check(heif_context_encode_image(context.get(), image.get(), encoder.get(), options.get(), &raw_handle));
++        std::unique_ptr<heif_image_handle, void (*)(const heif_image_handle *)> handle(raw_handle, heif_image_handle_release);
++        FITAG *exif = NULL;
++        if(FreeImage_GetMetadata(FIMD_EXIF_RAW, dib, "ExifRaw", &exif)) {
++            const BYTE *data = static_cast<const BYTE *>(FreeImage_GetTagValue(exif));
++            unsigned size = FreeImage_GetTagLength(exif);
++            if(data && size > 6 && !std::memcmp(data, "Exif\0\0", 6)) {
++                if(size > INT_MAX) return FALSE;
++                data += 6; size -= 6;
++                Check(heif_context_add_exif_metadata(context.get(), handle.get(), data, size));
++            }
++        }
++        Reader stream = {io, output, 0, 0};
++        heif_writer writer = {}; writer.writer_api_version = 1; writer.write = WriteEncoded;
++        Check(heif_context_write(context.get(), &writer, &stream));
++        return TRUE;
++    } catch(const std::exception &error) { FreeImage_OutputMessageProc(Format, "%s", error.what()); return FALSE; }
++}
++
+ #endif
+ 
+ static void Init(Plugin *plugin, bool avif) {
+@@ -166,6 +283,10 @@ static void Init(Plugin *plugin, bool avif) {
+ #ifdef FREEIMAGE_LIBHEIF
+     plugin->validate_proc = avif ? ValidateAVIF : ValidateHEIF;
+     plugin->load_proc = avif ? Load<FIF_AVIF> : Load<FIF_HEIF>;
++    if(heif_have_encoder_for_format(avif ? heif_compression_AV1 : heif_compression_HEVC))
++        plugin->save_proc = avif ? Save<heif_compression_AV1, FIF_AVIF> : Save<heif_compression_HEVC, FIF_HEIF>;
++    plugin->supports_export_bpp_proc = avif ? SupportsDepth<heif_compression_AV1> : SupportsDepth<heif_compression_HEVC>;
++    plugin->supports_export_type_proc = SupportsType;
+     plugin->supports_no_pixels_proc = SupportsNoPixels;
+     plugin->supports_icc_profiles_proc = SupportsICC;
+ #endif
+diff --git a/TestAPI/CMakeLists.txt b/TestAPI/CMakeLists.txt
+index 1a96308..49b00e1 100644
+--- a/TestAPI/CMakeLists.txt
++++ b/TestAPI/CMakeLists.txt
+@@ -100,3 +100,14 @@ if(BUILD_TESTS)
+     endif()
+     add_test(NAME DoubleRGBFTest COMMAND DoubleRGBFTest)
+ endif()
++
++if(BUILD_TESTS AND BUILD_LIBHEIF)
++    add_test(NAME HeifEncodingTest COMMAND HeifCodecTest --encode)
++    set_tests_properties(HeifEncodingTest PROPERTIES TIMEOUT 120 WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/heif")
++    if(UNIX AND NOT APPLE)
++        # Ubuntu's external x265 encoder leaks its configuration object. Keep
++        # decoder tests unsuppressed, and suppress only that encoder allocator.
++        set_tests_properties(HeifEncodingTest PROPERTIES ENVIRONMENT
++            "LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/heif/x265-lsan.supp")
++    endif()
++endif()
+diff --git a/TestAPI/heif/generate.cpp b/TestAPI/heif/generate.cpp
+index 384197e..0ca0a3b 100644
+--- a/TestAPI/heif/generate.cpp
++++ b/TestAPI/heif/generate.cpp
+@@ -42,6 +42,13 @@ static void Test(heif_compression_format codec, const char *filename, bool alpha
+     Check(heif_image_set_raw_color_profile(image, "prof", profile, sizeof(profile)));
+     heif_image_handle *encoded = NULL;
+     Check(heif_context_encode_image(context, image, encoder, NULL, &encoded));
++    if(!std::strcmp(filename,"metadata.heic")) {
++        const BYTE tiff[]={'I','I',42,0,8,0,0,0,1,0,0x12,1,3,0,1,0,0,0,1,0,0,0,0,0,0,0};
++        Check(heif_context_add_exif_metadata(context,encoded,tiff,sizeof(tiff)));
++        heif_image_handle *thumbnail=NULL;
++        Check(heif_context_encode_thumbnail(context,image,encoded,encoder,NULL,16,&thumbnail));
++        Require(thumbnail!=NULL,"thumbnail fixture"); heif_image_handle_release(thumbnail);
++    }
+     std::vector<BYTE> bytes;
+     heif_writer writer = {}; writer.writer_api_version = 1; writer.write = Write;
+     Check(heif_context_write(context, &writer, &bytes));
+@@ -52,6 +59,7 @@ static void Test(heif_compression_format codec, const char *filename, bool alpha
+     Require(bool(output), "write fixture");
+ }
+ int main() {
++    Test(heif_compression_HEVC, "metadata.heic", false);
+     Test(heif_compression_HEVC, "rgb.heic", false);
+     Test(heif_compression_HEVC, "rgba.heic", true);
+     Test(heif_compression_AV1, "rgb.avif", false);
+diff --git a/TestAPI/heif/metadata.heic b/TestAPI/heif/metadata.heic
+new file mode 100644
+index 0000000000000000000000000000000000000000..bb364a2c091099629eebdaa27d0291c26fdae0b9
+GIT binary patch
+literal 1076
+zcmZQzV30{GsVvAy%}izhg51nBLl8SRGck>UfoWE5YDpqU90(LMQgVtQOa_L6%;XXn
+z8%Dcj=H!D7adBW^W?%#fGwp-WKxRJ!6G(*F7cL?PR0R^rhKrm8a(y#1^MF=^B!E~H
+z$Vmlj1e%vomTU-;fC(~!jC8HY1S^LLg7v{v@)cy3<bt$-tYBP{Sx{5}q-!$^lJkLL
+zr9frQjLbkGD3JTW@aON39}Eoq%n3jp5)O<!jQ{_G6fiSP02|EAAh(OjArUC4>BI=u
+ziX^i@p^<gkt97%UJy2Y5pn-vb2Z)&&T9SaO*<2V879Z>c+S8MqpHoy&ln-(=P#!->
+zOfE*a4!=@zWJNNI3sRvP9e^|lYb56+g6vcPVo)4Pfaw4K|33iIOhEbuhz4STg3O9c
+zAkDzc!NCEfVEP1rY>+-45Dip+0Z4=NodMB6ET37Bn+T*qfQf;TwULRLwS|G1rIDGn
+z4Jf3MS(FNieg+1<<douMkRq^wd?gvVNx<*~^BC)LQxZWbuv>$1J=-Svgn|nb*Xuw2
+z^~rkfspIPFo{5BfE9JL-SO0wXs}F}y`bV5EskWZG>ZyC`T<PXT=2wkx^gep$bu#{G
+z?t9b7V|)GWt^d3IZ?V7NA)&uoJ|y(0dvc=B=~L&bg%>Va8z%2I`GNVH>jr<sJ^#xJ
+z#7_Bb_@g21>b1;YN0}z1tWxmR54{jCmSJ%(5acCKPb~&ea4<3mF+wr{C@`SlDA=(a
+zOW4_f1{CkptJj__xvzTP+P-^ft+#Fjd%Arqy|TVxen8$qZ+Wdw`%4WA3f`V7W?1*N
+zaFu1qFPrSn-4ExPl|;+!4QRO`&aJS=d(xZO%o^tnbM@x0EM+&imXiMWS<ZW&lr>Yf
+zRy%Kcm>J9|<IP~zSnN~o@lwEH-j>#m%iFE$(^{8gztIrNPIhnnStrkH8POFXSh;Xg
+vR(0rQ$7^dmW{CHNzU|49uBg5cCle|EUGt+tq}5}&>ya4_JA=OWI5q$PGWZVD
+
+literal 0
+HcmV?d00001
+
+diff --git a/TestAPI/heif/x265-lsan.supp b/TestAPI/heif/x265-lsan.supp
+new file mode 100644
+index 0000000..2d0a752
+--- /dev/null
++++ b/TestAPI/heif/x265-lsan.supp
+@@ -0,0 +1,2 @@
++# External libx265 encoder configuration allocation, Ubuntu 22.04.
++leak:x265_malloc
+diff --git a/TestAPI/testHeif.cpp b/TestAPI/testHeif.cpp
+index 37a7fef..652d610 100644
+--- a/TestAPI/testHeif.cpp
++++ b/TestAPI/testHeif.cpp
+@@ -9,6 +9,7 @@
+ static void Require(bool ok, const char *what) {
+     if(!ok) { std::fprintf(stderr, "FAIL: %s\n", what); std::exit(1); }
+ }
++static bool encode = false;
+ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
+     std::ifstream input(filename, std::ios::binary);
+     Require(bool(input), "open fixture");
+@@ -31,6 +32,47 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
+     }
+     FIICCPROFILE *icc = FreeImage_GetICCProfile(dib);
+     Require(icc && icc->size == sizeof(profile) && !std::memcmp(icc->data, profile, sizeof(profile)), "ICC profile");
++    if(!std::strcmp(filename,"metadata.heic")) {
++        FITAG *tag=NULL;
++        Require(FreeImage_GetMetadata(FIMD_EXIF_MAIN,dib,"Orientation",&tag),"fixture EXIF");
++        FIBITMAP *thumbnail=FreeImage_GetThumbnail(dib);
++        Require(thumbnail && FreeImage_GetWidth(thumbnail)<=16 && FreeImage_GetHeight(thumbnail)<=16,"embedded thumbnail");
++        std::vector<BYTE> invalid(bytes); size_t offset=0;
++        for(size_t i=4;i+8<invalid.size();++i) if(invalid[i]=='I' && invalid[i+1]=='I' && invalid[i+2]==42 && invalid[i+3]==0 && invalid[i+4]==8) { offset=i; break; }
++        Require(offset>4,"locate TIFF metadata");
++        for(size_t i=offset-4;i<offset;++i) invalid[i]=255;
++        FIMEMORY *malformed=FreeImage_OpenMemory(invalid.data(),static_cast<DWORD>(invalid.size()));
++        FIBITMAP *without_exif=FreeImage_LoadFromMemory(format,malformed);
++        Require(without_exif && !FreeImage_GetMetadata(FIMD_EXIF_RAW,without_exif,"ExifRaw",&tag),"invalid EXIF offset ignored");
++        FreeImage_Unload(without_exif); FreeImage_CloseMemory(malformed);
++    }
++    if(encode && FreeImage_FIFSupportsWriting(format)) {
++        const BYTE exif[] = {'E','x','i','f',0,0,'I','I',42,0,8,0,0,0,1,0,0x12,1,3,0,1,0,0,0,1,0,0,0,0,0,0,0};
++        FITAG *tag = FreeImage_CreateTag();
++        Require(tag && FreeImage_SetTagKey(tag,"ExifRaw") && FreeImage_SetTagType(tag,FIDT_BYTE) &&
++            FreeImage_SetTagCount(tag,sizeof(exif)) && FreeImage_SetTagLength(tag,sizeof(exif)) && FreeImage_SetTagValue(tag,exif), "EXIF input");
++        Require(FreeImage_SetMetadata(FIMD_EXIF_RAW,dib,"ExifRaw",tag), "attach EXIF"); FreeImage_DeleteTag(tag);
++        FIMEMORY *encoded = FreeImage_OpenMemory();
++        Require(FreeImage_SaveToMemory(format, dib, encoded, 100), "encode");
++        FreeImage_SeekMemory(encoded, 0, SEEK_SET);
++        FIBITMAP *roundtrip = FreeImage_LoadFromMemory(format, encoded);
++        Require(roundtrip && FreeImage_GetWidth(roundtrip) == 32 && FreeImage_GetBPP(roundtrip) == (alpha ? 32U : 24U), "roundtrip");
++        const BYTE *pixel = FreeImage_GetScanLine(roundtrip, 20) + 4 * (alpha ? 4 : 3);
++        Require(std::abs(int(pixel[FI_RGBA_RED]) - 220) < 40, "roundtrip colour");
++        if(alpha) Require(pixel[FI_RGBA_ALPHA] > 250, "roundtrip alpha");
++        FIICCPROFILE *profile = FreeImage_GetICCProfile(roundtrip);
++        Require(profile && profile->size == 128, "roundtrip ICC");
++        FITAG *raw = NULL;
++        Require(FreeImage_GetMetadata(FIMD_EXIF_RAW,roundtrip,"ExifRaw",&raw) && FreeImage_GetTagLength(raw)==sizeof(exif), "raw EXIF roundtrip");
++        Require(FreeImage_GetMetadata(FIMD_EXIF_MAIN,roundtrip,"Orientation",&raw), "parsed EXIF");
++        FreeImage_Unload(roundtrip); FreeImage_CloseMemory(encoded);
++        encoded = FreeImage_OpenMemory();
++        Require(FreeImage_SaveToMemory(format,dib,encoded,HEIF_LOSSLESS), "lossless encode");
++        FreeImage_SeekMemory(encoded,0,SEEK_SET); roundtrip=FreeImage_LoadFromMemory(format,encoded);
++        Require(roundtrip!=NULL,"lossless decode");
++        for(unsigned y=0;y<24;++y) Require(!std::memcmp(FreeImage_GetScanLine(dib,y),FreeImage_GetScanLine(roundtrip,y),FreeImage_GetLine(dib)),"exact lossless pixels");
++        FreeImage_Unload(roundtrip); FreeImage_CloseMemory(encoded);
++    }
+     FreeImage_Unload(dib);
+     FreeImage_SeekMemory(memory, 0, SEEK_SET);
+     dib = FreeImage_LoadFromMemory(format, memory, FIF_LOAD_NOPIXELS);
+@@ -48,15 +90,17 @@ static void Test(const char *filename, FREE_IMAGE_FORMAT format, bool alpha) {
+     Require(FreeImage_LoadFromMemory(format, memory) == NULL, "truncated input rejected");
+     FreeImage_CloseMemory(memory);
+ }
+-int main() {
++int main(int argc, char **) {
++    encode = argc > 1;
+     FreeImage_Initialise();
+     Require(FreeImage_GetFIFFromFormat("HEIF") == FIF_HEIF, "HEIF index");
+     Require(FreeImage_GetFIFFromFormat("AVIF") == FIF_AVIF, "AVIF index");
+-    Require(!FreeImage_FIFSupportsWriting(FIF_HEIF) && !FreeImage_FIFSupportsWriting(FIF_AVIF), "read-only");
++
+     Test("rgb.heic", FIF_HEIF, false);
+     Test("rgba.heic", FIF_HEIF, true);
+     Test("rgb.avif", FIF_AVIF, false);
+     Test("rgba.avif", FIF_AVIF, true);
++    Test("metadata.heic", FIF_HEIF, false);
+     FreeImage_DeInitialise();
+     std::puts("HEIF/AVIF RGB, alpha, orientation, header-only and truncated-input tests passed");
+ }

@@ -1,0 +1,50 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1e9f74a8372140b2b49",
+  "mod_date": "2026-09-07 15:02:01.996000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "8db26e843b",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "6e91",
+        "text": "Index of the SVN r1911 CVE patch series from danoli3/FreeImage (GitHub 3.19.14 + follow-ups). Apply from the FreeImage tree root with: patch -p0 < CVE-....patch\n\nAlready on this tracker:\n- #170 CVE-2020-24292 ICO LoadStandardIcon\n- #171 CVE-2020-24293 psdThumbnail::Read\n- #172 CVE-2020-24295 ReadImageLine\n- #173 CVE-2020-22524 PFM integer overflow\n- #174 (this ticket) CVE-2020-24294 / CVE-2024-28565 UnpackRLE\n- #175 CVE-2024-28579 / CVE-2024-28582 HDR\n- #176 CVE-2024-28584 J2K NULL\n- #177 CVE-2024-28581 TARGA IOCache\n- #178 CVE-2024-28567 TIFF ICC UAF\n- #179 CVE-2021-33367 Exif IFD bound\n- #180 CVE-2024-28568/9029/28570/28573/28577/28578/28580 IPTC/Exif/XPM/RAS\n- #181 CVE-2024-28566/28571/28572/28583 TIFF AssignPixel / JPEG src / MakerNote / XBM\n\nSuggested apply order when taking the overlapping-file patches: 179 then 178 then 180 then 181. The others are independent.\n\nNot posted (whole-tree vendor replacements, not a small plugin diff):\n- CVE-2024-28562/28563/28564/28569 bundled OpenEXR 2.2 Imf_2_2 — fixed in GitHub by OpenEXR 3.3.13 (#69) or -DUSE_SYSTEM_OPENEXR=ON\n- CVE-2024-28574/28575/28576 bundled OpenJPEG j2k.c — fixed in GitHub by OpenJPEG 2.5.4 (#68) or -DUSE_SYSTEM_LIBOPENJPEG=ON\n\nTicket #169 is an empty stub; use #170 for the ICO patch.\n",
+        "subject": "#174 CVE-2020-24294 / CVE-2024-28565: clamp psdParser::UnpackRLE src and dst",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 15:02:41.919000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/8db26e843b/",
+  "created_date": "2026-09-07 15:02:01.519000",
+  "ticket_num": 174,
+  "summary": "CVE-2020-24294 / CVE-2024-28565: clamp psdParser::UnpackRLE src and dst",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.18.0 / 3.19.0 [r1859/r1909]).\n\nCVE-2020-24294 / CVE-2024-28565 (also tracked as CVE-2025-65803) — heap buffer overflow in psdParser::UnpackRLE().\n\nUnpackRLE() clamped the memcpy/memset *write* against line_end, but then always advanced line / rle_line / srcSize by the raw packet length:\n- line could pass line_end, so the next iteration's (line_end - line) went negative and became a huge size_t copy\n- srcSize (unsigned) underflowed when len > srcSize, so rle_line ran past the source buffer\n\nThis patch clamps both the destination copy and the source consume *before* advancing pointers, and stops when line reaches line_end.\n\nRelated tracker ticket #159 described the same bug but the attached patch only documented the memcpy line and did not clamp source consumption or stop the loop.\n\nNVD:\nhttps://nvd.nist.gov/vuln/detail/CVE-2020-24294\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28565\n\nGitHub: https://github.com/danoli3/FreeImage/commit/62971de (PR https://github.com/danoli3/FreeImage/pull/54)\n\nApply from the FreeImage tree root:\n\n    patch -p0 < CVE-2020-24294.patch\n\nIndependent of #170/#171/#172 (ICO / thumbnail / ReadImageLine). Apply this before those two PSD patches if you take all three; they still apply in either order.\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 2319,
+      "url": "https://sourceforge.net/p/freeimage/patches/174/attachment/CVE-2020-24294.patch"
+    }
+  ],
+  "custom_fields": {}
+}

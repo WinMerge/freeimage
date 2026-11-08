@@ -1,0 +1,45 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d0b88ed..8866183 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1147,21 +1147,32 @@ if (BUILD_TESTS)
+     add_subdirectory(TestAPI)
+ endif ()
+ 
+-# Install the library
++# Install the library. Runtime is the shared library (DLL / .so / .dylib).
++# Development is the static archive or import library, the public header,
++# and the CMake package files. `cmake --install . --component Runtime`
++# and `--component Development` select one group.
+ install(TARGETS ${PROJECT_NAME}
+     EXPORT ${PROJECT_NAME}Targets
+     RUNTIME DESTINATION bin
++        COMPONENT Runtime
+     LIBRARY DESTINATION lib
++        COMPONENT Runtime
++        NAMELINK_COMPONENT Development
+     ARCHIVE DESTINATION lib
++        COMPONENT Development
+     INCLUDES DESTINATION include
+ )
+-install(FILES Source/FreeImage.h DESTINATION include)
++install(FILES Source/FreeImage.h
++    DESTINATION include
++    COMPONENT Development
++)
+ 
+ # Install the CMake Targets
+ install(EXPORT ${PROJECT_NAME}Targets
+     FILE ${PROJECT_NAME}Targets.cmake
+     NAMESPACE ${PROJECT_NAME}::
+     DESTINATION lib/cmake/${PROJECT_NAME}
++    COMPONENT Development
+ )
+ 
+ # Install the CMake config
+@@ -1180,4 +1191,5 @@ install(FILES
+     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+     ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+     DESTINATION lib/cmake/${PROJECT_NAME}
++    COMPONENT Development
+ )

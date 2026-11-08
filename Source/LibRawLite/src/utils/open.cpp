@@ -148,6 +148,7 @@ int LibRaw::libraw_openfile_tail(LibRaw_abstract_datastream *stream)
     {
         delete stream;
         ID.input_internal = 0;
+		imgdata.progress_flags = LIBRAW_PROGRESS_START;
     }
     return ret;
 }
@@ -167,6 +168,11 @@ int LibRaw::open_file(const char *fname)
     {
         recycle();
         return LIBRAW_UNSUFFICIENT_MEMORY;
+    }
+    if (!stream->valid())
+    {
+      delete stream;
+      return LIBRAW_IO_ERROR;
     }
     if ((stream->size() > (INT64)LIBRAW_MAX_NONDNG_RAW_FILE_SIZE) 
 		&& (stream->size() > (INT64)LIBRAW_MAX_DNG_RAW_FILE_SIZE)
@@ -201,6 +207,11 @@ int LibRaw::open_file(const wchar_t *fname)
     {
         recycle();
         return LIBRAW_UNSUFFICIENT_MEMORY;
+    }
+    if (!stream->valid())
+    {
+      delete stream;
+      return LIBRAW_IO_ERROR;
     }
     if ((stream->size() > (INT64)LIBRAW_MAX_DNG_RAW_FILE_SIZE) 
 		&& (stream->size() > (INT64)LIBRAW_MAX_NONDNG_RAW_FILE_SIZE) &&

@@ -1,3 +1,24 @@
+freeimage-maintained (3.19.27-1) unstable; urgency=medium
+
+  * Preserve HEIF primary images when optional thumbnails fail to decode.
+  * Update bundled libheif to 1.23.7 and recognize HIF filenames.
+  * Fix portable JPEG XR builds and add JP2/JXR diagnostic tests.
+  * Improve MSVC PDB installation and bundled codec build configuration.
+  * Refresh supported formats and bundled library documentation.
+  * Update bundled LibRaw to 0.22.3.
+  * Prepare tagged Linux package builds for FreeImage 3.19.27.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Sun, 25 Oct 2026 00:00:00 +1100
+
+freeimage-maintained (3.19.26-1) unstable; urgency=medium
+
+  * Fix TIFF JPEG decoding when stream and TIFF sampling factors differ; add regression coverage.
+  * Reject oversized ICO dimensions before decoding.
+  * Add selectable MSVC dynamic/static runtime configuration.
+  * Prepare tagged Linux package builds for FreeImage 3.19.26.
+
+ -- FreeImage Packaging Contributors <noreply@github.com>  Thu, 22 Oct 2026 00:00:00 +1100
+
 freeimage-maintained (3.19.25-1) unstable; urgency=high
 
   * Bundle offline HEIF/AVIF and JPEG XL codecs with pinned dependencies.

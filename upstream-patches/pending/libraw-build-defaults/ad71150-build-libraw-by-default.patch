@@ -1,0 +1,45 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 93a8f66..a0047f8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -90,7 +90,8 @@ option(BUILD_LIBTIFF "Build libTIFF from source or link" ON)
+ option(BUILD_LIBJPEG "Build libjpeg from source or link" ON)
+ option(BUILD_LIBOPENJPEG "Build OpenJPEG from source or link" ON)
+ option(BUILD_WEBP "Build webp from source or link" ON)
+-option(BUILD_LIBRAWLITE "Build librawlite from source or link" OFF)
++# Camera RAW is part of the default build. -DBUILD_LIBRAWLITE=OFF leaves it out.
++option(BUILD_LIBRAWLITE "Build librawlite from source or link" ON)
+ # Default ON, but only when C++17+ is actually in effect (OpenEXR needs it).
+ if(NOT CMAKE_CXX_STANDARD OR CMAKE_CXX_STANDARD GREATER_EQUAL 17)
+     set(BUILD_OPENEXR_DEFAULT ON)
+diff --git a/README.md b/README.md
+index d7ac0f2..3a30478 100644
+--- a/README.md
++++ b/README.md
+@@ -13,7 +13,7 @@ The ANSI C API is usable from C, C++, VB, C#, Delphi, Java, and from scripting l
+ 
+ ### Why use FreeImage instead of linking each format library yourself?
+ 
+-Loading a PNG, a GIF and a JPEG from scratch in C++ means three different APIs (`libpng`, `giflib`-or-hand-rolled-LZW, `libjpeg`), three different error-handling conventions, and three sets of build flags to get right across platforms. FreeImage wraps [all of the libraries below](#supported-formats--bundled-libraries) behind one API - one `FreeImage_Load()`/`FreeImage_Save()` pair, one pixel format model (`FIBITMAP`), one metadata API (EXIF/IPTC/XMP) - so format-specific code doesn't leak into the rest of your application. Swapping a PNG for a WebP is a one-line change rather than a new dependency. Camera RAW uses the same `FreeImage_Load()` call once the build is configured with `-DBUILD_LIBRAWLITE=ON`.
++Loading a PNG, a GIF and a JPEG from scratch in C++ means three different APIs (`libpng`, `giflib`-or-hand-rolled-LZW, `libjpeg`), three different error-handling conventions, and three sets of build flags to get right across platforms. FreeImage wraps [all of the libraries below](#supported-formats--bundled-libraries) behind one API - one `FreeImage_Load()`/`FreeImage_Save()` pair, one pixel format model (`FIBITMAP`), one metadata API (EXIF/IPTC/XMP) - so format-specific code doesn't leak into the rest of your application. Swapping a PNG for a WebP is a one-line change rather than a new dependency. Camera RAW uses the same `FreeImage_Load()` call. It is included unless the build passes `-DBUILD_LIBRAWLITE=OFF`.
+ 
+ This fork additionally builds the whole stack (FreeImage plus every bundled library) from one `CMakeLists.txt`, so `find_package(FreeImage)` is the only thing a consuming CMake project needs - see [Using compiled binaries](#using-compiled-binaries) below.
+ 
+@@ -33,7 +33,7 @@ PixarLog and OJPEG inside the bundled libtiff include the integer-overflow harde
+ | JPEG 2000 (J2K/JP2) | [OpenJPEG](https://github.com/uclouvain/openjpeg) | 2.5.4 | on |
+ | OpenEXR (HDR) | [OpenEXR](https://openexr.com/) (+ [Imath](https://github.com/AcademySoftwareFoundation/Imath), [libdeflate](https://github.com/ebiggers/libdeflate)) | 3.3.14 (Imath 3.2.3, libdeflate 1.18) | on for C++17+ |
+ | WebP | [libwebp](https://developers.google.com/speed/webp) | 1.6.0 | on |
+-| Camera RAW | [LibRaw](https://www.libraw.org/) | 0.22.2 | off (`-DBUILD_LIBRAWLITE=ON`) |
++| Camera RAW | [LibRaw](https://www.libraw.org/) | 0.22.2 | on |
+ | JPEG-XR | [jxrlib](https://github.com/4creators/jxrlib) | unversioned snapshot | Windows only |
+ 
+ ## Original Source Code Upstream
+@@ -46,7 +46,7 @@ Original library can be found : https://freeimage.sourceforge.io
+ 
+ ## Building this fork
+ 
+-JPEG-XR is included only on Windows (`BUILD_JXR` defaults to `WIN32`). Camera RAW stays off until `-DBUILD_LIBRAWLITE=ON`.
++JPEG-XR is included only on Windows (`BUILD_JXR` defaults to `WIN32`). Camera RAW is included by default (`-DBUILD_LIBRAWLITE=OFF` leaves it out).
+ 
+ ### Simply build it
+ 

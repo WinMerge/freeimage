@@ -1,0 +1,81 @@
+name: JP2/JXR sample checks
+on:
+  pull_request:
+    paths:
+      - CMakeLists.txt
+      - Source/FreeImage/PluginJXR.cpp
+      - Source/FreeImage/J2KHelper.cpp
+      - Source/FreeImage/PluginJP2.cpp
+      - Source/FreeImage/PluginJ2K.cpp
+      - Source/FreeImage/FreeImageIO.cpp
+      - Source/FreeImage/MemoryIO.cpp
+      - Source/FreeImage/Conversion*.cpp
+      - Source/FreeImage/ToneMapping.cpp
+      - Source/FreeImage/tmo*.cpp
+      - Source/LibOpenJPEG/**
+      - Source/LibJXR/**
+      - TestAPI/testCodecDisplay.cpp
+      - TestAPI/testJ2KCallbacks.cpp
+      - TestAPI/CMakeLists.txt
+      - Examples/codec-diagnostics/**
+      - scripts/tests/run-codec-samples.py
+      - .github/workflows/codec-samples.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable:
+    name: JXR portable build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect available CPU threads
+        run: |
+          "CMAKE_BUILD_PARALLEL_LEVEL=$([Environment]::ProcessorCount)" >> $env:GITHUB_ENV
+      - name: Configure portable JXR and JPEG 2000 tests
+        run: >-
+          cmake -S . -B build -G Ninja -DBUILD_TESTS=ON -DBUILD_JXR=ON
+          -DBUILD_OPENEXR=OFF -DCMAKE_CXX_STANDARD=11 -DCMAKE_BUILD_TYPE=Debug
+      - name: Build diagnostic and regression tests
+        run: cmake --build build --target CodecDisplayTest J2KCallbacksTest CodecDiagnostics
+      - name: Test native types, previews and stream callbacks
+        run: ctest --test-dir build -R "CodecDisplayTest|J2KCallbacksTest" --output-on-failure
+  samples:
+    name: Issue 198 samples (MSVC static=${{ matrix.static }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        static: ["ON", "OFF"]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect available CPU threads
+        run: |
+          "CMAKE_BUILD_PARALLEL_LEVEL=$([Environment]::ProcessorCount)" >> $env:GITHUB_ENV
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Configure MSVC JXR and JPEG 2000
+        run: >-
+          cmake -S . -B build -DBUILD_TESTS=ON -DBUILD_JXR=ON
+          -DBUILD_OPENEXR=OFF -DCMAKE_CXX_STANDARD=17
+          -DFREEIMAGE_STATIC=${{ matrix.static }}
+      - name: Build diagnostic and regression tests
+        run: cmake --build build --target CodecDisplayTest J2KCallbacksTest CodecDiagnostics --config Debug
+      - name: Test native types, previews and stream callbacks
+        run: ctest --test-dir build -C Debug -R "CodecDisplayTest|J2KCallbacksTest" --output-on-failure
+      - name: Check supplied archive through file, memory and preview paths
+        run: >-
+          python scripts/tests/run-codec-samples.py
+          --tool build/TestAPI/CodecDiagnostics/Debug/CodecDiagnostics.exe
+          --output sample-results --previews

@@ -152,6 +152,113 @@ static void tiffRoundtrip(int flag) {
     FreeImage_Unload(image);
     printf("TIFF compression 0x%x passed\n", flag);
 }
+
+static TIFF *openTiff(const char *path, const char *mode);
+
+static void tiffJpegSamplingMismatch() {
+    const char *path = "vendor-jpeg-sampling-mismatch.tif";
+    const uint32_t w = 64, h = 32;
+    TIFF *tif = openTiff(path, "w");
+    check(tif, "JPEG TIFF open failed");
+
+    TIFFSetField(tif, TIFFTAG_IMAGEWIDTH, w);
+    TIFFSetField(tif, TIFFTAG_IMAGELENGTH, h);
+    TIFFSetField(tif, TIFFTAG_SAMPLESPERPIXEL, 3);
+    TIFFSetField(tif, TIFFTAG_BITSPERSAMPLE, 8);
+    TIFFSetField(tif, TIFFTAG_ORIENTATION, ORIENTATION_TOPLEFT);
+    TIFFSetField(tif, TIFFTAG_PLANARCONFIG, PLANARCONFIG_CONTIG);
+    TIFFSetField(tif, TIFFTAG_PHOTOMETRIC, PHOTOMETRIC_YCBCR);
+    TIFFSetField(tif, TIFFTAG_COMPRESSION, COMPRESSION_JPEG);
+    // The shared TIFF samples have 2x1 sampling in the JPEG stream but 2x2
+    // in the TIFF tag. Start with matching 2x1 metadata, then alter only the
+    // TIFF tag below.
+    TIFFSetField(tif, TIFFTAG_YCBCRSUBSAMPLING, 2, 1);
+    TIFFSetField(tif, TIFFTAG_JPEGCOLORMODE, JPEGCOLORMODE_RGB);
+    TIFFSetField(tif, TIFFTAG_JPEGQUALITY, 90);
+    TIFFSetField(tif, TIFFTAG_ROWSPERSTRIP, h);
+
+    std::vector<unsigned char> row(w * 3);
+    for (uint32_t y = 0; y < h; ++y) {
+        for (uint32_t x = 0; x < w; ++x) {
+            row[x * 3 + 0] = static_cast<unsigned char>(x * 3);
+            row[x * 3 + 1] = static_cast<unsigned char>(y * 7);
+            row[x * 3 + 2] = static_cast<unsigned char>((x + y) * 5);
+        }
+        check(TIFFWriteScanline(tif, row.data(), y, 0) > 0,
+              "JPEG TIFF scanline write failed");
+    }
+    TIFFClose(tif);
+
+    FIBITMAP *reference = FreeImage_Load(FIF_TIFF, path);
+    check(reference != nullptr, "Matching-sampling JPEG TIFF failed to load");
+    check(FreeImage_GetWidth(reference) == w && FreeImage_GetHeight(reference) == h,
+          "Matching-sampling JPEG TIFF dimensions are wrong");
+    const unsigned line = FreeImage_GetLine(reference);
+    std::vector<unsigned char> referencePixels(line * h);
+    for (uint32_t y = 0; y < h; ++y)
+        std::memcpy(referencePixels.data() + y * line,
+                    FreeImage_GetScanLine(reference, h - 1 - y), line);
+    FreeImage_Unload(reference);
+
+    // Change only the TIFF tag; keep the embedded JPEG at 2x1 sampling.
+    tif = openTiff(path, "r+");
+    check(tif, "JPEG TIFF reopen failed");
+    check(TIFFSetField(tif, TIFFTAG_YCBCRSUBSAMPLING, 2, 2) != 0,
+          "Could not change TIFF subsampling tag");
+    check(TIFFRewriteDirectory(tif) != 0, "Could not rewrite TIFF directory");
+    TIFFClose(tif);
+
+    FIBITMAP *image = FreeImage_Load(FIF_TIFF, path);
+    check(image != nullptr, "Mismatched-sampling JPEG TIFF failed to load");
+    check(FreeImage_GetWidth(image) == w && FreeImage_GetHeight(image) == h,
+          "Mismatched-sampling JPEG TIFF dimensions are wrong");
+    check(FreeImage_GetLine(image) == line, "Mismatched-sampling JPEG TIFF line size changed");
+    for (uint32_t y = 0; y < h; ++y)
+        check(std::memcmp(referencePixels.data() + y * line,
+                          FreeImage_GetScanLine(image, h - 1 - y), line) == 0,
+              "Mismatched-sampling JPEG TIFF pixels differ from reference");
+    FreeImage_Unload(image);
+    std::remove(path);
+    puts("JPEG TIFF with mismatched sampling factors passed");
+}
+
+static void putLE16(std::vector<unsigned char> &data, size_t offset, uint16_t value) {
+    data[offset] = static_cast<unsigned char>(value);
+    data[offset + 1] = static_cast<unsigned char>(value >> 8);
+}
+
+static void putLE32(std::vector<unsigned char> &data, size_t offset, uint32_t value) {
+    for (unsigned i = 0; i < 4; ++i)
+        data[offset + i] = static_cast<unsigned char>(value >> (8 * i));
+}
+
+static void icoRejectsOverflowedPixelCount() {
+    // One-entry ICO with a 1-bpp DIB. FIF_LOAD_NOPIXELS makes this safe to
+    // exercise even if a regression lets the enormous dimensions through.
+    std::vector<unsigned char> ico(70, 0);
+    putLE16(ico, 2, 1);   // ICONDIR: type = icon
+    putLE16(ico, 4, 1);   // ICONDIR: one image
+    ico[6] = 0;           // ICONDIRENTRY: 256 pixels wide
+    ico[7] = 0;           // ICONDIRENTRY: 256 pixels high
+    putLE16(ico, 10, 1);  // planes
+    putLE16(ico, 12, 1);  // bit count
+    putLE32(ico, 14, 48); // BITMAPINFOHEADER plus two-entry palette
+    putLE32(ico, 18, 22); // image data offset
+    putLE32(ico, 22, 40); // BITMAPINFOHEADER size
+    putLE32(ico, 26, 65536);
+    putLE32(ico, 30, 131072); // XOR + AND height; decoded height is 65536
+    putLE16(ico, 34, 1);      // planes
+    putLE16(ico, 36, 1);      // bit count
+    putLE32(ico, 54, 2);      // two palette entries
+
+    FIMEMORY *mem = FreeImage_OpenMemory(ico.data(), static_cast<DWORD>(ico.size()));
+    check(mem != nullptr, "ICO test memory allocation failed");
+    FIBITMAP *image = FreeImage_LoadFromMemory(FIF_ICO, mem, FIF_LOAD_NOPIXELS);
+    check(image == nullptr, "ICO accepted dimensions with an overflowing pixel count");
+    FreeImage_CloseMemory(mem);
+    puts("ICO rejects dimensions with overflowing pixel count");
+}
+
 static tmsize_t readFile(thandle_t h, void *p, tmsize_t n) {
     return fread(p, 1, n, static_cast<FILE *>(h));
 }
@@ -175,7 +282,8 @@ static toff_t sizeFile(thandle_t h) {
 static int mapFile(thandle_t, void **, toff_t *) { return 0; }
 static void unmapFile(thandle_t, void *, toff_t) {}
 static TIFF *openTiff(const char *path, const char *mode) {
-    FILE *f = fopen(path, mode[0] == 'w' ? "wb+" : "rb");
+    const char *fileMode = mode[0] == 'w' ? "wb+" : (strchr(mode, '+') ? "rb+" : "rb");
+    FILE *f = fopen(path, fileMode);
     check(f != nullptr, "TIFF file open failed");
     return TIFFClientOpen(path, mode, f, readFile, writeFile, seekFile, closeFile, sizeFile,
                           mapFile, unmapFile);
@@ -229,6 +337,8 @@ int main() {
         tiffRoundtrip(TIFF_LZW);
         tiffRoundtrip(TIFF_ADOBE_DEFLATE);
         tiffRoundtrip(TIFF_PACKBITS);
+        tiffJpegSamplingMismatch();
+        icoRejectsOverflowedPixelCount();
         g3Roundtrip();
         FreeImage_DeInitialise();
         return 0;

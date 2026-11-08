@@ -30,6 +30,7 @@
 #endif
 
 #include "FreeImage.h"
+#include "../Metadata/MetadataStrip.h"
 #include "Utilities.h"
 
 #include "../Metadata/FreeImageTag.h"
@@ -79,7 +80,7 @@ _WriteProc(png_structp png_ptr, unsigned char *data, png_size_t size) {
 
 static void
 _FlushProc(png_structp png_ptr) {
-	(png_structp)png_ptr;
+	(void)png_ptr;
 	// empty flush implementation
 }
 
@@ -93,8 +94,8 @@ error_handler(png_structp png_ptr, const char *error) {
 
 static void
 warning_handler(png_structp png_ptr, const char *warning) {
-	(png_structp)png_ptr;
-	(char*)warning;
+	(void)png_ptr;
+	(void)warning;
 }
 
 // ==========================================================
@@ -103,6 +104,7 @@ warning_handler(png_structp png_ptr, const char *warning) {
 
 static BOOL 
 ReadMetadata(png_structp png_ptr, png_infop info_ptr, FIBITMAP *dib) {
+    if(FreeImageInternal::IsStrippingMetadata()) return TRUE;
 	// XMP keyword
 	const char *g_png_xmp_keyword = "XML:com.adobe.xmp";
 
@@ -566,6 +568,12 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 
 			// read the IHDR chunk
 
+#ifdef PNG_HANDLE_AS_UNKNOWN_SUPPORTED
+            if(FreeImageInternal::IsStrippingMetadata()) {
+                png_byte chunks[] = "eXIf\0iCCP\0iTXt\0tEXt\0zTXt\0tIME\0";
+                png_set_keep_unknown_chunks(png_ptr, PNG_HANDLE_CHUNK_NEVER, chunks, 6);
+            }
+#endif
 			png_read_info(png_ptr, info_ptr);
 			png_get_IHDR(png_ptr, info_ptr, &width, &height, &bit_depth, &color_type, NULL, NULL, NULL);
 
@@ -707,7 +715,7 @@ Load(FreeImageIO *io, fi_handle handle, int page, int flags, void *data) {
 
 			// get possible ICC profile
 
-			if (png_get_valid(png_ptr, info_ptr, PNG_INFO_iCCP)) {
+			if (!FreeImageInternal::IsStrippingMetadata() && png_get_valid(png_ptr, info_ptr, PNG_INFO_iCCP)) {
 				png_charp profile_name = NULL;
 				png_bytep profile_data = NULL;
 				png_uint_32 profile_length = 0;

@@ -33,7 +33,7 @@
 
 //----------------------------------------------------------------------
 
-static const char *s_copyright = "This program uses FreeImage, a free, open source image library supporting all common bitmap formats. See https://freeimage.sourceforge.net for details";
+static const char *s_copyright = "This program uses FreeImage, a free, open source image library supporting all common bitmap formats. See https://github.com/danoli3/FreeImage and https://freeimage.sourceforge.net for details";
 
 //----------------------------------------------------------------------
 

@@ -1,0 +1,74 @@
+[
+  {
+    "build": "baseline",
+    "case": "cut-rle-bounds",
+    "exit": -6,
+    "asan": true
+  },
+  {
+    "build": "baseline",
+    "case": "pcx-plane-width",
+    "exit": 1,
+    "asan": false
+  },
+  {
+    "build": "baseline",
+    "case": "dds-partial-blocks",
+    "exit": 1,
+    "asan": false
+  },
+  {
+    "build": "baseline",
+    "case": "rgb565-conversion",
+    "exit": 1,
+    "asan": false
+  },
+  {
+    "build": "baseline",
+    "case": "bmp-extended-headers",
+    "exit": 1,
+    "asan": false
+  },
+  {
+    "build": "baseline",
+    "case": "bmp-rle8-terminator",
+    "exit": 1,
+    "asan": false
+  },
+  {
+    "build": "fixed",
+    "case": "cut-rle-bounds",
+    "exit": 0,
+    "asan": false
+  },
+  {
+    "build": "fixed",
+    "case": "pcx-plane-width",
+    "exit": 0,
+    "asan": false
+  },
+  {
+    "build": "fixed",
+    "case": "dds-partial-blocks",
+    "exit": 0,
+    "asan": false
+  },
+  {
+    "build": "fixed",
+    "case": "rgb565-conversion",
+    "exit": 0,
+    "asan": false
+  },
+  {
+    "build": "fixed",
+    "case": "bmp-extended-headers",
+    "exit": 0,
+    "asan": false
+  },
+  {
+    "build": "fixed",
+    "case": "bmp-rle8-terminator",
+    "exit": 0,
+    "asan": false
+  }
+]

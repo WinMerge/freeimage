@@ -1,0 +1,38 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1ec9d16c34eec84ea00",
+  "mod_date": "2026-09-07 15:02:05.149000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "d503d3dc2c",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": []
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/d503d3dc2c/",
+  "created_date": "2026-09-07 15:02:04.821000",
+  "ticket_num": 179,
+  "summary": "CVE-2021-33367: bound Exif 0th-IFD next-offset read",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.18.0).\n\nCVE-2021-33367 — buffer over-read in jpeg_read_exif_dir() when the 0th IFD claims a next-IFD pointer past the profile. ReadUint32() was called on DIR_ENTRY_ADDR(ifd0th, entriesCount0th) without checking that those 4 bytes sit inside dwLength.\n\nThis patch refuses the thumbnail walk when the next-offset field itself is out of range.\n\nNVD: https://nvd.nist.gov/vuln/detail/CVE-2021-33367\nReport: https://sourceforge.net/p/freeimage/discussion/36109/thread/1a4db03d58/\n\nGitHub: https://github.com/danoli3/FreeImage/commit/5e1e391\n\nApply from the FreeImage tree root:\n\n    patch -p0 < CVE-2021-33367.patch\n\nIndependent of the later Exif MakerNote/signature patches; apply this first if you take both.\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 675,
+      "url": "https://sourceforge.net/p/freeimage/patches/179/attachment/CVE-2021-33367.patch"
+    }
+  ],
+  "custom_fields": {}
+}

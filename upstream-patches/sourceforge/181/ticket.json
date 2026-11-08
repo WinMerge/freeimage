@@ -1,0 +1,52 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed1ee41f2d5fca8c6f2fe",
+  "mod_date": "2026-09-07 15:04:07.201000",
+  "labels": [
+    "cve",
+    "security"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "335598d8df",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "4f77",
+        "text": "@drolon ARCH Linux has removed FreeImage due to CVE's Please apply these patches",
+        "subject": "#181 CVE-2024-28566/28571/28572/28583: TIFF AssignPixel, JPEG src, MakerNote, XBM",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 15:04:06.745000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/335598d8df/",
+  "created_date": "2026-09-07 15:02:06.463000",
+  "ticket_num": 181,
+  "summary": "CVE-2024-28566/28571/28572/28583: TIFF AssignPixel, JPEG src, MakerNote, XBM",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nOne patch covering the remaining issue #35 FreeImage-own group (GitHub PR #99 / commit 8ebe8e5):\n\n* CVE-2024-28566 — AssignPixel() overflow reading TIFF. Contig/planar copies walked dst_pitch / src_line without stopping at image width or remaining source-row bytes (PluginTIFF.cpp). Helpers AssignContigRow / AssignPlanarRow now stop at both bounds. (NVD text says TIFF; this is FreeImage glue, not libtiff.)\n* CVE-2024-28571 — fill_input_buffer() OOB/UAF in PluginJPEG.cpp's libjpeg source manager. jpeg_destroy() must not run before JPEG_EXIT (jpeg_error_exit already destroys); empty src->buffer is rejected; skip_input_data returns if fill produced no bytes.\n* CVE-2024-28572 — FreeImage_SetTagValue() heap overflow via Canon MakerNote. processCanonMakerNoteTag() only expands real SHORT/SSHORT camera-state tags and caps the loop at min(count, length/2). FreeImage_SetTagValue() also rejects type_width==0 and count*width overflow.\n* CVE-2024-28583 — NVD says XPM readLine(); readLine() actually lives in PluginXBM.cpp. It treated n as a character count then wrote str[n]=NUL, overflowing char line[MAX_LINE]. n is now the buffer size. PluginXPM.cpp also snprintfs the unknown-color error so a long name cannot smash msg[256].\n\nApply AFTER CVE-2024-28567.patch (TIFF ICC) and CVE-2024-28568.patch (they touch PluginTIFF.cpp / Exif.cpp / PluginXPM.cpp too).\n\nNVD:\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28566\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28571\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28572\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28583\n\nGitHub: https://github.com/danoli3/FreeImage/commit/8ebe8e5 (PR https://github.com/danoli3/FreeImage/pull/99)\n\nApply from the FreeImage tree root:\n\n    patch -p0 < CVE-2024-28566.patch\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 11879,
+      "url": "https://sourceforge.net/p/freeimage/patches/181/attachment/CVE-2024-28566.patch"
+    }
+  ],
+  "custom_fields": {}
+}

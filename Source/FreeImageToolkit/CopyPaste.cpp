@@ -802,7 +802,7 @@ FreeImage_CreateView(FIBITMAP *dib, unsigned left, unsigned top, unsigned right,
 	// check the size of the sub image
 	unsigned width = FreeImage_GetWidth(dib);
 	unsigned height = FreeImage_GetHeight(dib);
-	if (left < 0 || right > width || top < 0 || bottom > height) {
+	if (right > width || bottom > height) {
 		return NULL;
 	}
 

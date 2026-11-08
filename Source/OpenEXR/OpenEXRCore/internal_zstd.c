@@ -8,6 +8,7 @@
 #include "internal_decompress.h"
 #include "internal_coding.h"
 #include "internal_structs.h"
+#include "internal_xdr.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
@@ -19,6 +20,10 @@
 #    include <malloc.h>
 #elif ILMTHREAD_THREADING_ENABLED
 #    include <pthread.h>
+#endif
+
+#ifdef __APPLE__
+#include <AvailabilityMacros.h>
 #endif
 
 #if defined(_MSC_VER)
@@ -230,6 +235,15 @@ ensure_tls_resources (size_t required_size)
         void* aligned_buf = NULL;
         if (posix_memalign (&aligned_buf, 64, aligned_size) != 0) return false;
         tls->shuffle_buf = (uint8_t*) aligned_buf;
+#elif defined(__APPLE__) && (MAC_OS_X_VERSION_MIN_REQUIRED < 101500)
+        // aligned_alloc is only declared by the macOS 10.15+ SDK and only
+        // exists at runtime from 10.15 on; posix_memalign exists from 10.6 on
+        // and its memory is also released by free ().
+        {
+            void* p = NULL;
+            if (posix_memalign (&p, 64, aligned_size) != 0) p = NULL;
+            tls->shuffle_buf = (uint8_t*) p;
+        }
 #else
         tls->shuffle_buf = (uint8_t*) aligned_alloc (64, aligned_size);
 #endif
@@ -708,7 +722,7 @@ exr_zstd_write_exr_frame_prefix (
     size_t    zstd_payload_size,
     uint64_t* out_total)
 {
-    memcpy (out, &MAGIC_NUMBER, sizeof (MAGIC_NUMBER));
+    write_u64_le (out, MAGIC_NUMBER);
     write_u32_le (out + 8, hdr_format);
     write_u32_le (out + 12, hdr_flags);
     write_u64_le (out + 16, (uint64_t) zstd_payload_size);
@@ -773,33 +787,61 @@ zstd_write_exr_v1 (
 }
 
 bool
-get_row_sample_count_decode (
-    const exr_decode_pipeline_t* decode, uint64_t* row_sample_counts)
-{
-    if (decode->sample_count_valid == 1 && decode->chunk.width > 0)
-    {
-        for (int h = 0; h < decode->chunk.height; ++h)
-            row_sample_counts[h] =
-                (uint64_t) decode
-                    ->sample_count_table[(h + 1) * decode->chunk.width - 1];
-        return true;
-    }
-    return false;
-}
-
-bool
 get_row_sample_count_encode (
     const exr_encode_pipeline_t* encode, uint64_t* row_sample_counts)
 {
     if (encode->sample_count_alloc_size > 0)
     {
+        /* While compressing, the sample count table is in file order
+         * (little-endian): exr_encoding_run converts it in place before
+         * calling compress_fn, and the C++ API builds it with Xdr. */
         for (int h = 0; h < encode->chunk.height; ++h)
-            row_sample_counts[h] =
-                (uint64_t) encode
-                    ->sample_count_table[(h + 1) * encode->chunk.width - 1];
+            row_sample_counts[h] = (uint64_t) read_u32_le (
+                (const uint8_t*) &encode->sample_count_table
+                    [(h + 1) * encode->chunk.width - 1]);
         return true;
     }
     return false;
+}
+
+/** Validates the raw (file-order, cumulative) sample count table the same way
+ *  unpack_sample_table() does, and returns each row's total in \a row_totals.
+ *  unpack_sample_table() only runs after decompression, but the inverse sort
+ *  sizes its offsets from these counts, so they must be checked first. */
+static exr_result_t
+exr_zstd_validate_raw_sample_counts (
+    const exr_decode_pipeline_t* decode, uint64_t* row_totals)
+{
+    const int64_t  w   = decode->chunk.width;
+    const int64_t  h   = decode->chunk.height;
+    const int32_t* tbl = decode->sample_count_table;
+    uint64_t       tot = 0;
+
+    /* An uncompressed table is used in place: sample_count_table points at
+     * packed_sample_count_table and sample_count_alloc_size is 0. */
+    const uint64_t tbl_size =
+        ((const void*) tbl == decode->packed_sample_count_table)
+            ? decode->chunk.sample_count_table_size
+            : (uint64_t) decode->sample_count_alloc_size;
+
+    if (!tbl || w <= 0 || h <= 0) return EXR_ERR_INVALID_SAMPLE_DATA;
+    if ((uint64_t) w * (uint64_t) h * sizeof (int32_t) > tbl_size)
+        return EXR_ERR_INVALID_SAMPLE_DATA;
+
+    for (int64_t y = 0; y < h; ++y)
+    {
+        int32_t prev = 0;
+        for (int64_t x = 0; x < w; ++x)
+        {
+            int32_t n = (int32_t) one_to_native32 ((uint32_t) tbl[y * w + x]);
+            if (n < prev) return EXR_ERR_INVALID_SAMPLE_DATA;
+            prev = n;
+        }
+        row_totals[y] = (uint64_t) prev;
+        tot += (uint64_t) prev;
+        if (tot >= (uint64_t) INT32_MAX) return EXR_ERR_INVALID_SAMPLE_DATA;
+    }
+    return EXR_ERR_SUCCESS;
 }
 
 /** Per (chunk line, channel): number of samples packed for that channel on that
@@ -1299,7 +1341,12 @@ exr_undo_zstd_v1 (
         (uint64_t*) decode->scratch_buffer_2;
     uint64_t* const sorting_lookup = channel_sample_count_grid + meta_count;
 
-    (void) get_row_sample_count_decode (decode, sorting_lookup);
+    if (grid_scenario == EXR_ZSTD_GRID_DEEP_PIXELS)
+    {
+        exr_result_t cnt_rv =
+            exr_zstd_validate_raw_sample_counts (decode, sorting_lookup);
+        if (cnt_rv != EXR_ERR_SUCCESS) return cnt_rv;
+    }
 
     exr_zstd_fill_channel_sample_count_grid (
         grid_scenario,
@@ -1330,6 +1377,27 @@ exr_undo_zstd_v1 (
      * and violating that would make the first segment's length exceed the
      * destination allocation. */
     if (split > uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
+
+    /* split only covers the 2-byte (half) channels, so for a part with no
+     * half channels (split == 0) the check above does not bound the
+     * 4-byte (float) channels at all. Compute the full grid total (the
+     * actual number of bytes the inverse sort below will write into
+     * uncompressed_data, sized to uncompressed_size) and reject any
+     * chunk where it does not exactly account for the whole buffer,
+     * before sort2_4ByteChannels_tiled() runs. */
+    {
+        uint64_t grid_total = 0;
+        for (int gh = 0; gh < chunk_line_count; ++gh)
+            for (int gi = 0; gi < channel_count; ++gi)
+            {
+                grid_total +=
+                    channel_sample_count_grid[(size_t) gh * channel_count + gi] *
+                    (uint64_t) pack_channels[gi].bytes_per_element;
+                if (grid_total > uncompressed_size)
+                    return EXR_ERR_CORRUPT_CHUNK;
+            }
+        if (grid_total != uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
+    }
 
     uint64_t  inner_lens[2];
     uint64_t  inner_els[2];
@@ -1386,6 +1454,8 @@ exr_undo_zstd_v1 (
         (char*) uncompressed_data,
         sorting_lookup);
 
+    decode->bytes_decompressed = uncompressed_size;
+
     return EXR_ERR_SUCCESS;
 }
 
@@ -1397,7 +1467,11 @@ internal_exr_undo_zstd (
     void*                  uncompressed_data,
     uint64_t               uncompressed_size)
 {
-    if (comp_buf_size == 0) return EXR_ERR_SUCCESS;
+    if (comp_buf_size == 0)
+    {
+        decode->bytes_decompressed = 0;
+        return EXR_ERR_SUCCESS;
+    }
 
     const uint8_t* hdr = (const uint8_t*) compressed_data;
 
@@ -1409,6 +1483,7 @@ internal_exr_undo_zstd (
     {
         if (comp_buf_size != uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
         memcpy (uncompressed_data, compressed_data, (size_t) comp_buf_size);
+        decode->bytes_decompressed = uncompressed_size;
         return EXR_ERR_SUCCESS;
     }
 

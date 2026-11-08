@@ -1,0 +1,42 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6ad2d1a437edd1c993c873e3",
+  "mod_date": "2026-10-18 00:44:01.435000",
+  "labels": [],
+  "related_artifacts": [],
+  "discussion_thread": {
+    "_id": "5c59a54863",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "1b85",
+        "text": "Reported-by: Tristan Madani (Talence Security) @TristanInSec",
+        "subject": "#198 Harden RAS and IFF PBM RLE image decoders",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-10-18 00:44:00.375000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/5c59a54863/",
+  "created_date": "2026-10-17 01:38:44.351000",
+  "ticket_num": 198,
+  "summary": "Harden RAS and IFF PBM RLE image decoders",
+  "description": "This patch hardens two image loaders against malformed input.\n\nSun Raster (RAS): prevents dimension truncation and related out-of-bounds access by using wider counters and checking allocation-size arithmetic. Commit: https://github.com/danoli3/FreeImage/commit/d474400d1434624fd3fc6f0503a6ac0a7fbc1b0b\n\nIFF/LBM PBM RLE: bounds decoded writes to the scanline and handles truncated input and no-op runs so malformed files cannot overrun the buffer or hang the decoder. Commits: https://github.com/danoli3/FreeImage/commit/38fbe82 and https://github.com/danoli3/FreeImage/commit/ad068d2\n\nThese are robustness and denial-of-service hardening changes. The IFF bounds fix is related to the heap overflow reported in FreeImage issue #156 and addressed in PR #161; the truncated-input and hang handling is follow-up work. These changes are distinct from the earlier #156 heap-overflow fix.",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [],
+  "custom_fields": {}
+}

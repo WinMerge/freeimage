@@ -65,10 +65,14 @@ ToneMappingReinhard05(FIBITMAP *dib, FIBITMAP *Y, float f, float m, float a, flo
 		return FALSE;
 	}
 
-	if(f < -8) f = -8; if(f > 8) f = 8;
-    if(m < 0)  m = 0;  if(m > 1) m = 1;
-    if(a < 0)  a = 0;  if(a > 1) a = 1;
-    if(c < 0)  c = 0;  if(c > 1) c = 1;
+	if(f < -8) f = -8;
+	if(f > 8) f = 8;
+	if(m < 0) m = 0;
+	if(m > 1) m = 1;
+	if(a < 0) a = 0;
+	if(a > 1) a = 1;
+	if(c < 0) c = 0;
+	if(c > 1) c = 1;
 
 	const unsigned width  = FreeImage_GetWidth(dib);
 	const unsigned height = FreeImage_GetHeight(dib);

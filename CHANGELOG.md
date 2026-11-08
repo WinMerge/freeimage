@@ -2,11 +2,75 @@
 
 Release notes for this fork, newest first. The 3.19 line starts from upstream FreeImage 3.19.0 on SVN.
 
-## 3.19.25 — Unreleased
+## 3.19.31 — Unreleased
+
+BMP RLE security fix and bundled OpenJPH update.
+
+- Update bundled OpenJPH from 0.32.0 to 0.33.0, independently of the OpenEXR 3.5.3 snapshot. This includes the HTJ2K one-row codeblock allocation fix (CVE-2026-111151), NLT marker bounds checks, and the Win32 AVX2 and i686 SSE fixes previously carried as local patches. OpenEXR's lossy LJ2K lookup-table calls stay source compatible. (#259)
+- Fix signed integer overflow in the BMP RLE8 decoder that could cause an out-of-bounds heap write when loading a crafted BMP. Reject overflowing cursor moves in both RLE8 and RLE4 decoding. Thanks to [jini135wii (ooq)](https://github.com/jini135wii) for reporting this vulnerability. See the [report (GHSA-7pp5-4w3w-437c)](https://github.com/danoli3/FreeImage/security/advisories/GHSA-7pp5-4w3w-437c).
+
+## 3.19.30 — 2 Nov 2026
+
+Metadata stripping, optional read-only codec builds and dependency security fixes.
+
+- Add `FREEIMAGE_HEIF_EXPORT` (default ON). Turning it off builds HEIF/AVIF as read-only: the save functions are not compiled, and bundled builds skip Kvazaar and libaom's AV1 encoder.
+- Add `FREEIMAGE_JXL_EXPORT` (default ON) for read-only JPEG XL, and `FREEIMAGE_CODEC_EXPORT` (default ON) to turn off HEIF/AVIF and JPEG XL saving together. With both codecs bundled, a read-only shared library is about a third smaller.
+- Add `FREEIMAGE_STRIP` for load/save and `FreeImage_StripMetadata()` for existing bitmaps, discarding auxiliary metadata while preserving animation controls and save-source metadata. (#239)
+- Correct TIFF IPTC profile lengths for libtiff fields exposed as byte counts, preventing an out-of-bounds metadata read.
+- Update bundled OpenEXR to 3.5.3, Little CMS to 2.20 and libaom to 3.15.3. OpenEXR 3.5.3 fixes several malformed-file bugs: an integer overflow in scanline size accumulation, a null read in the DWA decoder, unchecked ZSTD deep sample counts and a tile area overflow in deep tiled output. Little CMS fixes a possible crash on malformed profiles; libaom fixes an encoder integer overflow (oss-fuzz:572842743).
+
+## 3.19.29 — Unreleased
+
+Large-file TIFF input, stream hardening and Windows build improvements.
+
+- Add `FreeImage_Load64` and `FreeImage_LoadFromHandle64` with a separate `FreeImageIO64` callback table for single-image TIFF/BigTIFF input beyond 2 GiB and 4 GiB, including header-only loading, Exif metadata and thumbnails. Preserve the existing `FreeImageIO` and external `Plugin` layouts. The new entry points currently support TIFF input only; saving, multipage operations and memory-stream limits are unchanged. (#197, #205)
+- Bound memory-stream write end positions before addition, preventing signed overflow and out-of-bounds writes after seeking near `INT_MAX`, especially on Windows. Add a regression test for writes near the position limit. (#228)
+- Reject invalid JP2/J2K input stream length probes before decoding, including failed seek/tell callbacks and empty or backwards lengths; retain support for initially empty output streams. (#232)
+- Update bundled libaom from 3.15.1 to 3.15.2 for optional HEIF/AVIF builds. (#227)
+- Fix Windows resource copyright text across host code pages and add the fork's GitHub URL to resource and runtime copyright information. (#231)
+- Reduce warnings from bundled third-party sources under MSVC and avoid redefining LibRaw's `NO_LCMS` macro. (#229)
+- Use English diagnostics by default for nested MSVC codec configuration and builds, with `FREEIMAGE_CODEC_ENGLISH_MESSAGES=OFF` to retain localized messages. Add Chinese-language control tests and incremental MSBuild dependency checks. (#236, #237, #241)
+- Add optional `vs2022-all` and `vs2026-all` presets that generate a portable CMake-backed Visual Studio solution with Win32, x64, ARM64, ARM64EC and All Platforms selections. Relative source/include paths support moving the whole tree; internal architecture caches are regenerated for the new location. The existing single-architecture presets remain location-specific. Add a Visual Studio build guide and relocation/build CI. (#235, #238, #240)
+- Add an experimental Windows ARM64X build and native ARM64 codec smoke tests, including checks for the merged DLL's hybrid relocations. (#210)
+- Publish sparse large-file TIFF/BigTIFF fixtures and exercise the new input APIs in cross-platform CI, including malformed callback and truncation cases. Update the openFrameworks integration job to Xcode 27.1. (#197, #233)
+
+## 3.19.28 — 28 Oct 2026
+
+Security hardening, dependency updates and Windows codec fixes.
+
+- Bound TARGA RLE packets by the image row count, preventing writes past the last row; avoid unaligned 16-/32-bit cache reads and initialize short cache refills. Addresses CVE-2024-28581. (#215)
+- Use overflow-checked pixel counts and size arithmetic in BMP RLE4 decoding, including an explicit bound for 32-bit targets. Addresses CVE-2023-47994. (#216, #221)
+- Prevent byte-count wraparound in memory-stream reads and writes. Read bounds use division so they also work with 32-bit `size_t`; oversized individual write requests are rejected. Hardens the CVE-2023-47992 bug class. (#217)
+- Fix lossy and upsampled JPEG XL decoding crashes with upstream MinGW GCC by avoiding aligned vector stack spills. Add lossy/progressive/upsampled fixtures and Debug/Release coverage. (#211, #212)
+- Update bundled libheif from 1.23.6 to 1.23.7, an upstream security and bug-fix release. (#223)
+- Update bundled Brotli from 1.2.0 to the 1.2.1 security release for optional JPEG XL builds. (#218, #219)
+- Update bundled LibRaw from 0.22.2 to 0.22.3, including CRX, TIFF, X3F, Sony and Panasonic decoding hardening and X-Trans interpolation fixes. (#222)
+- Isolate Windows test/tool runtime directories to prevent parallel FreeImage DLL deployment from racing with vcpkg dependency inspection. (#225)
+- Expand upstream-version checks to all eight optional codec archives and OpenEXR's Zstandard/OpenJPH snapshots: 20 dependencies in total. Show separate update/current tables in the issue and Actions summary, and report incomplete checks as failures. (#213, #220)
+- Retry MSYS2 setup once when package-mirror access times out. (#224)
+
+## 3.19.27 — 25 Oct 2026
+
+- Preserve the HEIF primary image when an optional embedded thumbnail cannot be decoded; add corrupt-thumbnail regression tests. (#204, #206)
+- Update bundled libheif from 1.23.5 to 1.23.6 and recognize the `.hif` extension. (#199, #203)
+- Install MSVC Debug symbols for both static libraries and DLLs, with CI covering the distinct compiler/linker PDB paths. (#203)
+- Allow bundled HEIF builds without AOM using `FREEIMAGE_BUNDLE_AOM=OFF`, retaining HEVC support while omitting AVIF and AOM's Perl requirement. (#195)
+- Detect logical CPU count for nested codec builds and honor `CMAKE_BUILD_PARALLEL_LEVEL`, with an optional `FREEIMAGE_CODEC_BUILD_JOBS` override. (#202)
+- Fix non-Windows JPEG XR builds by defining `__ANSI__` for bundled JXR sources and adding missing C declarations. Add JP2/JXR file, memory and display-preview diagnostics, synthetic regression tests and supplied-sample CI. Native high-bit-depth/HDR pixel types remain unchanged. (#198, #207)
+- Refresh the supported-format table, bundled library versions and optional-codec build instructions in the README.
+
+## 3.19.26 — 22 Oct 2026
+
+- Fix TIFF JPEG decoding when the JPEG stream's sampling factors differ from the TIFF tags; add regression coverage for the mismatch. (#191, #193)
+- Reject oversized ICO dimensions before allocating or decoding image data. (#193)
+- Add a CMake option to select the MSVC runtime library (default, dynamic `/MD`, or static `/MT`). (#192)
+
+## 3.19.25 — 17 Oct 2026
 
 - Bundle pinned, SHA-256-verified HEIF/AVIF and JPEG XL codec sources and dependencies for offline CMake builds, while retaining optional system-library selection, cross-compilation and static/shared builds. Add license documentation and cross-platform CI. (#179)
 - Add `FreeImage_GetChannelsNumber` to report channel counts for bitmap and typed image formats, including two-channel complex images. (#180)
-- Clip GIF playback frames and disposal clears to the logical screen, preventing out-of-bounds writes from malformed frame rectangles. Add crafted regression tests. (#183)
+- **CVE-2026-118753.** Clip GIF playback frames and disposal clears to the logical screen, preventing heap out-of-bounds writes from malformed frame rectangles during `GIF_PLAYBACK` compositing. Add crafted regression tests. Reported by Tristan Madani (Talence Security). (#183)
+- Add a regression test for the RAS row overflow. The fix itself shipped in 3.19.14 (CVE-2024-28578 and CVE-2024-28580); 3.19.25 does not change the RAS decoder. (#183)
 
 ## 3.19.24 — 16 Oct 2026
 
@@ -34,7 +98,7 @@ Optional modern codecs, safer file saving, image-analysis APIs and Python/NumPy 
 
 PBM decoder security fixes, 32-bit compatibility, and installable Linux packages.
 
-- Fix a heap buffer overflow in IFF PBM RLE decoding by bounding literal and repeat writes to the scanline. See [#156](https://github.com/danoli3/FreeImage/issues/156) and [#161](https://github.com/danoli3/FreeImage/pull/161).
+- **CVE-2026-118752.** Fix a heap buffer overflow in IFF PBM RLE decoding by bounding literal and repeat writes to the scanline. Reported by areofyl. See [#156](https://github.com/danoli3/FreeImage/issues/156) and [#161](https://github.com/danoli3/FreeImage/pull/161).
 - Reject truncated PBM RLE commands and payloads, and bound decoding to the declared BODY chunk. ByteRun1 no-op packets can no longer spin indefinitely after EOF. Add ten malformed-input regressions and two byte-for-byte valid-image checks to CTest and GCC ASan CI. These robustness/DoS fixes follow the heap overflow fix; no new CVE identifier is assigned here. See [#162](https://github.com/danoli3/FreeImage/pull/162).
 - Fix OpenJPH SSE kernels using SSE2 integer intrinsics when compiling for 32-bit GCC. Add MinGW i686 static/shared CI, an SSE-without-SSE2 compile check, and copy the Windows DLL beside the test executable. See [#155](https://github.com/danoli3/FreeImage/pull/155).
 - Use portable fixed-width integer types with MSVC 2013 and newer, resolving public-header type redefinition conflicts. See [#159](https://github.com/danoli3/FreeImage/pull/159).

@@ -125,6 +125,8 @@ void DLL_CALLCONV InitPSD(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitRAS(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitTARGA(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitTIFF(Plugin *plugin, int format_id);
+// Private dispatch: never extend the public Plugin descriptor for IO64.
+FIBITMAP * DLL_CALLCONV LoadTIFFFromHandle64(FreeImageIO64 *io, fi_handle handle, int flags);
 void DLL_CALLCONV InitWBMP(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitXBM(Plugin *plugin, int format_id);
 void DLL_CALLCONV InitXPM(Plugin *plugin, int format_id);

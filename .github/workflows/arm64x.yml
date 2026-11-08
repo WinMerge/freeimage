@@ -1,0 +1,89 @@
+name: Windows ARM64X experiment
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/arm64x.yml'
+      - '.github/tests/arm64x/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'Source/**'
+  push:
+    branches: [master]
+    paths:
+      - '.github/workflows/arm64x.yml'
+      - '.github/tests/arm64x/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - 'Source/**'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: arm64x-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: Merge ARM64 + ARM64EC (${{ matrix.config }})
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check linker response encodings
+        run: python .github/tests/arm64x/test-read-native-inputs.py
+      - name: Build the native, compatible and merged DLLs
+        run: >-
+          ./.github/tests/arm64x/build.ps1 -Configuration ${{ matrix.config }}
+          -BuildRoot "$env:RUNNER_TEMP/arm64x-build"
+          -OutputRoot "$env:RUNNER_TEMP/arm64x-artifacts"
+      - uses: actions/upload-artifact@v4
+        # Keep the dumpbin headers and response file when the merge check fails.
+        if: always()
+        with:
+          name: arm64x-${{ matrix.config }}
+          path: ${{ runner.temp }}/arm64x-artifacts/
+          retention-days: 7
+          compression-level: 1
+          if-no-files-found: error
+  checker:
+    # Positive control for check-arm64x.py: Windows on ARM ships its system
+    # DLLs as ARM64X, so the checker must find ARM64X relocations there.
+    name: Validate the ARM64X checker on system DLLs
+    runs-on: windows-11-arm
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require ARM64X relocations in kernel32.dll
+        run: |
+          python .github/tests/arm64x/check-arm64x.py "$env:SystemRoot/System32/user32.dll" "$env:SystemRoot/System32/ntdll.dll"
+          python .github/tests/arm64x/check-arm64x.py --require-arm64x "$env:SystemRoot/System32/kernel32.dll"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+  runtime:
+    name: Load the merged DLL on ARM (${{ matrix.config }})
+    needs: build
+    runs-on: windows-11-arm
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Debug, Release]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: arm64x-${{ matrix.config }}
+          path: ${{ runner.temp }}/arm64x-artifacts
+      - name: Verify both personalities and x64 interoperability
+        run: ./.github/tests/arm64x/run.ps1 -Artifacts "$env:RUNNER_TEMP/arm64x-artifacts"

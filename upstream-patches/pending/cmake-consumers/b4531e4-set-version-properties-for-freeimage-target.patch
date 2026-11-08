@@ -1,0 +1,16 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c0d66e0..1c56b52 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1316,6 +1316,11 @@ else()
+ )
+ endif()
+ 
++set_target_properties(${PROJECT_NAME} PROPERTIES
++    VERSION ${FREEIMAGE_VERSION}
++    SOVERSION ${FREEIMAGE_VERSION_MAJOR}
++)
++
+ if (DEFINED FreeImage_LIBS)
+     target_link_libraries(${PROJECT_NAME} ${FreeImage_LIBS})
+ endif()

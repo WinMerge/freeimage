@@ -1,0 +1,53 @@
+{
+  "votes_up": 0,
+  "votes_down": 0,
+  "_id": "6a9ed5820d57af411d794f1c",
+  "mod_date": "2026-09-07 15:17:23.201000",
+  "labels": [
+    "cve",
+    "security",
+    "vendor"
+  ],
+  "related_artifacts": [
+    "/p/freeimage/svn/1909/"
+  ],
+  "discussion_thread": {
+    "_id": "285a19ff7a",
+    "discussion_id": "5091933c5fcbc917d40dcd2f",
+    "subject": "",
+    "limit": 10,
+    "page": null,
+    "posts": [
+      {
+        "slug": "a250",
+        "text": "Apply AFTER the OpenJPEG vendor patch #182 (CVE-2024-28574/28575/28576). From the FreeImage tree root:\n\n    gzip -dc CVE-2024-28574.patch.gz | patch -p0\n    gzip -dc CVE-2024-28562.patch.gz | patch -p0\n\nhttps://sourceforge.net/p/freeimage/patches/182/",
+        "subject": "#183 CVE-2024-28562/28563/28564/28569: replace bundled OpenEXR 2.2 with 3.3.13",
+        "author": "danoli3",
+        "author_icon_url": "https://a.fsdn.com/con/images/sandiego/icons/default-avatar.png",
+        "timestamp": "2026-09-07 15:18:16.892000",
+        "last_edited": null,
+        "attachments": [],
+        "is_meta": false
+      }
+    ]
+  },
+  "discussion_thread_url": "https://sourceforge.net/rest/p/freeimage/patches/_discuss/thread/285a19ff7a/",
+  "created_date": "2026-09-07 15:17:22.589000",
+  "ticket_num": 183,
+  "summary": "CVE-2024-28562/28563/28564/28569: replace bundled OpenEXR 2.2 with 3.3.13",
+  "description": "Applies to FreeImage SVN trunk r1911 (also 3.19.0 [r1909]).\n\nCVE-2024-28562 / CVE-2024-28563 / CVE-2024-28564 / CVE-2024-28569 live in bundled OpenEXR 2.2 (Imf_2_2::copyIntoFrameBuffer, DwaCompressor::Classifier, CharPtrIO::readChars, Xdr::read). OpenEXR 3.x rewrote that namespace; 3.3.13 is the tree this GitHub fork ships.\n\nThis replacement:\n- Source/OpenEXR 2.2.0 -> 3.3.13 (adds OpenEXRCore)\n- adds Source/Imath (split out of OpenEXR 2.x)\n- adds Source/LibDeflate (OpenEXR 3 DEFLATE codec; zlib is no longer an option upstream)\n- PluginEXR.cpp: Imath::Int64 -> uint64_t\n- Makefile.srcs source list + include path\n- Makefile.gnu: -std=c++17 and -D_GNU_SOURCE (OpenEXRCore uses O_CLOEXEC; IlmImf uses std::any)\n\nNVD:\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28562\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28563\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28564\nhttps://nvd.nist.gov/vuln/detail/CVE-2024-28569\n\nGitHub: https://github.com/danoli3/FreeImage/commit/248c6c9 (PR https://github.com/danoli3/FreeImage/pull/69)\n\nApply AFTER the OpenJPEG vendor patch (#182), from the FreeImage tree root:\n\n    gzip -dc CVE-2024-28562.patch.gz | patch -p0\n\nThe unified diff is ~15MB uncompressed / ~1.9MB gzipped.\n\nAlternative: link system OpenEXR 3.x + Imath (-DUSE_SYSTEM_OPENEXR on the GitHub CMake build).\n",
+  "reported_by": "danoli3",
+  "assigned_to": null,
+  "reported_by_id": "547447ae9095470a3438d2ed",
+  "assigned_to_id": null,
+  "status": "",
+  "private": false,
+  "discussion_disabled": false,
+  "attachments": [
+    {
+      "bytes": 2020949,
+      "url": "https://sourceforge.net/p/freeimage/patches/183/attachment/CVE-2024-28562.patch.gz"
+    }
+  ],
+  "custom_fields": {}
+}

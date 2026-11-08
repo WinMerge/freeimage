@@ -5,6 +5,7 @@
 
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <fstream>
@@ -23,6 +24,8 @@
 #include "internal_ht_common.h"
 #include "internal_ht_quality.h"
 #include "internal_legacy_structs.h"
+
+#include "internal_xdr.h"
 
 namespace
 {
@@ -70,13 +73,14 @@ chunk_max_linear_float (
 
                     if (line_c == file_c)
                     {
-                        const float* p =
-                            reinterpret_cast<const float*> (line_pixels);
                         for (int32_t x = 0;
                              x < encode->channels[file_c].width;
                              x++)
                         {
-                            float v = p[x];
+                            uint32_t bits = unaligned_load32 (
+                                line_pixels + (int64_t) x * sizeof (float));
+                            float v;
+                            memcpy (&v, &bits, sizeof (v));
                             if (std::isfinite (v))
                             {
                                 double av = std::fabs ((double) v);
@@ -111,12 +115,14 @@ chunk_max_linear_float (
             const int32_t cw = encode->channels[file_c].width;
             for (int y = 0; y < chunk_height; y++)
             {
-                const float* p = reinterpret_cast<const float*> (
-                    packed + (int64_t) y * bpl +
-                    cs_channel_info[c].raster_line_offset);
+                const uint8_t* p = packed + (int64_t) y * bpl +
+                                   cs_channel_info[c].raster_line_offset;
                 for (int32_t x = 0; x < cw; x++)
                 {
-                    float v = p[x];
+                    uint32_t bits =
+                        unaligned_load32 (p + (int64_t) x * sizeof (float));
+                    float v;
+                    memcpy (&v, &bits, sizeof (v));
                     if (std::isfinite (v))
                     {
                         double av = std::fabs ((double) v);
@@ -346,27 +352,32 @@ decode_line (
     exr_pixel_type_t  type,
     bool              legacy_tf)
 {
+    /* The output is in file order (little-endian), and channels of
+     * different sample sizes are packed back to back, so dst may not be
+     * aligned to the sample size. */
+    uint8_t* out = static_cast<uint8_t*> (dst);
     if (type == EXR_PIXEL_HALF)
     {
-        int16_t* out = static_cast<int16_t*> (dst);
         if (legacy_tf)
-            for (int32_t p = 0; p < width; p++)
-                *out++ = (int16_t) legacy_int16_to_half (src[p]).bits ();
+            for (int32_t p = 0; p < width; p++, out += sizeof (int16_t))
+                unaligned_store16 (out, legacy_int16_to_half (src[p]).bits ());
         else
-            for (int32_t p = 0; p < width; p++)
-                *out++ = src[p];
+            for (int32_t p = 0; p < width; p++, out += sizeof (int16_t))
+                unaligned_store16 (out, (uint16_t) src[p]);
     }
     else if (legacy_tf)
     {
-        float* out = static_cast<float*> (dst);
-        for (int32_t p = 0; p < width; p++)
-            *out++ = legacy_int32_to_float (src[p]);
+        for (int32_t p = 0; p < width; p++, out += sizeof (float))
+        {
+            float    v = legacy_int32_to_float (src[p]);
+            uint32_t bits;
+            memcpy (&bits, &v, sizeof (bits));
+            unaligned_store32 (out, bits);
+        }
     }
     else
     {
-        uint32_t* out = static_cast<uint32_t*> (dst);
-        for (int32_t p = 0; p < width; p++)
-            *out++ = (uint32_t) src[p];
+        unaligned_store32_array (out, (const uint32_t*) src, width);
     }
 }
 
@@ -465,7 +476,7 @@ ht_undo_impl (
                 computedoffset += (int64_t) decode->channels[i].width *
                     (int64_t) decode->channels[i].bytes_per_element;
 
-            if (computedoffset > std::numeric_limits<std::size_t>::max())
+            if (computedoffset > std::numeric_limits<std::size_t>::max ())
                 return EXR_ERR_CORRUPT_CHUNK;
 
             cs_to_file_ch[cs_i].raster_line_offset = computedoffset;
@@ -538,18 +549,26 @@ ht_undo_impl (
             return EXR_ERR_CORRUPT_CHUNK;
     }
 
-    int64_t bpl     = 0;
-    bool is_planar  = false;
+    int64_t  bpl               = 0;
+    uint64_t decompressed_size = 0;
+    bool     is_planar         = false;
     for (int16_t c = 0; c < decode->channel_count; c++)
     {
-        bpl += (int64_t) decode->channels[c].bytes_per_element *
-               (int64_t) decode->channels[c].width;
+        if (decode->channels[c].width < 0 || decode->channels[c].height < 0 ||
+            decode->channels[c].bytes_per_element < 0)
+            return EXR_ERR_CORRUPT_CHUNK;
+        int64_t ch_bpl = (int64_t) decode->channels[c].bytes_per_element *
+                         (int64_t) decode->channels[c].width;
+        bpl += ch_bpl;
+        decompressed_size +=
+            (uint64_t) ch_bpl * (uint64_t) decode->channels[c].height;
         if (decode->channels[c].x_samples > 1 ||
             decode->channels[c].y_samples > 1)
         { is_planar = true; }
     }
     if (bpl > INT32_MAX || bpl * decode->chunk.height > (int64_t) PTRDIFF_MAX)
         return EXR_ERR_CORRUPT_CHUNK;
+    if (decompressed_size != uncompressed_size) return EXR_ERR_CORRUPT_CHUNK;
     if (padded && is_planar) return EXR_ERR_CORRUPT_CHUNK;
     cs.set_planar (is_planar);
 
@@ -645,6 +664,8 @@ ht_undo_impl (
     }
 
     infile.close ();
+
+    decode->bytes_decompressed = uncompressed_size;
 
     return rv;
 }
@@ -873,7 +894,7 @@ ht_apply_impl (exr_encode_pipeline_t* encode)
             encode->channels[file_c].data_type == EXR_PIXEL_HALF ? 16 : 32,
             encode->channels[file_c].data_type != EXR_PIXEL_UINT);
 
-        bpl += encode->channels[file_c].bytes_per_element *
+        bpl += (int64_t) encode->channels[file_c].bytes_per_element *
                encode->channels[file_c].width;
     }
     if (bpl > INT32_MAX || bpl * encode->chunk.height > (int64_t) PTRDIFF_MAX)
@@ -944,30 +965,32 @@ ht_apply_impl (exr_encode_pipeline_t* encode)
                             if (encode->channels[file_c].data_type ==
                                 EXR_PIXEL_HALF)
                             {
-                                int16_t* channel_pixels = (int16_t*) (line_pixels);
                                 for (int32_t p = 0;
                                      p < encode->channels[file_c].width;
                                     p++)
                                 {
-                                    cur_line->i32[p] = *channel_pixels++;
+                                    cur_line->i32[p] = (int16_t) unaligned_load16 (
+                                        line_pixels + (int64_t) p * 2);
                                 }
                             }
                             else
                             {
-                                int32_t* channel_pixels = (int32_t*) (line_pixels);
-                                for (int32_t p = 0;
-                                     p < encode->channels[file_c].width;
-                                    p++)
-                                {
-                                    cur_line->i32[p] = *channel_pixels++;
-                                }
+                                /* samples may be unaligned */
+                                memcpy (
+                                    cur_line->i32,
+                                    line_pixels,
+                                    (size_t) encode->channels[file_c].width *
+                                        sizeof (int32_t));
+                                priv_to_native32 (
+                                    cur_line->i32,
+                                    encode->channels[file_c].width);
                             }
 
                             assert (next_comp == c);
                             cur_line = cs.exchange (cur_line, next_comp);
                         }
 
-                        line_pixels += encode->channels[line_c].bytes_per_element *
+                        line_pixels += (int64_t) encode->channels[line_c].bytes_per_element *
                                     encode->channels[line_c].width;
                     }
                 }
@@ -994,25 +1017,24 @@ ht_apply_impl (exr_encode_pipeline_t* encode)
                     int file_c = cs_channel_info[c].file_index;
                     const int32_t cw     = encode->channels[file_c].width;
 
+                    const uint8_t* channel_pixels =
+                        src_line + cs_channel_info[c].raster_line_offset;
                     if (encode->channels[file_c].data_type == EXR_PIXEL_HALF)
                     {
-                        int16_t* channel_pixels =
-                            (int16_t*) (src_line +
-                                        cs_channel_info[c].raster_line_offset);
                         for (int32_t p = 0; p < cw; p++)
                         {
-                            cur_line->i32[p] = *channel_pixels++;
+                            cur_line->i32[p] = (int16_t) unaligned_load16 (
+                                channel_pixels + (int64_t) p * 2);
                         }
                     }
                     else
                     {
-                        int32_t* channel_pixels =
-                            (int32_t*) (src_line +
-                                        cs_channel_info[c].raster_line_offset);
-                        for (int32_t p = 0; p < cw; p++)
-                        {
-                            cur_line->i32[p] = *channel_pixels++;
-                        }
+                        /* samples may be unaligned */
+                        memcpy (
+                            cur_line->i32,
+                            channel_pixels,
+                            (size_t) cw * sizeof (int32_t));
+                        priv_to_native32 (cur_line->i32, cw);
                     }
                     for (int32_t p = cw; p < image_width; p++)
                         cur_line->i32[p] = cur_line->i32[cw - 1];

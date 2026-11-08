@@ -28,13 +28,28 @@
 
 // --------------------------------------------------------------------------
 
-static OPJ_UINT64 
-_LengthProc(J2KFIO_t *fio) {
+static BOOL
+_LengthProc(J2KFIO_t *fio, OPJ_UINT64 *file_length) {
 	long start_pos = fio->io->tell_proc(fio->handle);
-	fio->io->seek_proc(fio->handle, 0, SEEK_END);
-	unsigned file_length = (unsigned)(fio->io->tell_proc(fio->handle) - start_pos);
-	fio->io->seek_proc(fio->handle, start_pos, SEEK_SET);
-	return (OPJ_UINT64)file_length;
+	if(start_pos < 0) {
+		return FALSE;
+	}
+	if(fio->io->seek_proc(fio->handle, 0, SEEK_END) != 0) {
+		fio->io->seek_proc(fio->handle, start_pos, SEEK_SET);
+		return FALSE;
+	}
+	long end_pos = fio->io->tell_proc(fio->handle);
+	if(fio->io->seek_proc(fio->handle, start_pos, SEEK_SET) != 0) {
+		return FALSE;
+	}
+	// A readable stream must have a known, positive length. Passing zero
+	// after a failed seek/tell lets OpenJPEG read beyond its declared length
+	// and abort in opj_stream_get_number_byte_left() in assertion builds.
+	if(end_pos <= start_pos) {
+		return FALSE;
+	}
+	*file_length = (OPJ_UINT64)(end_pos - start_pos);
+	return TRUE;
 }
 
 static OPJ_SIZE_T 
@@ -80,10 +95,17 @@ opj_freeimage_stream_create(FreeImageIO *io, fi_handle handle, BOOL bRead) {
 		fio->io = io;
 		fio->handle = handle;
 
+		OPJ_UINT64 file_length = 0;
+		// Output streams may be empty and do not need a length probe.
+		if(bRead && !_LengthProc(fio, &file_length)) {
+			free(fio);
+			return NULL;
+		}
+
 		opj_stream_t *l_stream = opj_stream_create(OPJ_J2K_STREAM_CHUNK_SIZE, bRead ? OPJ_TRUE : OPJ_FALSE);
 		if (l_stream) {
 			opj_stream_set_user_data(l_stream, fio, NULL);
-			opj_stream_set_user_data_length(l_stream, _LengthProc(fio));
+			opj_stream_set_user_data_length(l_stream, file_length);
 			opj_stream_set_read_function(l_stream, (opj_stream_read_fn)_ReadProc);
 			opj_stream_set_write_function(l_stream, (opj_stream_write_fn)_WriteProc);
 			opj_stream_set_skip_function(l_stream, (opj_stream_skip_fn)_SkipProc);
